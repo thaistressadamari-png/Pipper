@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import type { Product, Order } from '../types';
-import { getOrdersByDateRange, getVisitCount } from '../services/menuService';
+import { getOrdersByDateRange, getVisitCountByDateRange } from '../services/menuService';
 import { CalendarIcon } from './IconComponents';
 import Calendar from './Calendar';
 
@@ -86,11 +86,18 @@ const DashboardView: React.FC<DashboardViewProps> = ({ products }) => {
         if (days === 0) { // Today
           start.setHours(0, 0, 0, 0);
         }
-        
-        getOrdersByDateRange(start, end)
-            .then(setOrders)
-            .catch(() => setError("Falha ao buscar pedidos."))
-            .finally(() => setIsLoading(false));
+
+        Promise.all([
+            getOrdersByDateRange(start, end),
+            getVisitCountByDateRange(start, end)
+        ]).then(([fetchedOrders, fetchedVisits]) => {
+            setOrders(fetchedOrders);
+            setVisitCount(fetchedVisits);
+        }).catch(() => {
+            setError("Falha ao buscar dados do dashboard.");
+        }).finally(() => {
+            setIsLoading(false);
+        });
     }, []);
 
     useEffect(() => {
@@ -106,22 +113,19 @@ const DashboardView: React.FC<DashboardViewProps> = ({ products }) => {
         getOrdersByDateRange(sixMonthsAgo, new Date())
             .then(setChartOrders)
             .catch(() => setError("Falha ao buscar dados do gráfico."));
-            
-        // Fetch total visit count
-        getVisitCount()
-            .then(setVisitCount)
-            .catch(() => console.error("Failed to fetch visit count."));
 
     }, [setDateRange]);
     
     const productsById = useMemo(() => new Map(products.map(p => [p.id, p])), [products]);
 
     const stats = useMemo(() => {
-        const revenue = orders.reduce((sum, o) => sum + (o.total || 0), 0);
-        const newOrdersCount = orders.length;
+        const confirmedOrders = orders.filter(o => o.status === 'confirmed' || o.status === 'completed');
+        
+        const revenue = confirmedOrders.reduce((sum, o) => sum + (o.total || 0), 0);
+        const newOrdersCount = confirmedOrders.length;
 
         const productCounts = new Map<string, { name: string; count: number; imageUrl: string }>();
-        orders.forEach(order => {
+        confirmedOrders.forEach(order => {
             if (!Array.isArray(order.items)) return;
 
             order.items.forEach(item => {
@@ -145,6 +149,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ products }) => {
 
 
     const { monthlyChartData, yAxisMax } = useMemo(() => {
+        const confirmedChartOrders = chartOrders.filter(o => o.status === 'confirmed' || o.status === 'completed');
         const data = new Map<string, { revenue: number, monthLabel: string }>();
         const today = new Date();
         
@@ -155,9 +160,12 @@ const DashboardView: React.FC<DashboardViewProps> = ({ products }) => {
             data.set(monthKey, { revenue: 0, monthLabel });
         }
 
-        chartOrders.forEach(order => {
-            if (!order.createdAt) return;
-            const orderDate = new Date(order.createdAt);
+        confirmedChartOrders.forEach(order => {
+            if (!order.createdAt || typeof order.createdAt.toDate !== 'function') {
+                console.warn('Skipping order with invalid createdAt field:', order.id);
+                return;
+            }
+            const orderDate = order.createdAt.toDate();
             if (isNaN(orderDate.getTime())) return;
 
             const monthKey = `${orderDate.getFullYear()}-${String(orderDate.getMonth() + 1).padStart(2, '0')}`;
@@ -240,14 +248,14 @@ const DashboardView: React.FC<DashboardViewProps> = ({ products }) => {
             ) : (
                 <>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <StatCard title="Faturamento no Período" value={stats.revenue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} />
-                        <StatCard title="Pedidos no Período" value={String(stats.newOrdersCount)} />
-                        <StatCard title="Total de Visitas no Site" value={visitCount.toLocaleString('pt-BR')} />
+                        <StatCard title="Faturamento Confirmado" value={stats.revenue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} note="Apenas pedidos confirmados/finalizados" />
+                        <StatCard title="Pedidos Confirmados" value={String(stats.newOrdersCount)} note="Apenas pedidos confirmados/finalizados" />
+                        <StatCard title="Visitas no Período" value={visitCount.toLocaleString('pt-BR')} />
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                         <div className="lg:col-span-2 bg-white p-6 rounded-lg shadow">
-                            <h3 className="text-lg font-bold text-brand-text mb-4">Faturamento (Últimos 6 meses)</h3>
+                            <h3 className="text-lg font-bold text-brand-text mb-4">Faturamento Confirmado (Últimos 6 meses)</h3>
                             <div className="h-72 flex gap-4">
                                 <div className="flex flex-col justify-between text-right text-xs font-medium text-gray-400">
                                     {yAxisLabels.map(label => <span key={label}>{label}</span>)}
@@ -278,7 +286,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ products }) => {
                         </div>
 
                         <div className="bg-white p-6 rounded-lg shadow">
-                            <h3 className="text-lg font-bold text-brand-text mb-4">Produtos Mais Populares (Período)</h3>
+                            <h3 className="text-lg font-bold text-brand-text mb-4">Produtos Mais Populares (Confirmados)</h3>
                             {stats.topProducts.length > 0 ? (
                                 <ul className="space-y-6">
                                     {stats.topProducts.map((product, index) => (
@@ -293,7 +301,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ products }) => {
                                     ))}
                                 </ul>
                             ) : (
-                                <p className="text-sm text-gray-500 text-center py-8">Nenhum pedido registrado para este período.</p>
+                                <p className="text-sm text-gray-500 text-center py-8">Nenhum pedido confirmado para este período.</p>
                             )}
                         </div>
                     </div>

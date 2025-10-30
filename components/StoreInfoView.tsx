@@ -11,7 +11,6 @@ interface StoreInfoViewProps {
 const StoreInfoView: React.FC<StoreInfoViewProps> = ({ storeInfo, categories, onUpdateStoreInfo }) => {
   const [storeInfoForm, setStoreInfoForm] = useState<StoreInfoData | null>(null);
   const [newPaymentMethod, setNewPaymentMethod] = useState('');
-  const [newPickupLocation, setNewPickupLocation] = useState('');
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -20,12 +19,6 @@ const StoreInfoView: React.FC<StoreInfoViewProps> = ({ storeInfo, categories, on
     if (initialStoreInfo) {
         if (!initialStoreInfo.paymentMethods) {
             initialStoreInfo.paymentMethods = { online: [] };
-        }
-        if (!initialStoreInfo.pickupLocations) {
-            initialStoreInfo.pickupLocations = [];
-        }
-        if (!initialStoreInfo.deliveryCategories) {
-            initialStoreInfo.deliveryCategories = [];
         }
     }
     setStoreInfoForm(initialStoreInfo);
@@ -64,37 +57,6 @@ const StoreInfoView: React.FC<StoreInfoViewProps> = ({ storeInfo, categories, on
           };
           return { ...prev, paymentMethods: updatedPaymentMethods };
       });
-  };
-
-   const addPickupLocation = () => {
-    if (!newPickupLocation.trim() || !storeInfoForm) return;
-    setStoreInfoForm(prev => {
-      if (!prev) return null;
-      const updatedLocations = [...(prev.pickupLocations || []), newPickupLocation.trim()];
-      return { ...prev, pickupLocations: updatedLocations };
-    });
-    setNewPickupLocation('');
-  };
-
-  const removePickupLocation = (indexToRemove: number) => {
-    if (!storeInfoForm) return;
-    setStoreInfoForm(prev => {
-      if (!prev) return null;
-      const updatedLocations = (prev.pickupLocations || []).filter((_, index) => index !== indexToRemove);
-      return { ...prev, pickupLocations: updatedLocations };
-    });
-  };
-  
-   const handleDeliveryCategoryChange = (categoryName: string) => {
-    if (!storeInfoForm) return;
-    setStoreInfoForm(prev => {
-      if (!prev) return null;
-      const currentCategories = prev.deliveryCategories || [];
-      const newCategories = currentCategories.includes(categoryName)
-        ? currentCategories.filter(c => c !== categoryName)
-        : [...currentCategories, categoryName];
-      return { ...prev, deliveryCategories: newCategories };
-    });
   };
 
   const handleOperatingHoursChange = (index: number, field: keyof OperatingHours, value: string) => {
@@ -158,23 +120,6 @@ const StoreInfoView: React.FC<StoreInfoViewProps> = ({ storeInfo, categories, on
                 <label htmlFor="hours" className="block text-sm font-medium text-brand-text-light">Tempo de Entrega</label>
                 <input type="text" name="hours" id="hours" value={storeInfoForm.hours} onChange={handleStoreInfoFormChange} className={inputStyles} required placeholder="Ex: 90-100min"/>
             </div>
-                <div>
-                <label className="block text-sm font-medium text-brand-text-light">Categorias com Delivery</label>
-                <div className="mt-2 space-y-2 p-3 border border-gray-200 rounded-md">
-                    {categories.map(cat => (
-                        <div key={cat} className="flex items-center">
-                            <input
-                                type="checkbox"
-                                id={`delivery-cat-${cat}`}
-                                checked={storeInfoForm.deliveryCategories?.includes(cat) ?? false}
-                                onChange={() => handleDeliveryCategoryChange(cat)}
-                                className="h-4 w-4 text-brand-primary border-gray-300 rounded focus:ring-brand-primary"
-                            />
-                            <label htmlFor={`delivery-cat-${cat}`} className="ml-3 text-sm text-gray-700">{cat}</label>
-                        </div>
-                    ))}
-                </div>
-            </div>
             
             <div>
                 <label className="block text-sm font-medium text-brand-text-light">Horário de Funcionamento (Detalhado)</label>
@@ -215,30 +160,6 @@ const StoreInfoView: React.FC<StoreInfoViewProps> = ({ storeInfo, categories, on
                         placeholder="Adicionar novo método" 
                     />
                     <button type="button" onClick={addPaymentMethod} className="px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-brand-primary hover:bg-brand-primary-dark">Adicionar</button>
-                </div>
-            </div>
-
-            <div>
-                <label className="block text-sm font-medium text-brand-text-light">Pontos de Retirada</label>
-                <div className="space-y-2 mt-1">
-                    {storeInfoForm.pickupLocations?.map((location, index) => (
-                        <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded-md">
-                            <span className="text-sm text-gray-800">{location}</span>
-                            <button type="button" onClick={() => removePickupLocation(index)} className="p-1 text-gray-400 hover:text-red-600">
-                                <TrashIcon className="w-4 h-4" />
-                            </button>
-                        </div>
-                    ))}
-                </div>
-                <div className="flex items-center gap-2 mt-2">
-                    <input 
-                        type="text" 
-                        value={newPickupLocation} 
-                        onChange={(e) => setNewPickupLocation(e.target.value)} 
-                        className={inputStyles + ' flex-grow'} 
-                        placeholder="Adicionar novo ponto de retirada" 
-                    />
-                    <button type="button" onClick={addPickupLocation} className="px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-brand-primary hover:bg-brand-primary-dark">Adicionar</button>
                 </div>
             </div>
 

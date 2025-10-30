@@ -1,9 +1,12 @@
-import React, { useState } from 'react';
-import type { Product, StoreInfoData } from '../types';
+import React, { useState, useEffect } from 'react';
+import type { Product, StoreInfoData, Order, Client } from '../types';
 import DashboardView from './DashboardView';
 import ProductsView from './ProductsView';
 import StoreInfoView from './StoreInfoView';
-import { DashboardIcon, BoxIcon, StoreIcon, MenuIcon, XIcon } from './IconComponents';
+import OrdersView from './OrdersView';
+import ClientsView from './ClientsView';
+import { listenToOrders, getOrders, getClients, updateOrderStatus } from '../services/menuService';
+import { DashboardIcon, BoxIcon, StoreIcon, MenuIcon, XIcon, ClipboardListIcon, UsersIcon } from './IconComponents';
 
 interface AdminPageProps {
   products: Product[];
@@ -20,22 +23,52 @@ interface AdminPageProps {
 }
 
 const AdminPage: React.FC<AdminPageProps> = (props) => {
-  const [activeView, setActiveView] = useState<'dashboard' | 'products' | 'store'>('dashboard');
+  const [activeView, setActiveView] = useState<'dashboard' | 'products' | 'store' | 'orders' | 'clients'>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [newOrdersCount, setNewOrdersCount] = useState(0);
 
-  const handleNavClick = (view: 'dashboard' | 'products' | 'store') => {
+  useEffect(() => {
+    // Real-time listener for new orders. Subscribes only once on component mount.
+    const unsubscribe = listenToOrders((newOrders) => {
+      setNewOrdersCount(prevCount => {
+        // Play notification sound only when the count of new orders increases.
+        if (newOrders.length > prevCount) {
+          const audio = new Audio('data:audio/mpeg;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU2LjQwLjEwMQAAAAAAAAAAAAAA//OEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAAEAAABIADAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV6urq6urq6urq6urq6urq6urq6urq6urq6v////////////////////////////////8AAAAATGF2YzU2LjYwAAAAAAAAAAAAAAAAJAAAAAAAAAAAASDs90hvAAAAAAAAAAAAAAAAAAAA//MUZAAAAAGkAAAAAAAAA0gAAAAATEFNRTMuOTkuNVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV');
+          audio.play().catch(e => console.error("Error playing sound:", e));
+        }
+
+        // Update browser tab title with the new count.
+        if (newOrders.length > 0) {
+          document.title = `(${newOrders.length}) Novo Pedido! - Admin`;
+        } else {
+          document.title = 'Admin - Pipper Confeitaria';
+        }
+        
+        return newOrders.length;
+      });
+    });
+
+    // Cleanup: Unsubscribe when the component unmounts and reset the title.
+    return () => {
+      unsubscribe();
+      document.title = 'Pipper Confeitaria';
+    };
+  }, []); // Empty dependency array ensures this effect runs only once.
+
+
+  const handleNavClick = (view: 'dashboard' | 'products' | 'store' | 'orders' | 'clients') => {
     setActiveView(view);
     setIsSidebarOpen(false); // Close sidebar on mobile after navigation
   };
   
-  const navItemClasses = (viewName: 'dashboard' | 'products' | 'store') => 
-    `flex items-center w-full px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
+  const navItemClasses = (viewName: typeof activeView) => 
+    `flex items-center w-full px-4 py-3 text-sm font-medium rounded-lg transition-colors relative ${
       activeView === viewName 
         ? 'bg-brand-primary text-white' 
         : 'text-gray-600 hover:bg-gray-200'
     }`;
   
-  const navIconClasses = (viewName: 'dashboard' | 'products' | 'store') => 
+  const navIconClasses = (viewName: typeof activeView) => 
       `w-5 h-5 mr-3 ${activeView === viewName ? 'text-white' : 'text-gray-500'}`;
 
   const renderContent = () => {
@@ -46,6 +79,10 @@ const AdminPage: React.FC<AdminPageProps> = (props) => {
         return <ProductsView {...props} />;
       case 'store':
         return <StoreInfoView {...props} />;
+      case 'orders':
+        return <OrdersView />;
+      case 'clients':
+        return <ClientsView />;
       default:
         return <DashboardView products={props.products} />;
     }
@@ -64,6 +101,19 @@ const AdminPage: React.FC<AdminPageProps> = (props) => {
             <DashboardIcon className={navIconClasses('dashboard')} />
             Dashboard
           </button>
+          <button onClick={() => handleNavClick('orders')} className={navItemClasses('orders')}>
+            <ClipboardListIcon className={navIconClasses('orders')} />
+            Pedidos
+            {newOrdersCount > 0 && (
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 h-6 w-6 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                    {newOrdersCount}
+                </span>
+            )}
+          </button>
+          <button onClick={() => handleNavClick('clients')} className={navItemClasses('clients')}>
+            <UsersIcon className={navIconClasses('clients')} />
+            Clientes
+          </button>
           <button onClick={() => handleNavClick('products')} className={navItemClasses('products')}>
             <BoxIcon className={navIconClasses('products')} />
             Produtos
@@ -75,6 +125,17 @@ const AdminPage: React.FC<AdminPageProps> = (props) => {
         </nav>
       </>
   );
+  
+  const getPageTitle = () => {
+    switch(activeView) {
+        case 'dashboard': return 'Dashboard';
+        case 'products': return 'Gerenciar Produtos';
+        case 'store': return 'Informações da Loja';
+        case 'orders': return 'Gerenciar Pedidos';
+        case 'clients': return 'Clientes';
+        default: return 'Admin';
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gray-100 flex">
@@ -93,7 +154,7 @@ const AdminPage: React.FC<AdminPageProps> = (props) => {
                     <button onClick={() => setIsSidebarOpen(true)} className="md:hidden p-2 -ml-2 mr-2 text-gray-600">
                         <MenuIcon className="w-6 h-6" />
                     </button>
-                    <h2 className="text-xl font-bold text-brand-text capitalize">{activeView === 'products' ? 'Gerenciar Produtos' : activeView === 'store' ? 'Informações da Loja' : 'Dashboard'}</h2>
+                    <h2 className="text-xl font-bold text-brand-text capitalize">{getPageTitle()}</h2>
                 </div>
                 <button onClick={props.onNavigateBack} className="text-sm font-medium text-brand-primary hover:underline">
                     &larr; Voltar ao cardápio

@@ -1,45 +1,19 @@
 import React, { useMemo } from 'react';
 import { ClockIcon } from './IconComponents';
 import type { StoreInfoData } from '../types';
+import { getStoreStatus } from '../utils';
 
 interface StoreInfoProps {
     storeInfo: StoreInfoData | null;
     isLoading: boolean;
     onOpenModal: () => void;
+    onOpenOrderTracker: () => void;
 }
 
-const StoreInfo: React.FC<StoreInfoProps> = ({ storeInfo, isLoading, onOpenModal }) => {
+const StoreInfo: React.FC<StoreInfoProps> = ({ storeInfo, isLoading, onOpenModal, onOpenOrderTracker }) => {
     const { status } = useMemo(() => {
-        if (!storeInfo) return { status: { isOpen: false, text: 'Fechado - Agendar pedido' }};
-        
-        const now = new Date();
-        const daysMap = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'];
-        const dayName = daysMap[now.getDay()];
-
-        const todayHours = storeInfo.operatingHours.find(h => h.day.toUpperCase() === dayName);
-
-        if (!todayHours) {
-            return { status: { isOpen: false, text: 'Fechado - Agendar pedido' }};
-        }
-
-        const timeParts = todayHours.time.match(/(\d{2}):(\d{2}) às (\d{2}):(\d{2})/);
-        if (!timeParts) {
-            return { status: { isOpen: false, text: 'Fechado - Agendar pedido' }};
-        }
-
-        const [, startHour, startMinute, endHour, endMinute] = timeParts.map(p => parseInt(p));
-
-        const startTime = new Date();
-        startTime.setHours(startHour, startMinute, 0, 0);
-
-        const endTime = new Date();
-        endTime.setHours(endHour, endMinute, 0, 0);
-
-        const isOpenNow = now >= startTime && now <= endTime;
-        const statusText = isOpenNow ? 'Aberto' : 'Fechado - Agendar pedido';
-
-        return { status: { isOpen: isOpenNow, text: statusText }};
-
+        const statusResult = getStoreStatus(storeInfo);
+        return { status: statusResult };
     }, [storeInfo]);
     
     if (isLoading || !storeInfo) {
@@ -87,7 +61,9 @@ const StoreInfo: React.FC<StoreInfoProps> = ({ storeInfo, isLoading, onOpenModal
                         <span>{storeInfo.hours}</span>
                     </div>
                     <span>•</span>
-                    <a href="#" onClick={(e) => { e.preventDefault(); onOpenModal(); }} className="text-brand-primary font-medium hover:underline">Ver mais</a>
+                    <button onClick={onOpenModal} className="text-brand-primary font-medium hover:underline">Ver mais</button>
+                    <span>•</span>
+                    <button onClick={onOpenOrderTracker} className="text-brand-primary font-medium hover:underline">Meus Pedidos</button>
                 </div>
             </div>
         </div>

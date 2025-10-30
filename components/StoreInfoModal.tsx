@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import type { StoreInfoData } from '../types';
-import { ClockIcon, ShoppingBagIcon, XIcon, TruckIcon } from './IconComponents';
+import { ClockIcon, XIcon, TruckIcon } from './IconComponents';
+import { getStoreStatus } from '../utils';
 
 interface StoreInfoModalProps {
   isOpen: boolean;
@@ -11,35 +12,15 @@ interface StoreInfoModalProps {
 const StoreInfoModal: React.FC<StoreInfoModalProps> = ({ isOpen, onClose, storeInfo }) => {
 
   const { status, currentDayName } = useMemo(() => {
-    if (!storeInfo) return { status: { isOpen: false, text: 'Fechado - Agendar pedido' }, currentDayName: '' };
+    const statusResult = getStoreStatus(storeInfo);
     
     const now = new Date();
     const daysMap = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'];
     const dayName = daysMap[now.getDay()];
 
-    const todayHours = storeInfo.operatingHours.find(h => h.day.toUpperCase() === dayName);
+    const finalStatusText = statusResult.isOpen ? 'Aberto Agora' : statusResult.text;
 
-    if (!todayHours) {
-        return { status: { isOpen: false, text: 'Fechado - Agendar pedido' }, currentDayName: dayName };
-    }
-
-    const timeParts = todayHours.time.match(/(\d{2}):(\d{2}) às (\d{2}):(\d{2})/);
-    if (!timeParts) {
-        return { status: { isOpen: false, text: 'Fechado - Agendar pedido' }, currentDayName: dayName };
-    }
-
-    const [, startHour, startMinute, endHour, endMinute] = timeParts.map(p => parseInt(p));
-
-    const startTime = new Date();
-    startTime.setHours(startHour, startMinute, 0, 0);
-
-    const endTime = new Date();
-    endTime.setHours(endHour, endMinute, 0, 0);
-
-    const isOpenNow = now >= startTime && now <= endTime;
-    const statusText = isOpenNow ? 'Aberto Agora' : 'Fechado - Agendar pedido';
-
-    return { status: { isOpen: isOpenNow, text: statusText }, currentDayName: dayName };
+    return { status: { ...statusResult, text: finalStatusText }, currentDayName: dayName };
 
   }, [storeInfo]);
   
@@ -92,24 +73,13 @@ const StoreInfoModal: React.FC<StoreInfoModalProps> = ({ isOpen, onClose, storeI
                     <div className="mt-6 border-t border-gray-100 pt-6">
                         <h2 className="text-lg font-bold text-brand-text">Opções de Atendimento</h2>
                         <div className="mt-3 space-y-3">
-                            {(storeInfo.pickupLocations?.length ?? 0) > 0 && (
-                                <div className="border border-gray-200 rounded-lg p-4 flex items-center space-x-4">
-                                    <ShoppingBagIcon className="w-6 h-6 text-brand-text"/>
-                                    <div>
-                                        <p className="font-semibold text-brand-text">Retirada</p>
-                                        <p className="text-sm text-gray-500">Disponível nos pontos de retirada</p>
-                                    </div>
+                            <div className="border border-gray-200 rounded-lg p-4 flex items-center space-x-4">
+                                <TruckIcon className="w-6 h-6 text-brand-text"/>
+                                <div>
+                                    <p className="font-semibold text-brand-text">Entrega (Delivery)</p>
+                                    <p className="text-sm text-gray-500">Todos os pedidos são entregues no seu endereço.</p>
                                 </div>
-                            )}
-                            {(storeInfo.deliveryCategories?.length ?? 0) > 0 && (
-                                <div className="border border-gray-200 rounded-lg p-4 flex items-center space-x-4">
-                                    <TruckIcon className="w-6 h-6 text-brand-text"/>
-                                    <div>
-                                        <p className="font-semibold text-brand-text">Entrega (Delivery)</p>
-                                        <p className="text-sm text-gray-500">Disponível para produtos selecionados</p>
-                                    </div>
-                                </div>
-                            )}
+                            </div>
                         </div>
                     </div>
 

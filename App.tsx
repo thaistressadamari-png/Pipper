@@ -11,8 +11,36 @@ import ProductDetailModal from './components/ProductDetailModal';
 import Cart from './components/Cart';
 import CartButton from './components/CartButton';
 import CheckoutPage from './components/CheckoutPage';
-import type { Product, CartItem, StoreInfoData } from './types';
-import { getMenu, addProduct, getStoreInfo, updateStoreInfo, updateProduct, deleteProduct, addCategory, deleteCategory, initializeFirebaseData, updateCategoryOrder, incrementVisitCount } from './services/menuService';
+import OrderSuccessPage from './components/OrderSuccessPage';
+import OrderTrackingModal from './components/OrderTrackingModal';
+import type { Product, CartItem, StoreInfoData, Order } from './types';
+import { getMenu, addProduct, getStoreInfo, updateStoreInfo, updateProduct, deleteProduct, addCategory, deleteCategory, initializeFirebaseData, updateCategoryOrder, incrementVisitCount, savePushSubscription } from './services/menuService';
+import { messaging } from './firebase';
+import { getToken } from 'firebase/messaging';
+
+// This function requests permission and gets the token.
+async function requestPermissionAndGetToken() {
+  console.log('Requesting permission for notifications...');
+  try {
+    const permission = await Notification.requestPermission();
+    if (permission === 'granted') {
+      console.log('Notification permission granted.');
+      // Get the token.
+      const currentToken = await getToken(messaging, { vapidKey: 'BDS4iHw2pG3m_yTCW-Cj-u4G1wADKqjUnjge0gbkp05d_QgAn-ke3u2Tj8KqCI-fBwAs5l_CIaAStvPvoTfMhF8' });
+      if (currentToken) {
+        console.log('FCM Token:', currentToken);
+        // Save this token to your database.
+        await savePushSubscription({ token: currentToken });
+      } else {
+        console.log('No registration token available. Request permission to generate one.');
+      }
+    } else {
+      console.log('Unable to get permission to notify.');
+    }
+  } catch (error) {
+    console.error('An error occurred while retrieving token. ', error);
+  }
+}
 
 const App: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -20,7 +48,8 @@ const App: React.FC = () => {
   const [storeInfo, setStoreInfo] = useState<StoreInfoData | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>('Todos');
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [view, setView] = useState<'menu' | 'login' | 'admin' | 'checkout'>('menu');
+  const [view, setView] = useState<'menu' | 'login' | 'admin' | 'checkout' | 'orderSuccess'>('menu');
+  const [orderSuccessData, setOrderSuccessData] = useState<Order | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isStoreInfoModalOpen, setStoreInfoModalOpen] = useState(false);
   const [isCategoryMenuOpen, setCategoryMenuOpen] = useState(false);
@@ -28,6 +57,7 @@ const App: React.FC = () => {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [isOrderTrackingOpen, setIsOrderTrackingOpen] = useState(false);
 
   useEffect(() => {
     // Increment visit count on initial app load
@@ -35,7 +65,7 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const isModalOpen = isStoreInfoModalOpen || isCategoryMenuOpen || !!selectedProduct || isCartOpen;
+    const isModalOpen = isStoreInfoModalOpen || isCategoryMenuOpen || !!selectedProduct || isCartOpen || isOrderTrackingOpen;
     if (isModalOpen) {
       document.body.style.overflow = 'hidden';
     } else {
@@ -44,7 +74,7 @@ const App: React.FC = () => {
     return () => {
       document.body.style.overflow = 'auto';
     };
-  }, [isStoreInfoModalOpen, isCategoryMenuOpen, selectedProduct, isCartOpen]);
+  }, [isStoreInfoModalOpen, isCategoryMenuOpen, selectedProduct, isCartOpen, isOrderTrackingOpen]);
 
   const fetchInitialData = useCallback(async () => {
     setIsLoading(true);
@@ -122,7 +152,6 @@ const App: React.FC = () => {
           setCategories(['Todos', ...newOrder]);
       } catch (error) {
           console.error("Failed to update category order", error);
-          // Optionally refetch to ensure consistency
           await fetchInitialData();
       }
   }, [fetchInitialData]);
@@ -142,7 +171,7 @@ const App: React.FC = () => {
         if (existingItem) {
             return prevItems.map(item =>
                 item.id === productToAdd.id
-                    ? { ...item, quantity: item.quantity + quantity }
+                    ? { ...item, quantity: item.quantity + quantity, observations }
                     : item
             );
         } else {
@@ -172,6 +201,12 @@ const App: React.FC = () => {
     setTimeout(() => setView('checkout'), 300);
   }, []);
 
+  const handleOrderSuccess = (order: Order) => {
+    setOrderSuccessData(order);
+    setCartItems([]);
+    setView('orderSuccess');
+  };
+
   const SectionTitle: React.FC<{ title: string }> = ({ title }) => (
     <div className="flex justify-between items-center mb-4 mt-8">
         <div className="flex items-center space-x-2">
@@ -195,6 +230,7 @@ const App: React.FC = () => {
                 storeInfo={storeInfo} 
                 isLoading={!storeInfo}
                 onOpenModal={() => setStoreInfoModalOpen(true)}
+                onOpenOrderTracker={() => setIsOrderTrackingOpen(true)}
             />
             <CategoryTabs
                 categories={visibleCategoriesForTabs}
@@ -310,6 +346,10 @@ const App: React.FC = () => {
             itemCount={cartItems.reduce((sum, item) => sum + item.quantity, 0)}
             onClick={() => setIsCartOpen(true)}
         />
+        <OrderTrackingModal
+            isOpen={isOrderTrackingOpen}
+            onClose={() => setIsOrderTrackingOpen(false)}
+        />
         </>
     );
   }
@@ -321,6 +361,7 @@ const App: React.FC = () => {
         onLoginSuccess={() => {
           setIsAuthenticated(true);
           setView('admin');
+          requestPermissionAndGetToken(); // Request permission on login
         }}
         onNavigateBack={() => setView('menu')}
       />;
@@ -350,12 +391,14 @@ const App: React.FC = () => {
                 setView('menu');
                 setIsCartOpen(true);
             }}
-            onOrderSuccess={() => {
-                alert('Pedido enviado com sucesso! Você será redirecionado para o WhatsApp.');
-                setCartItems([]);
-                setView('menu');
-            }}
+            onOrderSuccess={handleOrderSuccess}
         />;
+    case 'orderSuccess':
+        return <OrderSuccessPage
+            order={orderSuccessData}
+            storeInfo={storeInfo}
+            onNavigateBack={() => setView('menu')}
+        />
     default:
       return renderMenu();
   }

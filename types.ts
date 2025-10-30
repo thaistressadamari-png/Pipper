@@ -30,8 +30,6 @@ export interface StoreInfoData {
         online: string[];
     };
     whatsappNumber?: string;
-    pickupLocations?: string[];
-    deliveryCategories?: string[];
 }
 
 // Order related types for Dashboard
@@ -40,6 +38,7 @@ export interface OrderItem {
   name: string;
   quantity: number;
   price: number;
+  observations?: string;
 }
 
 export interface CustomerInfo {
@@ -48,24 +47,37 @@ export interface CustomerInfo {
 }
 
 export interface DeliveryInfo {
-    type: 'delivery' | 'pickup';
-    address?: {
+    type: 'delivery';
+    address: {
         cep: string;
         street: string;
         number: string;
         neighborhood: string;
         complement?: string;
     };
-    pickupLocation?: string;
 }
 
 export interface Order {
     id: string;
+    orderNumber: number;
+    status: 'new' | 'confirmed' | 'completed';
     createdAt: any; // Firestore Timestamp
+    updatedAt: any; // Firestore Timestamp
     customer: CustomerInfo;
     delivery: DeliveryInfo;
     items: OrderItem[];
     total: number;
     paymentMethod: string;
     deliveryDate: string; // YYYY-MM-DD
+}
+
+export interface Client {
+    id: string; // WhatsApp number, used as document ID
+    name: string;
+    firstOrderDate: any;
+    lastOrderDate: any;
+    totalOrders: number;
+    totalSpent: number;
+    addresses: DeliveryInfo['address'][];
+    orderIds: string[];
 }

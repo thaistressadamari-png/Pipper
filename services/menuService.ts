@@ -15,17 +15,25 @@ import {
     serverTimestamp,
     where,
     Timestamp,
-    increment
+    increment,
+    runTransaction,
+    onSnapshot,
+    documentId
 } from "firebase/firestore";
 import { db } from '../firebase';
-import type { Product, StoreInfoData, Order } from '../types';
+import type { Product, StoreInfoData, Order, Client } from '../types';
 
 // Collection references
 const productsCollection = collection(db, 'products');
 const ordersCollection = collection(db, 'orders');
+const clientsCollection = collection(db, 'clients');
+const pushSubscriptionsCollection = collection(db, 'pushSubscriptions');
+const dailyVisitsCollection = collection(db, 'dailyVisits');
+
 const storeInfoDoc = doc(db, 'store', 'info');
 const categoriesDoc = doc(db, 'metadata', 'categories');
 const siteStatsDoc = doc(db, 'metadata', 'siteStats');
+const countersDoc = doc(db, 'metadata', 'counters');
 
 const initialMenuData: Omit<Product, 'id'>[] = [
     {
@@ -34,7 +42,7 @@ const initialMenuData: Omit<Product, 'id'>[] = [
         price: 12.00,
         category: 'Pronta entrega',
         imageUrls: [
-            'https://i.pinimg.com/736x/11/e7/73/11e7730c7cee3108dc7c39e3a79787aa.jpg'
+            'https://i.pinimg.com/736x/11/e7/73/11-e7-730c7cee3108dc7c39e3a79787aa.jpg'
         ],
         leadTimeDays: 0,
     },
@@ -68,12 +76,9 @@ const initialStoreInfo: StoreInfoData = {
         online: ['Cartão de crédito', 'Pix']
     },
     whatsappNumber: '5511943591371',
-    pickupLocations: ['Centro Histórico de Santana de Parnaíba'],
-    deliveryCategories: ['Pronta entrega', 'Promoções'],
 };
 
 const initialCategories = ['Bolos - Sob Encomenda', 'Pronta entrega'];
-
 
 export const initializeFirebaseData = async () => {
     const productsSnapshot = await getDocs(productsCollection);
@@ -90,6 +95,7 @@ export const initializeFirebaseData = async () => {
         });
         batch.set(storeInfoDoc, initialStoreInfo);
         batch.set(categoriesDoc, { names: initialCategories });
+        batch.set(countersDoc, { orderNumber: 1000 }); // Start order numbers from 1000
         
         await batch.commit();
         console.log("Default data has been written to Firebase.");
@@ -171,40 +177,173 @@ export const updateCategoryOrder = async (newOrder: string[]): Promise<void> => 
     await updateDoc(categoriesDoc, { names: newOrder });
 };
 
-export const addOrder = async (orderData: Omit<Order, 'id' | 'createdAt'>): Promise<string> => {
-    const orderWithTimestamp = {
-        ...orderData,
-        createdAt: serverTimestamp()
-    };
-    const docRef = await addDoc(ordersCollection, orderWithTimestamp);
-    return docRef.id;
+const updateClientOnOrder = async (order: Order) => {
+    const clientRef = doc(clientsCollection, order.customer.whatsapp);
+    const clientDoc = await getDoc(clientRef);
+    const now = serverTimestamp();
+
+    if (clientDoc.exists()) {
+        // Update existing client
+        await updateDoc(clientRef, {
+            name: order.customer.name, // update name in case it changes
+            lastOrderDate: now,
+            totalOrders: increment(1),
+            totalSpent: increment(order.total),
+            addresses: arrayUnion(order.delivery.address),
+            orderIds: arrayUnion(order.id)
+        });
+    } else {
+        // Create new client
+        const newClient: Client = {
+            id: order.customer.whatsapp,
+            name: order.customer.name,
+            firstOrderDate: now,
+            lastOrderDate: now,
+            totalOrders: 1,
+            totalSpent: order.total,
+            addresses: [order.delivery.address],
+            orderIds: [order.id]
+        };
+        await setDoc(clientRef, newClient);
+    }
+};
+
+export const addOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt' | 'orderNumber' | 'status'>): Promise<Order> => {
+    let newOrder: Order | null = null;
+    await runTransaction(db, async (transaction) => {
+        const counterRef = doc(db, 'metadata', 'counters');
+        const counterDoc = await transaction.get(counterRef);
+
+        const newOrderNumber = counterDoc.exists()
+            ? counterDoc.data().orderNumber + 1
+            : 1001; // Start from 1001 if doc doesn't exist
+
+        // Use set with merge to create or update the counter document.
+        transaction.set(counterRef, { orderNumber: newOrderNumber }, { merge: true });
+        
+        const orderRef = doc(collection(db, 'orders'));
+
+        const now = serverTimestamp();
+        const fullOrderData: Omit<Order, 'id'> = {
+            ...orderData,
+            orderNumber: newOrderNumber,
+            status: 'new',
+            createdAt: now,
+            updatedAt: now,
+        };
+        
+        transaction.set(orderRef, fullOrderData);
+        newOrder = { ...fullOrderData, id: orderRef.id };
+    });
+
+    if (!newOrder) {
+        throw new Error("Failed to create order.");
+    }
+
+    // This runs outside the transaction to avoid contention
+    await updateClientOnOrder(newOrder);
+    
+    return newOrder;
+};
+
+export const getOrders = async (): Promise<Order[]> => {
+    const q = query(ordersCollection, orderBy('orderNumber', 'desc'));
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+    } as Order));
 };
 
 export const getOrdersByDateRange = async (startDate: Date, endDate: Date): Promise<Order[]> => {
     const q = query(
         ordersCollection,
-        where('createdAt', '>=', Timestamp.fromDate(startDate)),
-        where('createdAt', '<=', Timestamp.fromDate(endDate)),
+        where('createdAt', '>=', startDate),
+        where('createdAt', '<=', endDate),
         orderBy('createdAt', 'desc')
+    );
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+    } as Order));
+};
+
+
+export const updateOrderStatus = (orderId: string, status: Order['status']): Promise<void> => {
+    const orderRef = doc(ordersCollection, orderId);
+    return updateDoc(orderRef, {
+        status,
+        updatedAt: serverTimestamp(),
+    });
+};
+
+export const listenToOrders = (callback: (orders: Order[]) => void): (() => void) => {
+    const q = query(ordersCollection, where('status', '==', 'new'));
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        const newOrders = querySnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        } as Order));
+        callback(newOrders);
+    });
+    return unsubscribe;
+};
+
+export const getClients = async (): Promise<Client[]> => {
+    const q = query(clientsCollection, orderBy('lastOrderDate', 'desc'));
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => doc.data() as Client);
+};
+
+export const getOrdersByWhatsapp = async (whatsapp: string): Promise<Order[]> => {
+    const rawWhatsapp = whatsapp.replace(/\D/g, '');
+    const finalWhatsapp = rawWhatsapp.startsWith('55') ? rawWhatsapp : `55${rawWhatsapp}`;
+
+    const q = query(
+        ordersCollection,
+        where('customer.whatsapp', '==', finalWhatsapp),
+        where('status', 'in', ['new', 'confirmed'])
     );
     const querySnapshot = await getDocs(q);
     const orders = querySnapshot.docs.map(doc => ({
         id: doc.id,
-        ...doc.data(),
-        createdAt: (doc.data().createdAt as Timestamp).toDate(),
+        ...doc.data()
     } as Order));
+
+    // Sort client-side to avoid complex index requirements
+    orders.sort((a, b) => (b.orderNumber || 0) - (a.orderNumber || 0));
+    
     return orders;
 };
 
+
 export const incrementVisitCount = async (): Promise<void> => {
-    // This will create the document with a value of 1 if it doesn't exist.
-    await setDoc(siteStatsDoc, { totalVisits: increment(1) }, { merge: true });
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+    const dailyVisitRef = doc(dailyVisitsCollection, today);
+    await setDoc(dailyVisitRef, { count: increment(1) }, { merge: true });
 };
 
-export const getVisitCount = async (): Promise<number> => {
-    const docSnap = await getDoc(siteStatsDoc);
-    if (docSnap.exists() && docSnap.data().totalVisits) {
-        return docSnap.data().totalVisits;
-    }
-    return 0; // Return 0 if the document or field doesn't exist
+
+export const getVisitCountByDateRange = async (startDate: Date, endDate: Date): Promise<number> => {
+    const startStr = startDate.toISOString().split('T')[0];
+    const endStr = endDate.toISOString().split('T')[0];
+
+    const q = query(
+        dailyVisitsCollection,
+        where(documentId(), '>=', startStr),
+        where(documentId(), '<=', endStr)
+    );
+    const querySnapshot = await getDocs(q);
+    let totalVisits = 0;
+    querySnapshot.forEach(doc => {
+        totalVisits += doc.data().count || 0;
+    });
+    return totalVisits;
+};
+
+
+export const savePushSubscription = async (subscription: object) => {
+    await addDoc(pushSubscriptionsCollection, subscription);
+    console.log("Push subscription saved.");
 };
