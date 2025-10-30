@@ -15,7 +15,9 @@ const OrdersView: React.FC<OrdersViewProps> = ({ onRequestPermission }) => {
     const [error, setError] = useState<string | null>(null);
     const [statusFilter, setStatusFilter] = useState<StatusFilter>('new');
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-    const [notificationPermission, setNotificationPermission] = useState(Notification.permission);
+    const [notificationPermission, setNotificationPermission] = useState(() => 
+        typeof Notification !== 'undefined' ? Notification.permission : 'default'
+    );
 
     useEffect(() => {
         const fetchOrders = async () => {

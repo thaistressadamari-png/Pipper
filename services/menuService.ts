@@ -18,7 +18,9 @@ import {
     increment,
     runTransaction,
     onSnapshot,
-    documentId
+    documentId,
+    QuerySnapshot,
+    DocumentData
 } from "firebase/firestore";
 import { db } from '../firebase';
 import type { Product, StoreInfoData, Order, Client } from '../types';
@@ -278,14 +280,10 @@ export const updateOrderStatus = (orderId: string, status: Order['status']): Pro
     });
 };
 
-export const listenToOrders = (callback: (orders: Order[]) => void): (() => void) => {
+export const listenToOrders = (callback: (snapshot: QuerySnapshot<DocumentData>) => void): (() => void) => {
     const q = query(ordersCollection, where('status', '==', 'new'));
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
-        const newOrders = querySnapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-        } as Order));
-        callback(newOrders);
+        callback(querySnapshot);
     });
     return unsubscribe;
 };
