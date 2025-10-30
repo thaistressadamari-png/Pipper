@@ -235,6 +235,16 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
         
         const newOrder = await addOrder(orderData);
         
+        // Fire-and-forget notification to Vercel serverless function
+        fetch('/api/notify-telegram', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(newOrder),
+        }).catch(err => {
+            // Log the error but don't interrupt the user flow
+            console.error("Failed to send order notification:", err);
+        });
+
         onOrderSuccess(newOrder);
 
     } catch (err) {
