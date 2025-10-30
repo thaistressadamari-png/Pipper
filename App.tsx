@@ -37,8 +37,10 @@ async function requestPermissionAndGetToken() {
     } else {
       console.log('Unable to get permission to notify.');
     }
+    return permission;
   } catch (error) {
     console.error('An error occurred while retrieving token. ', error);
+    return 'denied';
   }
 }
 
@@ -62,6 +64,17 @@ const App: React.FC = () => {
   useEffect(() => {
     // Increment visit count on initial app load
     incrementVisitCount();
+
+    // Register Firebase Messaging Service Worker
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/firebase-messaging-sw.js')
+            .then((registration) => {
+                console.log('Service Worker registration successful, scope is:', registration.scope);
+            }).catch((err) => {
+                console.log('Service Worker registration failed:', err);
+            });
+    }
+
   }, []);
 
   useEffect(() => {
@@ -361,7 +374,6 @@ const App: React.FC = () => {
         onLoginSuccess={() => {
           setIsAuthenticated(true);
           setView('admin');
-          requestPermissionAndGetToken(); // Request permission on login
         }}
         onNavigateBack={() => setView('menu')}
       />;
@@ -381,6 +393,7 @@ const App: React.FC = () => {
         onAddCategory={handleAddCategory}
         onDeleteCategory={handleDeleteCategory}
         onUpdateCategoryOrder={handleUpdateCategoryOrder}
+        onRequestPermission={requestPermissionAndGetToken}
         onNavigateBack={() => setView('menu')}
       />;
     case 'checkout':

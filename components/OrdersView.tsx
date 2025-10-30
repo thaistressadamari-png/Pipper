@@ -4,13 +4,18 @@ import { getOrders, updateOrderStatus } from '../services/menuService';
 
 type StatusFilter = 'all' | 'new' | 'confirmed' | 'completed';
 
-const OrdersView: React.FC = () => {
+interface OrdersViewProps {
+    onRequestPermission: () => Promise<NotificationPermission>;
+}
+
+const OrdersView: React.FC<OrdersViewProps> = ({ onRequestPermission }) => {
     const [orders, setOrders] = useState<Order[]>([]);
     const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [statusFilter, setStatusFilter] = useState<StatusFilter>('new');
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+    const [notificationPermission, setNotificationPermission] = useState(Notification.permission);
 
     useEffect(() => {
         const fetchOrders = async () => {
@@ -34,6 +39,11 @@ const OrdersView: React.FC = () => {
             setFilteredOrders(orders.filter(o => o.status === statusFilter));
         }
     }, [orders, statusFilter]);
+
+    const handleRequestPermission = async () => {
+        const newPermission = await onRequestPermission();
+        setNotificationPermission(newPermission);
+    };
     
     const handleStatusChange = async (orderId: string, newStatus: Order['status']) => {
         try {
@@ -69,6 +79,24 @@ const OrdersView: React.FC = () => {
             {label}
         </button>
     );
+
+    const renderNotificationContent = () => {
+        switch (notificationPermission) {
+            case 'granted':
+                return <p className="text-sm text-green-700">Notificações de novos pedidos estão ativadas.</p>;
+            case 'denied':
+                return <p className="text-sm text-red-700">As notificações foram bloqueadas. Você precisa alterar as permissões no seu navegador para recebê-las.</p>;
+            default:
+                return (
+                    <button
+                        onClick={handleRequestPermission}
+                        className="px-4 py-2 bg-brand-primary text-white font-semibold rounded-lg shadow-sm hover:bg-brand-primary-dark transition-colors"
+                    >
+                        Ativar Notificações
+                    </button>
+                );
+        }
+    };
 
     const OrderDetailModal: React.FC<{ order: Order, onClose: () => void }> = ({ order, onClose }) => {
       const formatPrice = (price: number) => price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -107,6 +135,12 @@ const OrdersView: React.FC = () => {
 
     return (
         <div className="space-y-6">
+            <div className="bg-white p-6 rounded-lg shadow">
+                <h3 className="text-lg font-bold text-brand-text mb-2">Notificações de Pedidos</h3>
+                <p className="text-sm text-gray-500 mb-4">Receba um alerta no seu dispositivo sempre que um novo pedido chegar.</p>
+                {renderNotificationContent()}
+            </div>
+
             <div className="bg-white p-4 rounded-lg shadow flex items-center gap-2">
                 <FilterButton filter="new" label="Novos" />
                 <FilterButton filter="confirmed" label="Confirmados" />
