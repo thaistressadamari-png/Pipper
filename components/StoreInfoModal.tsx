@@ -71,13 +71,13 @@ const StoreInfoModal: React.FC<StoreInfoModalProps> = ({ isOpen, onClose, storeI
                 <div className="px-6 pb-6 pt-6">
 
                     <div className="mt-6 border-t border-gray-100 pt-6">
-                        <h2 className="text-lg font-bold text-brand-text">Opções de Atendimento</h2>
+                        <h2 className="text-lg font-bold text-brand-text">Opções de entregas</h2>
                         <div className="mt-3 space-y-3">
                             <div className="border border-gray-200 rounded-lg p-4 flex items-center space-x-4">
                                 <TruckIcon className="w-6 h-6 text-brand-text"/>
                                 <div>
                                     <p className="font-semibold text-brand-text">Entrega (Delivery)</p>
-                                    <p className="text-sm text-gray-500">Todos os pedidos são entregues no seu endereço.</p>
+                                    <p className="text-sm text-gray-500">Receba suas delícias no conforto de sua casa.</p>
                                 </div>
                             </div>
                         </div>

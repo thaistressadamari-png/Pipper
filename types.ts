@@ -60,7 +60,7 @@ export interface DeliveryInfo {
 export interface Order {
     id: string;
     orderNumber: number;
-    status: 'new' | 'confirmed' | 'completed';
+    status: 'new' | 'confirmed' | 'completed' | 'archived';
     createdAt: any; // Firestore Timestamp
     updatedAt: any; // Firestore Timestamp
     customer: CustomerInfo;
