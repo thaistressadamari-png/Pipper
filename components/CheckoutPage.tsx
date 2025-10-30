@@ -235,30 +235,6 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
         
         const newOrder = await addOrder(orderData);
         
-        // **FIX:** Create a clean, JSON-serializable payload for the API.
-        const notificationPayload = {
-            ...orderData,
-            orderNumber: newOrder.orderNumber,
-        };
-        
-        try {
-            console.log("Enviando payload da notificação:", JSON.stringify(notificationPayload, null, 2));
-            const response = await fetch('/api/notify-telegram', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(notificationPayload),
-            });
-
-            const responseData = await response.json();
-            if (!response.ok) {
-                throw new Error(responseData.details || `Server returned status ${response.status}`);
-            }
-            console.log('Resposta da API de notificação:', responseData);
-        } catch (notificationError) {
-            console.error('Não foi possível enviar a notificação para o Telegram:', notificationError);
-            // We don't block the user flow for this, but we log it.
-        }
-
         onOrderSuccess(newOrder);
 
     } catch (err) {

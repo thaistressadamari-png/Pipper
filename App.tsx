@@ -15,8 +15,6 @@ import OrderSuccessPage from './components/OrderSuccessPage';
 import OrderTrackingModal from './components/OrderTrackingModal';
 import type { Product, CartItem, StoreInfoData, Order } from './types';
 import { getMenu, addProduct, getStoreInfo, updateStoreInfo, updateProduct, deleteProduct, addCategory, deleteCategory, initializeFirebaseData, updateCategoryOrder, incrementVisitCount, savePushSubscription } from './services/menuService';
-import { messaging } from './firebase';
-import { getToken } from 'firebase/messaging';
 
 const App: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
