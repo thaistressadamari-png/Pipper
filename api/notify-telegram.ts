@@ -23,31 +23,55 @@ async function sendTelegramNotification(order: any) {
         throw new Error("Telegram Bot Token or Chat ID are not configured in environment variables.");
     }
 
+    const now = new Date();
+    // Vercel serverless functions run in UTC. Format for São Paulo time (UTC-3).
+    const nowInBrazil = new Date(now.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+    const formattedDateTime = new Intl.DateTimeFormat("pt-BR", {
+        day: '2-digit',
+        month: '2-digit',
+        year: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+    }).format(nowInBrazil).replace(", ", " | ");
+
     const formatPrice = (price: number) => (price || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
     const formatDate = (dateString: string) => {
         if (!dateString) return 'N/A';
         const date = new Date(dateString + "T00:00:00");
-        return new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "long", year: "numeric" }).format(date);
+        return new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" }).format(date);
     };
 
-    const itemsList = order.items.map((item: any) => `  - ${item.quantity}x ${item.name}`).join("\n");
+    const itemsList = order.items.map((item: any) => `* ${item.quantity}x ${item.name} — ${formatPrice(item.price)}`).join("\n");
     const address = order.delivery.address;
     const fullAddress = `${address.street}, ${address.number}, ${address.neighborhood}. CEP: ${address.cep}${address.complement ? `, ${address.complement}` : ""}`;
 
-    const messageText = `*🎉 Novo Pedido Recebido!*
+    const messageText = `*Pedido - Pipper Confeitaria*
 
 *Pedido:* \`#${order.orderNumber}\`
-*Cliente:*
-  - *Nome:* ${order.customer.name}
-  - *WhatsApp:* \`${order.customer.whatsapp}\`
-*Entrega:*
-  - *Data:* ${formatDate(order.deliveryDate)}
-  - *Endereço:* ${fullAddress}
-*Itens:*
+${formattedDateTime}
+
+*Nome:*
+${order.customer.name}
+*Telefone:*
+${order.customer.whatsapp}
+
+-----------------------------------
+
+*Itens do Pedido:*
 ${itemsList}
-*Total:*
-  - *Valor:* *${formatPrice(order.total)}*
-  - *Pagamento:* ${order.paymentMethod}
+
+-----------------------------------
+
+*Data Agendada:* ${formatDate(order.deliveryDate)}
+
+*Endereço:*
+${fullAddress}
+
+*Subtotal: ${formatPrice(order.total)}*
+
+*Forma de Pagamento:*
+${order.paymentMethod}
 `;
 
     const data = JSON.stringify({

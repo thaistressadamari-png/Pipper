@@ -1,15 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import type { Order } from '../types';
-import { getOrders, updateOrderStatus } from '../services/menuService';
+import { getOrders, updateOrderStatus, updateOrderDeliveryFee } from '../services/menuService';
 import { SearchIcon } from './IconComponents';
 
 type StatusFilter = 'all' | 'new' | 'confirmed' | 'completed' | 'archived';
 
-interface OrdersViewProps {
-    onRequestPermission: () => Promise<NotificationPermission>;
-}
-
-const OrdersView: React.FC<OrdersViewProps> = ({ onRequestPermission }) => {
+const OrdersView: React.FC = () => {
     const [orders, setOrders] = useState<Order[]>([]);
     const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -17,44 +13,6 @@ const OrdersView: React.FC<OrdersViewProps> = ({ onRequestPermission }) => {
     const [statusFilter, setStatusFilter] = useState<StatusFilter>('new');
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-    const [notificationPermission, setNotificationPermission] = useState(() => 
-        typeof Notification !== 'undefined' ? Notification.permission : 'default'
-    );
-
-    useEffect(() => {
-        // This effect ensures the notification permission status is always up-to-date.
-        // It checks on mount and listens for any changes made in the browser settings.
-        if (typeof Notification === 'undefined' || !navigator.permissions) {
-            return;
-        }
-
-        let permissionStatus: PermissionStatus | null = null;
-
-        const updatePermissionStatus = () => {
-            setNotificationPermission(Notification.permission);
-        };
-        
-        const setupListener = async () => {
-            try {
-                permissionStatus = await navigator.permissions.query({ name: 'notifications' });
-                updatePermissionStatus(); // Initial check
-                permissionStatus.onchange = updatePermissionStatus; // Listen for changes
-            } catch (e) {
-                console.error("Permission query failed, falling back to static check.", e);
-                updatePermissionStatus(); // Fallback for older browsers
-            }
-        };
-
-        setupListener();
-
-        // Cleanup the event listener when the component unmounts
-        return () => {
-            if (permissionStatus) {
-                permissionStatus.onchange = null;
-            }
-        };
-    }, []);
-
 
     useEffect(() => {
         const fetchOrders = async () => {
@@ -92,11 +50,6 @@ const OrdersView: React.FC<OrdersViewProps> = ({ onRequestPermission }) => {
 
         setFilteredOrders(tempOrders);
     }, [orders, statusFilter, searchQuery]);
-
-    const handleRequestPermission = async () => {
-        const newPermission = await onRequestPermission();
-        setNotificationPermission(newPermission);
-    };
     
     const handleStatusChange = async (orderId: string, newStatus: Order['status']) => {
         try {
@@ -110,6 +63,14 @@ const OrdersView: React.FC<OrdersViewProps> = ({ onRequestPermission }) => {
         }
     };
     
+    const handleDeliveryFeeUpdate = async (orderId: string, fee: number) => {
+        await updateOrderDeliveryFee(orderId, fee);
+        setOrders(prevOrders => prevOrders.map(o => o.id === orderId ? { ...o, deliveryFee: fee, total: o.total } : o));
+        if (selectedOrder && selectedOrder.id === orderId) {
+            setSelectedOrder(prev => prev ? { ...prev, deliveryFee: fee } : null);
+        }
+    };
+
     const statusPill = (status: Order['status']) => {
         const styles = {
             new: 'bg-yellow-100 text-yellow-800',
@@ -135,26 +96,62 @@ const OrdersView: React.FC<OrdersViewProps> = ({ onRequestPermission }) => {
         </button>
     );
 
-    const renderNotificationContent = () => {
-        switch (notificationPermission) {
-            case 'granted':
-                return <p className="text-sm text-green-700">Notificações de novos pedidos estão ativadas.</p>;
-            case 'denied':
-                return <p className="text-sm text-red-700">As notificações foram bloqueadas. Você precisa alterar as permissões no seu navegador para recebê-las.</p>;
-            default:
-                return (
-                    <button
-                        onClick={handleRequestPermission}
-                        className="px-4 py-2 bg-brand-primary text-white font-semibold rounded-lg shadow-sm hover:bg-brand-primary-dark transition-colors"
-                    >
-                        Ativar Notificações
-                    </button>
-                );
-        }
-    };
-
     const OrderDetailModal: React.FC<{ order: Order, onClose: () => void }> = ({ order, onClose }) => {
       const formatPrice = (price: number) => price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+      const [deliveryFee, setDeliveryFee] = useState(order.deliveryFee ? String(order.deliveryFee) : '');
+      const [isSavingFee, setIsSavingFee] = useState(false);
+      const [isNotifying, setIsNotifying] = useState(false);
+      const [notificationMessage, setNotificationMessage] = useState('');
+
+      const feeAsNumber = parseFloat(deliveryFee) || 0;
+      const totalWithFee = order.total + (order.deliveryFee || feeAsNumber);
+
+      const handleSaveFee = async () => {
+          setIsSavingFee(true);
+          setNotificationMessage('');
+          try {
+              await handleDeliveryFeeUpdate(order.id, feeAsNumber);
+              setNotificationMessage('Valor do frete salvo com sucesso!');
+          } catch (err) {
+              setNotificationMessage('Erro ao salvar o valor do frete.');
+          } finally {
+              setIsSavingFee(false);
+              setTimeout(() => setNotificationMessage(''), 3000);
+          }
+      };
+
+      const handleNotifyTelegram = async () => {
+          const feeToNotify = order.deliveryFee ?? feeAsNumber;
+          if (feeToNotify <= 0 && deliveryFee === '') {
+              alert("Por favor, adicione e salve um valor de frete antes de notificar.");
+              return;
+          }
+          
+          setIsNotifying(true);
+          setNotificationMessage('');
+          
+          try {
+              const response = await fetch('/api/notify-delivery-fee', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                      order: { ...order, deliveryFee: feeToNotify }
+                  }),
+              });
+              
+              if (!response.ok) throw new Error('Falha ao enviar notificação');
+
+              setNotificationMessage('Link de notificação enviado para o Telegram!');
+          } catch (error) {
+              console.error('Falha ao notificar no Telegram:', error);
+              setNotificationMessage('Erro ao enviar notificação.');
+          } finally {
+              setIsNotifying(false);
+              setTimeout(() => setNotificationMessage(''), 3000);
+          }
+      };
+
+
       return (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" onClick={onClose}>
           <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
@@ -174,9 +171,47 @@ const OrdersView: React.FC<OrdersViewProps> = ({ onRequestPermission }) => {
                         {order.items.map(item => <li key={item.id}>{item.quantity}x {item.name}</li>)}
                     </ul>
                 </div>
-                <p className="font-bold text-right text-lg">Total: {formatPrice(order.total)}</p>
+
+                <div className="border-t pt-4 space-y-2">
+                    <label htmlFor="deliveryFee" className="font-bold">Valor do Envio (R$)</label>
+                    <div className="flex items-center gap-2">
+                        <input
+                            id="deliveryFee"
+                            type="number"
+                            step="0.01"
+                            value={deliveryFee}
+                            onChange={(e) => setDeliveryFee(e.target.value)}
+                            className="flex-grow px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-brand-primary focus:border-brand-primary sm:text-sm"
+                            placeholder="Ex: 15.50"
+                        />
+                        <button
+                            onClick={handleSaveFee}
+                            disabled={isSavingFee}
+                            className="px-4 py-2 bg-gray-600 text-white rounded-lg text-sm hover:bg-gray-700 transition-colors disabled:opacity-50"
+                        >
+                            {isSavingFee ? 'Salvando...' : 'Salvar Frete'}
+                        </button>
+                    </div>
+                </div>
+
+                <div className="space-y-1 text-right border-t pt-4">
+                    <div className="flex justify-between font-medium text-gray-600">
+                        <span>Subtotal:</span>
+                        <span>{formatPrice(order.total)}</span>
+                    </div>
+                    <div className="flex justify-between font-medium text-gray-600">
+                        <span>Envio:</span>
+                        <span>{formatPrice(order.deliveryFee || feeAsNumber)}</span>
+                    </div>
+                    <div className="flex justify-between font-bold text-xl text-brand-primary">
+                        <span>Total Final:</span>
+                        <span>{formatPrice(totalWithFee)}</span>
+                    </div>
+                </div>
+
+                {notificationMessage && <p className="text-center text-sm text-green-600 font-semibold">{notificationMessage}</p>}
             </div>
-            <div className="p-4 border-t mt-auto flex justify-between items-center">
+            <div className="p-4 border-t mt-auto flex justify-between items-center flex-wrap gap-2">
                 <div>
                     {(order.status === 'new' || order.status === 'confirmed') && (
                         <button
@@ -190,9 +225,16 @@ const OrdersView: React.FC<OrdersViewProps> = ({ onRequestPermission }) => {
                         </button>
                     )}
                 </div>
-                <div className="flex justify-end gap-2">
-                    {order.status === 'new' && <button onClick={() => handleStatusChange(order.id, 'confirmed')} className="px-4 py-2 bg-blue-500 text-white rounded-lg">Marcar como Confirmado</button>}
-                    {order.status === 'confirmed' && <button onClick={() => handleStatusChange(order.id, 'completed')} className="px-4 py-2 bg-green-500 text-white rounded-lg">Marcar como Finalizado</button>}
+                <div className="flex justify-end gap-2 flex-wrap">
+                    <button
+                        onClick={handleNotifyTelegram}
+                        disabled={isNotifying}
+                        className="px-4 py-2 bg-cyan-500 text-white rounded-lg text-sm hover:bg-cyan-600 transition-colors disabled:opacity-50"
+                    >
+                        {isNotifying ? 'Gerando...' : 'Notificar Frete no Telegram'}
+                    </button>
+                    {order.status === 'new' && <button onClick={() => handleStatusChange(order.id, 'confirmed')} className="px-4 py-2 bg-blue-500 text-white rounded-lg">Confirmar Pedido</button>}
+                    {order.status === 'confirmed' && <button onClick={() => handleStatusChange(order.id, 'completed')} className="px-4 py-2 bg-green-500 text-white rounded-lg">Finalizar Pedido</button>}
                 </div>
             </div>
           </div>
@@ -205,12 +247,6 @@ const OrdersView: React.FC<OrdersViewProps> = ({ onRequestPermission }) => {
 
     return (
         <div className="space-y-6">
-            <div className="bg-white p-6 rounded-lg shadow">
-                <h3 className="text-lg font-bold text-brand-text mb-2">Notificações de Pedidos</h3>
-                <p className="text-sm text-gray-500 mb-4">Receba um alerta no seu dispositivo sempre que um novo pedido chegar.</p>
-                {renderNotificationContent()}
-            </div>
-            
             <div className="bg-white p-4 rounded-lg shadow space-y-4">
                  <div className="relative">
                     <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -250,7 +286,7 @@ const OrdersView: React.FC<OrdersViewProps> = ({ onRequestPermission }) => {
                                     <th scope="row" className="px-6 py-4 font-bold text-brand-primary whitespace-nowrap">#{order.orderNumber}</th>
                                     <td className="px-6 py-4">{order.customer.name}</td>
                                     <td className="px-6 py-4">{new Date(order.deliveryDate + 'T00:00:00').toLocaleDateString('pt-BR')}</td>
-                                    <td className="px-6 py-4">{order.total.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'})}</td>
+                                    <td className="px-6 py-4">{(order.total + (order.deliveryFee || 0)).toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'})}</td>
                                     <td className="px-6 py-4">{statusPill(order.status)}</td>
                                     <td className="px-6 py-4 text-right">
                                         <button onClick={() => setSelectedOrder(order)} className="font-medium text-brand-primary hover:underline">Ver</button>

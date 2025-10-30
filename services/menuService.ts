@@ -280,6 +280,14 @@ export const updateOrderStatus = (orderId: string, status: Order['status']): Pro
     });
 };
 
+export const updateOrderDeliveryFee = (orderId: string, deliveryFee: number): Promise<void> => {
+    const orderRef = doc(ordersCollection, orderId);
+    return updateDoc(orderRef, {
+        deliveryFee,
+        updatedAt: serverTimestamp(),
+    });
+};
+
 export const listenToOrders = (callback: (snapshot: QuerySnapshot<DocumentData>) => void): (() => void) => {
     const q = query(ordersCollection, where('status', '==', 'new'));
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
@@ -296,11 +304,10 @@ export const getClients = async (): Promise<Client[]> => {
 
 export const getOrdersByWhatsapp = async (whatsapp: string): Promise<Order[]> => {
     const rawWhatsapp = whatsapp.replace(/\D/g, '');
-    const finalWhatsapp = rawWhatsapp.startsWith('55') ? rawWhatsapp : `55${rawWhatsapp}`;
 
     const q = query(
         ordersCollection,
-        where('customer.whatsapp', '==', finalWhatsapp),
+        where('customer.whatsapp', '==', rawWhatsapp),
         where('status', 'in', ['new', 'confirmed'])
     );
     const querySnapshot = await getDocs(q);

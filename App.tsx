@@ -18,32 +18,6 @@ import { getMenu, addProduct, getStoreInfo, updateStoreInfo, updateProduct, dele
 import { messaging } from './firebase';
 import { getToken } from 'firebase/messaging';
 
-// This function requests permission and gets the token.
-async function requestPermissionAndGetToken() {
-  console.log('Requesting permission for notifications...');
-  try {
-    const permission = await Notification.requestPermission();
-    if (permission === 'granted') {
-      console.log('Notification permission granted.');
-      // Get the token.
-      const currentToken = await getToken(messaging, { vapidKey: 'BDS4iHw2pG3m_yTCW-Cj-u4G1wADKqjUnjge0gbkp05d_QgAn-ke3u2Tj8KqCI-fBwAs5l_CIaAStvPvoTfMhF8' });
-      if (currentToken) {
-        console.log('FCM Token:', currentToken);
-        // Save this token to your database.
-        await savePushSubscription({ token: currentToken });
-      } else {
-        console.log('No registration token available. Request permission to generate one.');
-      }
-    } else {
-      console.log('Unable to get permission to notify.');
-    }
-    return permission;
-  } catch (error) {
-    console.error('An error occurred while retrieving token. ', error);
-    return 'denied';
-  }
-}
-
 const App: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
@@ -393,7 +367,6 @@ const App: React.FC = () => {
         onAddCategory={handleAddCategory}
         onDeleteCategory={handleDeleteCategory}
         onUpdateCategoryOrder={handleUpdateCategoryOrder}
-        onRequestPermission={requestPermissionAndGetToken}
         onNavigateBack={() => setView('menu')}
       />;
     case 'checkout':

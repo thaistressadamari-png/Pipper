@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import type { CartItem, StoreInfoData, Order, OrderItem, CustomerInfo, DeliveryInfo } from '../types';
-import { ArrowLeftIcon, CreditCardIcon, PixIcon, CalendarIcon } from './IconComponents';
+import { ArrowLeftIcon, CalendarIcon } from './IconComponents';
 import { addOrder } from '../services/menuService';
 import Calendar from './Calendar';
 
@@ -10,6 +10,34 @@ interface CheckoutPageProps {
   onNavigateBack: () => void;
   onOrderSuccess: (order: Order) => void;
 }
+
+const PhoneConfirmationModal: React.FC<{
+    isOpen: boolean;
+    onConfirm: () => void;
+    onCorrect: () => void;
+    phoneNumber: string;
+}> = ({ isOpen, onConfirm, onCorrect, phoneNumber }) => {
+    if (!isOpen) return null;
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-sm w-full p-6 text-center animate-fade-in-up">
+                <style>{`.animate-fade-in-up { animation: fadeInUp 0.3s ease-out; } @keyframes fadeInUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }`}</style>
+                <h3 className="text-lg font-bold text-brand-text">Confirmar o número de telefone</h3>
+                <p className="text-2xl font-bold text-brand-primary my-4">{phoneNumber}</p>
+                <p className="text-gray-600">Este número está correto?</p>
+                <div className="mt-6 flex justify-center gap-4">
+                    <button onClick={onCorrect} className="px-6 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+                        Corrigir
+                    </button>
+                    <button onClick={onConfirm} className="px-6 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-brand-primary hover:bg-brand-primary-dark">
+                        Sim, está correto
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 
 const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNavigateBack, onOrderSuccess }) => {
   const [formData, setFormData] = useState({
@@ -24,8 +52,13 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
     paymentMethod: storeInfo?.paymentMethods?.online[0] || '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState('');
+  const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [isCepLoading, setIsCepLoading] = useState(false);
+  const [cepError, setCepError] = useState('');
+  const [isPhoneModalOpen, setIsPhoneModalOpen] = useState(false);
+
+  const whatsappInputRef = useRef<HTMLInputElement>(null);
 
   const total = useMemo(() => cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0), [cartItems]);
   
@@ -40,7 +73,6 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
   }, [minLeadTime]);
 
   useEffect(() => {
-    // Set default delivery date if not set
     if (!formData.deliveryDate) {
       setFormData(prev => ({ ...prev, deliveryDate: minDate }));
     }
@@ -50,30 +82,116 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
     return price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   };
   
+  const maskWhatsapp = (value: string) => {
+    return value
+      .replace(/\D/g, '')
+      .replace(/^(\d{2})(\d)/g, '($1) $2')
+      .replace(/(\d)(\d{4})$/, '$1-$2')
+      .slice(0, 15); // (XX) XXXXX-XXXX
+  };
+
+  const maskCep = (value: string) => {
+    return value
+        .replace(/\D/g, '')
+        .replace(/^(\d{5})(\d)/, '$1-$2')
+        .slice(0, 9); // XXXXX-XXX
+  };
+  
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    if (name === 'whatsapp') {
+        setFormData(prev => ({ ...prev, [name]: maskWhatsapp(value) }));
+    } else if (name === 'cep') {
+        setFormData(prev => ({ ...prev, [name]: maskCep(value) }));
+    } else {
+        setFormData(prev => ({ ...prev, [name]: value }));
+    }
+    // Clear error for the field being edited
+    if (formErrors[name]) {
+        setFormErrors(prev => ({...prev, [name]: ''}));
+    }
+  };
+  
+  const handleCepChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const maskedCep = maskCep(e.target.value);
+    const cep = maskedCep.replace(/\D/g, '');
+
+    setFormData(prev => ({ ...prev, cep: maskedCep }));
+    
+    if (formErrors.cep) {
+        setFormErrors(prev => ({...prev, cep: ''}));
+    }
+    if (formErrors.street) {
+        setFormErrors(prev => ({...prev, street: ''}));
+    }
+    if (formErrors.neighborhood) {
+        setFormErrors(prev => ({...prev, neighborhood: ''}));
+    }
+
+
+    if (cep.length !== 8) {
+      setCepError('');
+      if (e.target.value.length < formData.cep.length) {
+          setFormData(prev => ({ ...prev, street: '', neighborhood: '' }));
+      }
+      return;
+    }
+
+    setIsCepLoading(true);
+    setCepError('');
+    try {
+        const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+        if (!response.ok) throw new Error('CEP not found');
+        const data = await response.json();
+        if (data.erro) {
+            throw new Error('CEP não encontrado.');
+        }
+        setFormData(prev => ({
+            ...prev,
+            street: data.logradouro,
+            neighborhood: data.bairro,
+        }));
+        document.getElementById('number')?.focus();
+    } catch (err) {
+        setCepError('CEP não encontrado. Por favor, preencha o endereço manualmente.');
+        setFormData(prev => ({ ...prev, street: '', neighborhood: '' }));
+    } finally {
+        setIsCepLoading(false);
+    }
   };
   
   const handleDateSelect = (date: string) => {
     setFormData(prev => ({ ...prev, deliveryDate: date }));
     setIsCalendarOpen(false);
   }
+  
+  const handleWhatsappBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    const rawPhone = e.target.value.replace(/\D/g, '');
+    if (rawPhone.length === 11) {
+        setIsPhoneModalOpen(true);
+    }
+  };
 
   const validateForm = (): boolean => {
-    for (const key in formData) {
-        if (key !== 'complement' && !formData[key as keyof typeof formData]) {
-            setError(`O campo ${key} é obrigatório.`);
-            return false;
-        }
+    const newErrors: { [key: string]: string } = {};
+    const { name, whatsapp, cep, street, number, neighborhood, deliveryDate, paymentMethod } = formData;
+    const rawWhatsapp = whatsapp.replace(/\D/g, '');
+
+    if (!name.trim()) newErrors.name = "Preencha este campo.";
+    if (!rawWhatsapp) {
+        newErrors.whatsapp = "Preencha este campo.";
+    } else if (rawWhatsapp.length !== 11) {
+        newErrors.whatsapp = "Preencha este campo.";
     }
-    // Basic validation for whatsapp (must contain numbers)
-    if (!/\d/.test(formData.whatsapp)) {
-        setError('Número de WhatsApp inválido.');
-        return false;
-    }
-    setError('');
-    return true;
+    if (!cep.trim()) newErrors.cep = "Preencha este campo.";
+    if (!street.trim()) newErrors.street = "Preencha este campo.";
+    if (!number.trim()) newErrors.number = "Preencha este campo.";
+    if (!neighborhood.trim()) newErrors.neighborhood = "Preencha este campo.";
+    if (!deliveryDate) newErrors.deliveryDate = "Selecione uma data.";
+    if (!paymentMethod) newErrors.paymentMethod = "Selecione um método.";
+
+    setFormErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -117,30 +235,28 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
         
         const newOrder = await addOrder(orderData);
 
-        // Dispara a notificação para o Telegram via Vercel Serverless Function
-        // Esta é uma chamada "fire-and-forget", não bloqueia a UI do usuário.
         fetch('/api/notify-telegram', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(newOrder),
         }).catch(error => {
-            // Apenas loga o erro no console para debugging, não mostra ao usuário.
             console.error('Falha ao enviar notificação para o Telegram:', error);
         });
 
         onOrderSuccess(newOrder);
 
     } catch (err) {
-        setError('Ocorreu um erro ao finalizar o pedido. Tente novamente.');
+        setFormErrors({ form: 'Ocorreu um erro ao finalizar o pedido. Tente novamente.' });
         console.error(err);
     } finally {
         setIsSubmitting(false);
     }
   };
 
-  const inputStyles = "mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-brand-primary focus:border-brand-primary sm:text-sm";
+  const getBorderColor = (field: keyof typeof formData) => {
+    return formErrors[field] ? 'border-red-500' : 'border-gray-300';
+  }
+  const inputStyles = "mt-1 block w-full px-3 py-2 bg-white border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-brand-primary focus:border-brand-primary sm:text-sm";
 
   if (cartItems.length === 0) {
     return (
@@ -165,18 +281,30 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
         </header>
         <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-                {/* Form Section */}
                 <div className="lg:col-span-2 bg-white p-6 rounded-lg shadow space-y-6">
                     <div>
                         <h2 className="text-xl font-bold text-brand-text">Informações de Contato</h2>
                         <div className="mt-4 space-y-4">
                              <div>
                                 <label htmlFor="name" className="block text-sm font-medium text-brand-text-light">Nome completo</label>
-                                <input type="text" name="name" id="name" value={formData.name} onChange={handleInputChange} className={inputStyles} required />
+                                <input type="text" name="name" id="name" value={formData.name} onChange={handleInputChange} className={`${inputStyles} ${getBorderColor('name')}`} required />
+                                {formErrors.name && <p className="text-xs text-red-500 mt-1">{formErrors.name}</p>}
                             </div>
                             <div>
                                 <label htmlFor="whatsapp" className="block text-sm font-medium text-brand-text-light">WhatsApp (com DDD)</label>
-                                <input type="tel" name="whatsapp" id="whatsapp" value={formData.whatsapp} onChange={handleInputChange} className={inputStyles} placeholder="(11) 91234-5678" required />
+                                <input 
+                                    type="tel" 
+                                    name="whatsapp" 
+                                    id="whatsapp"
+                                    ref={whatsappInputRef}
+                                    value={formData.whatsapp} 
+                                    onChange={handleInputChange}
+                                    onBlur={handleWhatsappBlur}
+                                    className={`${inputStyles} ${getBorderColor('whatsapp')}`}
+                                    placeholder="(11) 91234-5678" 
+                                    required 
+                                />
+                                {formErrors.whatsapp && <p className="text-xs text-red-500 mt-1">{formErrors.whatsapp}</p>}
                             </div>
                         </div>
                     </div>
@@ -185,19 +313,25 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
                              <div className="sm:col-span-1">
                                 <label htmlFor="cep" className="block text-sm font-medium text-brand-text-light">CEP</label>
-                                <input type="text" name="cep" id="cep" value={formData.cep} onChange={handleInputChange} className={inputStyles} required />
+                                <input type="text" name="cep" id="cep" value={formData.cep} onChange={handleCepChange} className={`${inputStyles} ${getBorderColor('cep')}`} required />
+                                {isCepLoading && <p className="text-xs text-gray-500 mt-1">Buscando...</p>}
+                                {cepError && <p className="text-xs text-red-500 mt-1">{cepError}</p>}
+                                {formErrors.cep && <p className="text-xs text-red-500 mt-1">{formErrors.cep}</p>}
                             </div>
                             <div className="sm:col-span-2">
                                 <label htmlFor="street" className="block text-sm font-medium text-brand-text-light">Rua / Avenida</label>
-                                <input type="text" name="street" id="street" value={formData.street} onChange={handleInputChange} className={inputStyles} required />
+                                <input type="text" name="street" id="street" value={formData.street} onChange={handleInputChange} className={`${inputStyles} ${getBorderColor('street')}`} required />
+                                {formErrors.street && <p className="text-xs text-red-500 mt-1">{formErrors.street}</p>}
                             </div>
                             <div className="sm:col-span-1">
                                 <label htmlFor="number" className="block text-sm font-medium text-brand-text-light">Número</label>
-                                <input type="text" name="number" id="number" value={formData.number} onChange={handleInputChange} className={inputStyles} required />
+                                <input type="text" name="number" id="number" value={formData.number} onChange={handleInputChange} className={`${inputStyles} ${getBorderColor('number')}`} required />
+                                {formErrors.number && <p className="text-xs text-red-500 mt-1">{formErrors.number}</p>}
                             </div>
                             <div className="sm:col-span-2">
                                 <label htmlFor="neighborhood" className="block text-sm font-medium text-brand-text-light">Bairro</label>
-                                <input type="text" name="neighborhood" id="neighborhood" value={formData.neighborhood} onChange={handleInputChange} className={inputStyles} required />
+                                <input type="text" name="neighborhood" id="neighborhood" value={formData.neighborhood} onChange={handleInputChange} className={`${inputStyles} ${getBorderColor('neighborhood')}`} required />
+                                {formErrors.neighborhood && <p className="text-xs text-red-500 mt-1">{formErrors.neighborhood}</p>}
                             </div>
                              <div className="sm:col-span-3">
                                 <label htmlFor="complement" className="block text-sm font-medium text-brand-text-light">Complemento (Opcional)</label>
@@ -207,7 +341,7 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
                     </div>
                     <div className="border-t pt-6">
                         <h2 className="text-xl font-bold text-brand-text">Data da Entrega</h2>
-                         <p className="text-sm text-gray-500 mt-1">O prazo mínimo para este pedido é de {minLeadTime} dia(s).</p>
+                         {minLeadTime > 0 && <p className="text-sm text-gray-500 mt-1">O prazo mínimo para este pedido é de {minLeadTime} dia(s).</p>}
                         <div className="mt-4 relative">
                             <button type="button" onClick={() => setIsCalendarOpen(!isCalendarOpen)} className="w-full sm:w-auto flex items-center gap-2 text-left px-4 py-2 bg-white border border-gray-300 rounded-md shadow-sm">
                                 <CalendarIcon className="w-5 h-5 text-gray-400" />
@@ -216,6 +350,7 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
                                     <p className="font-medium text-brand-text">{new Date(formData.deliveryDate + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
                                 </div>
                             </button>
+                            {formErrors.deliveryDate && <p className="text-xs text-red-500 mt-1">{formErrors.deliveryDate}</p>}
                              {isCalendarOpen && (
                                 <>
                                     <div className="fixed inset-0 z-10" onClick={() => setIsCalendarOpen(false)}></div>
@@ -228,23 +363,9 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
                     </div>
                 </div>
 
-                {/* Summary Section */}
-                <div className="lg:col-span-1 bg-white p-6 rounded-lg shadow space-y-4 sticky top-24">
-                    <h2 className="text-xl font-bold text-brand-text">Resumo do Pedido</h2>
-                    <div className="space-y-2 border-b pb-4">
-                        {cartItems.map(item => (
-                            <div key={item.id} className="flex justify-between text-sm">
-                                <span className="text-gray-600">{item.quantity}x {item.name}</span>
-                                <span className="text-gray-800 font-medium">{formatPrice(item.price * item.quantity)}</span>
-                            </div>
-                        ))}
-                    </div>
-                    <div className="flex justify-between font-bold text-lg text-brand-text">
-                        <span>Total</span>
-                        <span>{formatPrice(total)}</span>
-                    </div>
-                     <div>
-                        <h3 className="text-md font-bold text-brand-text mt-4 mb-2">Forma de Pagamento</h3>
+                <div className="lg:col-span-1 bg-white p-6 rounded-lg shadow space-y-6 sticky top-24">
+                    <div>
+                        <h2 className="text-xl font-bold text-brand-text mb-4">Forma de Pagamento</h2>
                         <div className="space-y-2">
                              {storeInfo?.paymentMethods?.online.map(method => (
                                 <label key={method} className="flex items-center p-3 border rounded-lg cursor-pointer has-[:checked]:bg-brand-secondary has-[:checked]:border-brand-primary">
@@ -253,14 +374,43 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
                                 </label>
                             ))}
                         </div>
+                        {formErrors.paymentMethod && <p className="text-xs text-red-500 mt-1">{formErrors.paymentMethod}</p>}
                     </div>
-                     {error && <p className="text-sm text-red-600 text-center">{error}</p>}
-                    <button type="submit" disabled={isSubmitting} className="w-full mt-4 bg-brand-primary text-white font-bold py-3 rounded-lg text-lg hover:bg-brand-primary-dark transition-colors duration-300 disabled:opacity-50">
+                    <div className="border-t pt-4 space-y-2">
+                        <h2 className="text-xl font-bold text-brand-text">Resumo do Pedido</h2>
+                        <div className="space-y-2 border-b pb-4">
+                            {cartItems.map(item => (
+                                <div key={item.id} className="flex justify-between text-sm">
+                                    <span className="text-gray-600">{item.quantity}x {item.name}</span>
+                                    <span className="text-gray-800 font-medium">{formatPrice(item.price * item.quantity)}</span>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="flex justify-between font-bold text-lg text-brand-text pt-2">
+                            <span>Subtotal</span>
+                            <span>{formatPrice(total)}</span>
+                        </div>
+                        <div className="text-right text-sm text-gray-500">
+                            + taxa de envio
+                        </div>
+                    </div>
+
+                     {formErrors.form && <p className="text-sm text-red-600 text-center">{formErrors.form}</p>}
+                    <button type="submit" disabled={isSubmitting || isCepLoading} className="w-full bg-brand-primary text-white font-bold py-3 rounded-lg text-lg hover:bg-brand-primary-dark transition-colors duration-300 disabled:opacity-50">
                         {isSubmitting ? 'Finalizando...' : 'Finalizar Pedido'}
                     </button>
                 </div>
             </form>
         </main>
+        <PhoneConfirmationModal
+            isOpen={isPhoneModalOpen}
+            phoneNumber={formData.whatsapp}
+            onConfirm={() => setIsPhoneModalOpen(false)}
+            onCorrect={() => {
+                setIsPhoneModalOpen(false);
+                whatsappInputRef.current?.focus();
+            }}
+        />
     </div>
   );
 };

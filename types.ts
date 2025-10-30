@@ -67,6 +67,7 @@ export interface Order {
     delivery: DeliveryInfo;
     items: OrderItem[];
     total: number;
+    deliveryFee?: number;
     paymentMethod: string;
     deliveryDate: string; // YYYY-MM-DD
 }

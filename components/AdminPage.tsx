@@ -19,7 +19,6 @@ interface AdminPageProps {
   onAddCategory: (categoryName: string) => Promise<void>;
   onDeleteCategory: (categoryName: string) => Promise<void>;
   onUpdateCategoryOrder: (newOrder: string[]) => Promise<void>;
-  onRequestPermission: () => Promise<NotificationPermission>;
   onNavigateBack: () => void;
 }
 
@@ -31,34 +30,15 @@ const AdminPage: React.FC<AdminPageProps> = (props) => {
   useEffect(() => {
     // Real-time listener for new orders. Subscribes only once on component mount.
     const unsubscribe = listenToOrders((snapshot) => {
-        let newOrderCount = 0;
-        
-        snapshot.docChanges().forEach((change) => {
-            if (change.type === 'added') {
-                const newOrder = change.doc.data() as Order;
-                
-                // Play sound for the new order
-                const audio = new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=');
-                audio.play().catch(e => console.error("Error playing sound:", e));
-
-                // Send a real push notification
-                if (Notification.permission === 'granted' && 'serviceWorker' in navigator) {
-                    navigator.serviceWorker.ready.then(registration => {
-                        // Fix: The 'vibrate' property is valid but may not be in the project's TS definitions. Cast to 'any' to bypass the type error.
-                        registration.showNotification('Novo Pedido Recebido!', {
-                            body: `Pedido #${newOrder.orderNumber} de ${newOrder.customer.name}`,
-                            icon: '/favicon.ico',
-                            badge: '/favicon.ico',
-                            tag: `new-order-${newOrder.id}`,
-                            vibrate: [200, 100, 200],
-                        } as any);
-                    });
-                }
-            }
-        });
+        const hasNewOrders = snapshot.docChanges().some(change => change.type === 'added');
+        if (hasNewOrders) {
+             // Play sound for new orders
+            const audio = new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=');
+            audio.play().catch(e => console.error("Error playing sound:", e));
+        }
 
         // Update the count based on the whole snapshot
-        newOrderCount = snapshot.size;
+        const newOrderCount = snapshot.size;
         setNewOrdersCount(newOrderCount);
         
         if (newOrderCount > 0) {
@@ -100,7 +80,7 @@ const AdminPage: React.FC<AdminPageProps> = (props) => {
       case 'store':
         return <StoreInfoView {...props} />;
       case 'orders':
-        return <OrdersView onRequestPermission={props.onRequestPermission} />;
+        return <OrdersView />;
       case 'clients':
         return <ClientsView />;
       default:
