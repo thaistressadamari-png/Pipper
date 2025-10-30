@@ -57,33 +57,66 @@ const ClientsView: React.FC = () => {
                     />
                 </div>
             </div>
-            <div className="bg-white rounded-lg shadow overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm text-left text-gray-500">
-                        <thead className="text-xs text-gray-700 uppercase bg-gray-50">
-                            <tr>
-                                <th scope="col" className="px-6 py-3">Nome</th>
-                                <th scope="col" className="px-6 py-3">WhatsApp</th>
-                                <th scope="col" className="px-6 py-3">Último Pedido</th>
-                                <th scope="col" className="px-6 py-3">Total Pedidos</th>
-                                <th scope="col" className="px-6 py-3">Total Gasto</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {filteredClients.map(client => (
-                                <tr key={client.id} className="bg-white border-b hover:bg-gray-50">
-                                    <td scope="row" className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">{client.name}</td>
-                                    <td className="px-6 py-4">{client.id}</td>
-                                    <td className="px-6 py-4">{formatTimestamp(client.lastOrderDate)}</td>
-                                    <td className="px-6 py-4">{client.totalOrders}</td>
-                                    <td className="px-6 py-4 font-medium text-brand-text">{formatPrice(client.totalSpent)}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+
+            {filteredClients.length > 0 ? (
+                <>
+                    {/* Mobile View: Cards */}
+                    <div className="md:hidden space-y-3">
+                        {filteredClients.map(client => (
+                            <div key={client.id} className="bg-white p-4 rounded-lg shadow">
+                                <p className="font-bold text-brand-text">{client.name}</p>
+                                <p className="text-sm text-gray-500 mt-1">{client.id}</p>
+                                <div className="mt-3 pt-3 border-t border-gray-100 grid grid-cols-3 gap-2 text-center">
+                                    <div>
+                                        <p className="text-xs text-gray-500">Pedidos</p>
+                                        <p className="font-semibold text-brand-text">{client.totalOrders}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-gray-500">Gasto Total</p>
+                                        <p className="font-semibold text-brand-text">{formatPrice(client.totalSpent)}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-gray-500">Último Pedido</p>
+                                        <p className="font-semibold text-brand-text text-xs">{formatTimestamp(client.lastOrderDate)}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Desktop View: Table */}
+                    <div className="hidden md:block bg-white rounded-lg shadow overflow-hidden">
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm text-left text-gray-500">
+                                <thead className="text-xs text-gray-700 uppercase bg-gray-50">
+                                    <tr>
+                                        <th scope="col" className="px-6 py-3">Nome</th>
+                                        <th scope="col" className="px-6 py-3">WhatsApp</th>
+                                        <th scope="col" className="px-6 py-3">Último Pedido</th>
+                                        <th scope="col" className="px-6 py-3">Total Pedidos</th>
+                                        <th scope="col" className="px-6 py-3">Total Gasto</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {filteredClients.map(client => (
+                                        <tr key={client.id} className="bg-white border-b hover:bg-gray-50">
+                                            <td scope="row" className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">{client.name}</td>
+                                            <td className="px-6 py-4">{client.id}</td>
+                                            <td className="px-6 py-4">{formatTimestamp(client.lastOrderDate)}</td>
+                                            <td className="px-6 py-4">{client.totalOrders}</td>
+                                            <td className="px-6 py-4 font-medium text-brand-text">{formatPrice(client.totalSpent)}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </>
+            ) : (
+                 <div className="bg-white rounded-lg shadow text-center p-8">
+                    <p className="text-gray-500">Nenhum cliente encontrado.</p>
                 </div>
-                {filteredClients.length === 0 && <p className="text-center p-8 text-gray-500">Nenhum cliente encontrado.</p>}
-            </div>
+            )}
         </div>
     );
 };

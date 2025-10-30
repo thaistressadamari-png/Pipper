@@ -234,12 +234,19 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
         };
         
         const newOrder = await addOrder(orderData);
+        
+        // **FIX:** Create a clean, JSON-serializable payload for the API.
+        const notificationPayload = {
+            ...orderData,
+            orderNumber: newOrder.orderNumber,
+        };
 
         fetch('/api/notify-telegram', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(newOrder),
+            body: JSON.stringify(notificationPayload),
         }).catch(error => {
+            // This error will only be logged to the user's browser console, it won't stop the flow.
             console.error('Falha ao enviar notificação para o Telegram:', error);
         });
 

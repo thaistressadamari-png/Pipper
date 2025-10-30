@@ -267,37 +267,69 @@ const OrdersView: React.FC = () => {
                 </div>
             </div>
 
-            <div className="bg-white rounded-lg shadow overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm text-left text-gray-500">
-                        <thead className="text-xs text-gray-700 uppercase bg-gray-50">
-                            <tr>
-                                <th scope="col" className="px-6 py-3">#</th>
-                                <th scope="col" className="px-6 py-3">Cliente</th>
-                                <th scope="col" className="px-6 py-3">Data Entrega</th>
-                                <th scope="col" className="px-6 py-3">Total</th>
-                                <th scope="col" className="px-6 py-3">Status</th>
-                                <th scope="col" className="px-6 py-3"><span className="sr-only">Ações</span></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {filteredOrders.map(order => (
-                                <tr key={order.id} className="bg-white border-b hover:bg-gray-50">
-                                    <th scope="row" className="px-6 py-4 font-bold text-brand-primary whitespace-nowrap">#{order.orderNumber}</th>
-                                    <td className="px-6 py-4">{order.customer.name}</td>
-                                    <td className="px-6 py-4">{new Date(order.deliveryDate + 'T00:00:00').toLocaleDateString('pt-BR')}</td>
-                                    <td className="px-6 py-4">{(order.total + (order.deliveryFee || 0)).toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'})}</td>
-                                    <td className="px-6 py-4">{statusPill(order.status)}</td>
-                                    <td className="px-6 py-4 text-right">
-                                        <button onClick={() => setSelectedOrder(order)} className="font-medium text-brand-primary hover:underline">Ver</button>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+            {filteredOrders.length > 0 ? (
+                <>
+                    {/* Mobile View: Cards */}
+                    <div className="md:hidden space-y-3">
+                        {filteredOrders.map(order => (
+                            <div key={order.id} className="bg-white p-4 rounded-lg shadow active:bg-gray-50 transition-colors" onClick={() => setSelectedOrder(order)}>
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <p className="font-bold text-brand-primary">#{order.orderNumber}</p>
+                                        <p className="text-gray-800 mt-1">{order.customer.name}</p>
+                                    </div>
+                                    {statusPill(order.status)}
+                                </div>
+                                <div className="mt-3 pt-3 border-t border-gray-100 flex justify-between items-center text-sm">
+                                    <span className="text-gray-500">
+                                        Entrega: {new Date(order.deliveryDate + 'T00:00:00').toLocaleDateString('pt-BR')}
+                                    </span>
+                                    <span className="font-bold text-brand-text">
+                                        {(order.total + (order.deliveryFee || 0)).toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'})}
+                                    </span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Desktop View: Table */}
+                    <div className="hidden md:block bg-white rounded-lg shadow overflow-hidden">
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm text-left text-gray-500">
+                                <thead className="text-xs text-gray-700 uppercase bg-gray-50">
+                                    <tr>
+                                        <th scope="col" className="px-6 py-3">#</th>
+                                        <th scope="col" className="px-6 py-3">Cliente</th>
+                                        <th scope="col" className="px-6 py-3">Data Entrega</th>
+                                        <th scope="col" className="px-6 py-3">Total</th>
+                                        <th scope="col" className="px-6 py-3">Status</th>
+                                        <th scope="col" className="px-6 py-3"><span className="sr-only">Ações</span></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {filteredOrders.map(order => (
+                                        <tr key={order.id} className="bg-white border-b hover:bg-gray-50">
+                                            <th scope="row" className="px-6 py-4 font-bold text-brand-primary whitespace-nowrap">#{order.orderNumber}</th>
+                                            <td className="px-6 py-4">{order.customer.name}</td>
+                                            <td className="px-6 py-4">{new Date(order.deliveryDate + 'T00:00:00').toLocaleDateString('pt-BR')}</td>
+                                            <td className="px-6 py-4">{(order.total + (order.deliveryFee || 0)).toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'})}</td>
+                                            <td className="px-6 py-4">{statusPill(order.status)}</td>
+                                            <td className="px-6 py-4 text-right">
+                                                <button onClick={() => setSelectedOrder(order)} className="font-medium text-brand-primary hover:underline">Ver</button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </>
+            ) : (
+                <div className="bg-white rounded-lg shadow text-center p-8">
+                    <p className="text-gray-500">Nenhum pedido encontrado com este status.</p>
                 </div>
-                {filteredOrders.length === 0 && <p className="text-center p-8 text-gray-500">Nenhum pedido encontrado com este status.</p>}
-            </div>
+            )}
+            
             {selectedOrder && <OrderDetailModal order={selectedOrder} onClose={() => setSelectedOrder(null)} />}
         </div>
     );
