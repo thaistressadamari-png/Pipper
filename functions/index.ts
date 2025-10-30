@@ -33,6 +33,7 @@ export const onNewOrder = onDocumentCreated({
   });
 
 // Função auxiliar para Notificações Push (Navegador)
+// Fix: Replaced sendMulticast with the recommended sendEach method to resolve a TypeScript error.
 async function sendPushNotification(order: admin.firestore.DocumentData, orderId: string) {
     const subscriptionsSnapshot = await db.collection("pushSubscriptions").get();
     if (subscriptionsSnapshot.empty) {
@@ -53,9 +54,9 @@ async function sendPushNotification(order: admin.firestore.DocumentData, orderId
         return;
     }
 
-    // Fix: Updated payload to use the modern 'notification' and 'webpush' structure for sendMulticast
-    const message: admin.messaging.MulticastMessage = {
-        tokens: tokens,
+    // Create an array of messages to send to multiple tokens using sendEach.
+    const messages: admin.messaging.Message[] = tokens.map((token) => ({
+        token,
         notification: {
             title: "Novo Pedido Recebido!",
             body: `Pedido #${order.orderNumber} de ${order.customer.name}`,
@@ -67,14 +68,15 @@ async function sendPushNotification(order: admin.firestore.DocumentData, orderId
                 icon: "https://ugc.production.linktr.ee/fecf1c45-dcf7-4775-8db7-251ba55caa85_Prancheta-1.png?io=true&size=avatar-v3_0",
             },
         },
-    };
+    }));
 
     try {
-        // Fix: Replaced deprecated sendToDevice with sendMulticast
-        const response = await fcm.sendMulticast(message);
+        // Fix: Use sendEach() to send messages. It is the recommended method for sending to multiple tokens
+        // and resolves the type error with sendMulticast().
+        const response = await fcm.sendEach(messages);
         console.log("Mensagem FCM enviada com sucesso:", `${response.successCount} sucessos, ${response.failureCount} falhas.`);
 
-        // Fix: Updated error handling logic for sendMulticast response
+        // The error handling logic for sendEach is the same as for sendMulticast.
         if (response.failureCount > 0) {
             const tokensToRemove: Promise<any>[] = [];
             response.responses.forEach((resp, idx) => {

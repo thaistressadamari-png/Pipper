@@ -116,6 +116,20 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
         };
         
         const newOrder = await addOrder(orderData);
+
+        // Dispara a notificação para o Telegram via Vercel Serverless Function
+        // Esta é uma chamada "fire-and-forget", não bloqueia a UI do usuário.
+        fetch('/api/notify-telegram', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(newOrder),
+        }).catch(error => {
+            // Apenas loga o erro no console para debugging, não mostra ao usuário.
+            console.error('Falha ao enviar notificação para o Telegram:', error);
+        });
+
         onOrderSuccess(newOrder);
 
     } catch (err) {
