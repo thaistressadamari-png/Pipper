@@ -148,7 +148,7 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
         }
         setFormData(prev => ({
             ...prev,
-            street: data.logradouro,
+            street: data.logouro,
             neighborhood: data.bairro,
         }));
         document.getElementById('number')?.focus();
@@ -240,15 +240,24 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
             ...orderData,
             orderNumber: newOrder.orderNumber,
         };
+        
+        try {
+            console.log("Enviando payload da notificação:", JSON.stringify(notificationPayload, null, 2));
+            const response = await fetch('/api/notify-telegram', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(notificationPayload),
+            });
 
-        fetch('/api/notify-telegram', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(notificationPayload),
-        }).catch(error => {
-            // This error will only be logged to the user's browser console, it won't stop the flow.
-            console.error('Falha ao enviar notificação para o Telegram:', error);
-        });
+            const responseData = await response.json();
+            if (!response.ok) {
+                throw new Error(responseData.details || `Server returned status ${response.status}`);
+            }
+            console.log('Resposta da API de notificação:', responseData);
+        } catch (notificationError) {
+            console.error('Não foi possível enviar a notificação para o Telegram:', notificationError);
+            // We don't block the user flow for this, but we log it.
+        }
 
         onOrderSuccess(newOrder);
 
@@ -348,7 +357,9 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
                     </div>
                     <div className="border-t pt-6">
                         <h2 className="text-xl font-bold text-brand-text">Data da Entrega</h2>
-                         {minLeadTime > 0 && <p className="text-sm text-gray-500 mt-1">O prazo mínimo para este pedido é de {minLeadTime} dia(s).</p>}
+                         {minLeadTime > 0 && (
+                            <p className="text-sm text-gray-500 mt-1">O prazo mínimo para este pedido é de {minLeadTime} dia(s).</p>
+                         )}
                         <div className="mt-4 relative">
                             <button type="button" onClick={() => setIsCalendarOpen(!isCalendarOpen)} className="w-full sm:w-auto flex items-center gap-2 text-left px-4 py-2 bg-white border border-gray-300 rounded-md shadow-sm">
                                 <CalendarIcon className="w-5 h-5 text-gray-400" />

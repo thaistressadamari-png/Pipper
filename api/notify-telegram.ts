@@ -115,20 +115,31 @@ ${order.paymentMethod}
 
 
 export default async function handler(req: ApiRequest, res: ApiResponse) {
+    console.log("A função 'notify-telegram' foi acionada.");
+
     if (req.method !== 'POST') {
         res.setHeader('Allow', ['POST']);
         return res.status(405).end(`Method ${req.method} Not Allowed`);
     }
 
     try {
+        const botToken = process.env.TELEGRAM_BOT_TOKEN;
+        const chatId = process.env.TELEGRAM_CHAT_ID;
+        console.log(`Variáveis de ambiente carregadas: botToken existe = ${!!botToken}, chatId existe = ${!!chatId}`);
+        
         const orderData = req.body;
-        if (!orderData || !orderData.orderNumber) {
-             return res.status(400).json({ error: 'Invalid order data provided.' });
+        console.log("Dados do pedido recebidos:", JSON.stringify(orderData, null, 2));
+
+        if (!orderData || typeof orderData.orderNumber === 'undefined') {
+             console.error("Dados do pedido inválidos recebidos.");
+             return res.status(400).json({ error: 'Dados do pedido inválidos.' });
         }
+
         await sendTelegramNotification(orderData);
-        return res.status(200).json({ message: 'Notification sent successfully.' });
+        console.log(`Notificação para o pedido #${orderData.orderNumber} enviada com sucesso.`);
+        return res.status(200).json({ message: 'Notificação enviada com sucesso.' });
     } catch (error: any) {
-        console.error("Error sending Telegram notification:", error);
-        return res.status(500).json({ error: 'Failed to send notification.', details: error.message });
+        console.error("!!! Erro crítico na função 'notify-telegram':", error);
+        return res.status(500).json({ error: 'Falha ao enviar notificação.', details: error.message });
     }
 }
