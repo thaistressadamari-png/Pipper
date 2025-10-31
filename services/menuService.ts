@@ -17,10 +17,7 @@ import {
     Timestamp,
     increment,
     runTransaction,
-    onSnapshot,
     documentId,
-    QuerySnapshot,
-    DocumentData
 } from "firebase/firestore";
 import { db } from '../firebase';
 import type { Product, StoreInfoData, Order, Client } from '../types';
@@ -29,7 +26,6 @@ import type { Product, StoreInfoData, Order, Client } from '../types';
 const productsCollection = collection(db, 'products');
 const ordersCollection = collection(db, 'orders');
 const clientsCollection = collection(db, 'clients');
-const pushSubscriptionsCollection = collection(db, 'pushSubscriptions');
 const dailyVisitsCollection = collection(db, 'dailyVisits');
 
 const storeInfoDoc = doc(db, 'store', 'info');
@@ -245,6 +241,25 @@ export const addOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'upda
     // This runs outside the transaction to avoid contention
     await updateClientOnOrder(newOrder);
     
+    // Send notification via the reliable serverless function
+    try {
+        // Create a copy of the order for the notification API, replacing server timestamps
+        // with a client-side date. The API just needs the data to format the message.
+        const orderForApi = {
+            ...newOrder,
+            createdAt: new Date(), // Use current client date for notification
+            updatedAt: new Date(),
+        };
+        await fetch('/api/notify-telegram', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(orderForApi),
+        });
+    } catch (error) {
+        // Log the error but don't block the user flow
+        console.error("Failed to send new order notification:", error);
+    }
+    
     return newOrder;
 };
 
@@ -286,14 +301,6 @@ export const updateOrderDeliveryFee = (orderId: string, deliveryFee: number): Pr
         deliveryFee,
         updatedAt: serverTimestamp(),
     });
-};
-
-export const listenToOrders = (callback: (snapshot: QuerySnapshot<DocumentData>) => void): (() => void) => {
-    const q = query(ordersCollection, where('status', '==', 'new'));
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-        callback(querySnapshot);
-    });
-    return unsubscribe;
 };
 
 export const getClients = async (): Promise<Client[]> => {
@@ -345,10 +352,4 @@ export const getVisitCountByDateRange = async (startDate: Date, endDate: Date): 
         totalVisits += doc.data().count || 0;
     });
     return totalVisits;
-};
-
-
-export const savePushSubscription = async (subscription: object) => {
-    await addDoc(pushSubscriptionsCollection, subscription);
-    console.log("Push subscription saved.");
 };

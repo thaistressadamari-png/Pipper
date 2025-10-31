@@ -356,7 +356,7 @@ const ProductsView: React.FC<ProductsViewProps> = ({ products, categories, onAdd
                         value={productSearchQuery}
                         onChange={(e) => setProductSearchQuery(e.target.value)}
                         placeholder="Buscar produtos por nome..."
-                        className="w-full bg-gray-100 border-transparent rounded-full py-2 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                        className="w-full bg-gray-100 border-transparent rounded-full py-2 pl-10 pr-4 text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-primary"
                     />
                 </div>
                 <div className="space-y-3">

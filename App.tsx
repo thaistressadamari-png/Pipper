@@ -14,7 +14,7 @@ import CheckoutPage from './components/CheckoutPage';
 import OrderSuccessPage from './components/OrderSuccessPage';
 import OrderTrackingModal from './components/OrderTrackingModal';
 import type { Product, CartItem, StoreInfoData, Order } from './types';
-import { getMenu, addProduct, getStoreInfo, updateStoreInfo, updateProduct, deleteProduct, addCategory, deleteCategory, initializeFirebaseData, updateCategoryOrder, incrementVisitCount, savePushSubscription } from './services/menuService';
+import { getMenu, addProduct, getStoreInfo, updateStoreInfo, updateProduct, deleteProduct, addCategory, deleteCategory, initializeFirebaseData, updateCategoryOrder, incrementVisitCount } from './services/menuService';
 
 const App: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -36,17 +36,6 @@ const App: React.FC = () => {
   useEffect(() => {
     // Increment visit count on initial app load
     incrementVisitCount();
-
-    // Register Firebase Messaging Service Worker
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/firebase-messaging-sw.js')
-            .then((registration) => {
-                console.log('Service Worker registration successful, scope is:', registration.scope);
-            }).catch((err) => {
-                console.log('Service Worker registration failed:', err);
-            });
-    }
-
   }, []);
 
   useEffect(() => {

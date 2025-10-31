@@ -73,7 +73,7 @@ const CategoryTabs: React.FC<CategoryTabsProps> = ({ categories, selectedCategor
                 value={searchQuery}
                 onChange={(e) => onSearch(e.target.value)}
                 placeholder="Buscar no cardápio..."
-                className="w-full bg-gray-100/80 border-transparent rounded-full py-2 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                className="w-full bg-gray-100/80 border-transparent rounded-full py-2 pl-10 pr-4 text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-primary"
                 autoFocus
               />
             </div>

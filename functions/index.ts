@@ -1,11 +1,9 @@
-//
-// ATENÇÃO: ESTE ARQUIVO (FIREBASE CLOUD FUNCTIONS) NÃO É MAIS UTILIZADO.
-//
-// A hospedagem deste projeto é feita na Vercel, que não executa
-// as Cloud Functions do Firebase. A lógica de backend, como o envio
-// de notificações, foi movida para a pasta /api, que contém
-// as Vercel Serverless Functions.
-//
-// A notificação de novo pedido agora é disparada por uma chamada `fetch`
-// no arquivo `components/CheckoutPage.tsx` para o endpoint `/api/notify-telegram.ts`.
-//
+import * as admin from "firebase-admin";
+
+admin.initializeApp();
+
+// A Cloud Function onNewOrder foi removida.
+// A notificação de novos pedidos agora é tratada por uma serverless function
+// acionada por uma chamada fetch do frontend em `services/menuService.ts`.
+// Isso resolve problemas com as restrições de rede do plano Spark do Firebase
+// e unifica a lógica de notificação com o sistema funcional de taxa de entrega.

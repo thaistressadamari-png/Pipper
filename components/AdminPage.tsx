@@ -5,7 +5,6 @@ import ProductsView from './ProductsView';
 import StoreInfoView from './StoreInfoView';
 import OrdersView from './OrdersView';
 import ClientsView from './ClientsView';
-import { listenToOrders } from '../services/menuService';
 import { DashboardIcon, BoxIcon, StoreIcon, MenuIcon, XIcon, ClipboardListIcon, UsersIcon } from './IconComponents';
 
 interface AdminPageProps {
@@ -25,36 +24,6 @@ interface AdminPageProps {
 const AdminPage: React.FC<AdminPageProps> = (props) => {
   const [activeView, setActiveView] = useState<'dashboard' | 'products' | 'store' | 'orders' | 'clients'>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [newOrdersCount, setNewOrdersCount] = useState(0);
-
-  useEffect(() => {
-    // Real-time listener for new orders. Subscribes only once on component mount.
-    const unsubscribe = listenToOrders((snapshot) => {
-        const hasNewOrders = snapshot.docChanges().some(change => change.type === 'added');
-        if (hasNewOrders) {
-             // Play sound for new orders
-            const audio = new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=');
-            audio.play().catch(e => console.error("Error playing sound:", e));
-        }
-
-        // Update the count based on the whole snapshot
-        const newOrderCount = snapshot.size;
-        setNewOrdersCount(newOrderCount);
-        
-        if (newOrderCount > 0) {
-            document.title = `(${newOrderCount}) Novo Pedido! - Admin`;
-        } else {
-            document.title = 'Admin - Pipper Confeitaria';
-        }
-    });
-
-    // Cleanup: Unsubscribe when the component unmounts and reset the title.
-    return () => {
-        unsubscribe();
-        document.title = 'Pipper Confeitaria';
-    };
-  }, []); // Empty dependency array ensures this effect runs only once.
-
 
   const handleNavClick = (view: 'dashboard' | 'products' | 'store' | 'orders' | 'clients') => {
     setActiveView(view);
@@ -104,11 +73,6 @@ const AdminPage: React.FC<AdminPageProps> = (props) => {
           <button onClick={() => handleNavClick('orders')} className={navItemClasses('orders')}>
             <ClipboardListIcon className={navIconClasses('orders')} />
             Pedidos
-            {newOrdersCount > 0 && (
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 h-6 w-6 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
-                    {newOrdersCount}
-                </span>
-            )}
           </button>
           <button onClick={() => handleNavClick('clients')} className={navItemClasses('clients')}>
             <UsersIcon className={navIconClasses('clients')} />
@@ -149,14 +113,14 @@ const AdminPage: React.FC<AdminPageProps> = (props) => {
 
       <div className="flex-grow flex flex-col">
         <header className="bg-white shadow-sm h-16 flex-shrink-0">
-            <div className="container mx-auto px-4 sm:px-6 lg:px-8 h-full flex justify-between items-center">
-                <div className="flex items-center">
+            <div className="container mx-auto px-4 sm:px-6 lg:px-8 h-full flex justify-between items-center gap-4">
+                <div className="flex items-center min-w-0">
                     <button onClick={() => setIsSidebarOpen(true)} className="md:hidden p-2 -ml-2 mr-2 text-gray-600">
                         <MenuIcon className="w-6 h-6" />
                     </button>
-                    <h2 className="text-xl font-bold text-brand-text capitalize">{getPageTitle()}</h2>
+                    <h2 className="text-xl font-bold text-brand-text capitalize truncate">{getPageTitle()}</h2>
                 </div>
-                <button onClick={props.onNavigateBack} className="text-sm font-medium text-brand-primary hover:underline">
+                <button onClick={props.onNavigateBack} className="text-sm font-medium text-brand-primary hover:underline whitespace-nowrap">
                     &larr; Voltar ao cardápio
                 </button>
             </div>

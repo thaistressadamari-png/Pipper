@@ -183,7 +183,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
                       onChange={(e) => setObservations(e.target.value)}
                       rows={3}
                       placeholder="Digite observações aqui (opcional)..."
-                      className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-brand-text placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent transition-colors duration-200"
+                      className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent transition-colors duration-200"
                   />
               </div>
           </div>

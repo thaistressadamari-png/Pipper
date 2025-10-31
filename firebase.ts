@@ -1,8 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
 import { getFirestore } from "firebase/firestore";
-import { getMessaging, isSupported } from "firebase/messaging";
-import type { Messaging } from "firebase/messaging";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -19,28 +17,5 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const analytics = getAnalytics(app);
 const db = getFirestore(app);
-
-// We will export a function to get messaging, so it's initialized only when needed and supported.
-let messagingInstance: Messaging | null = null;
-let supportChecked = false;
-
-export async function getMessagingObject(): Promise<Messaging | null> {
-    if (supportChecked) {
-        return messagingInstance;
-    }
-    supportChecked = true;
-    try {
-        if (await isSupported()) {
-            messagingInstance = getMessaging(app);
-            return messagingInstance;
-        } else {
-            console.log("Firebase Messaging is not supported in this browser.");
-            return null;
-        }
-    } catch (err) {
-        console.error("Error initializing Firebase Messaging", err);
-        return null;
-    }
-}
 
 export { db };

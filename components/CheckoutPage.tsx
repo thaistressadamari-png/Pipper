@@ -235,16 +235,6 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
         
         const newOrder = await addOrder(orderData);
         
-        // Fire-and-forget notification to Vercel serverless function
-        fetch('/api/notify-telegram', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(newOrder),
-        }).catch(err => {
-            // Log the error but don't interrupt the user flow
-            console.error("Failed to send order notification:", err);
-        });
-
         onOrderSuccess(newOrder);
 
     } catch (err) {
@@ -258,7 +248,7 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
   const getBorderColor = (field: keyof typeof formData) => {
     return formErrors[field] ? 'border-red-500' : 'border-gray-300';
   }
-  const inputStyles = "mt-1 block w-full px-3 py-2 bg-white border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-brand-primary focus:border-brand-primary sm:text-sm";
+  const inputStyles = "mt-1 block w-full px-3 py-2 bg-white border rounded-md shadow-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-brand-primary focus:border-brand-primary sm:text-sm";
 
   if (cartItems.length === 0) {
     return (
