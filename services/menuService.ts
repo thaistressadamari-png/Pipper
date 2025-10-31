@@ -241,23 +241,19 @@ export const addOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'upda
     // This runs outside the transaction to avoid contention
     await updateClientOnOrder(newOrder);
     
-    // Send notification via the reliable serverless function
+    // Send notification, but don't wait for it and don't block the UI
     try {
-        // Create a copy of the order for the notification API, replacing server timestamps
-        // with a client-side date. The API just needs the data to format the message.
-        const orderForApi = {
-            ...newOrder,
-            createdAt: new Date(), // Use current client date for notification
-            updatedAt: new Date(),
-        };
-        await fetch('/api/notify-telegram', {
+        fetch('/api/notify-telegram', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ order: orderForApi }),
+            body: JSON.stringify({ order: newOrder }),
+        }).catch(error => {
+            // Log error but don't re-throw, as the order was successful.
+            console.error("Failed to send new order notification:", error);
         });
-    } catch (error) {
-        // Log the error but don't block the user flow
-        console.error("Failed to send new order notification:", error);
+    } catch (e) {
+        // Catch synchronous errors from fetch setup, just in case.
+        console.error("Error setting up new order notification fetch:", e);
     }
     
     return newOrder;
