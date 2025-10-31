@@ -278,7 +278,7 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
                         <h2 className="text-xl font-bold text-brand-text">Informações de Contato</h2>
                         <div className="mt-4 space-y-4">
                              <div>
-                                <label htmlFor="name" className="block text-sm font-medium text-brand-text-light">Nome completo</label>
+                                <label htmlFor="name" className="block text-sm font-medium text-brand-text-light">Nome e sobrenome</label>
                                 <input type="text" name="name" id="name" value={formData.name} onChange={handleInputChange} className={`${inputStyles} ${getBorderColor('name')}`} required />
                                 {formErrors.name && <p className="text-xs text-red-500 mt-1">{formErrors.name}</p>}
                             </div>

@@ -1,16 +1,19 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import type { Order } from '../types';
-import { getOrders, updateOrderStatus, updateOrderDeliveryFee } from '../services/menuService';
+import { getOrders, updateOrderStatus, updateOrderDeliveryFee, updateOrderPaymentLink } from '../services/menuService';
 import { SearchIcon } from './IconComponents';
 
 const OrderCard: React.FC<{
     order: Order;
     onStatusUpdate: (orderId: string, status: Order['status']) => Promise<void>;
     onDeliveryFeeUpdate: (orderId: string, deliveryFee: number) => Promise<void>;
-}> = ({ order, onStatusUpdate, onDeliveryFeeUpdate }) => {
+    onPaymentLinkUpdate: (orderId: string, paymentLink: string) => Promise<void>;
+}> = ({ order, onStatusUpdate, onDeliveryFeeUpdate, onPaymentLinkUpdate }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const [deliveryFee, setDeliveryFee] = useState<string>(order.deliveryFee?.toString() || '');
+    const [paymentLink, setPaymentLink] = useState<string>(order.paymentLink || '');
     const [isFeeSubmitting, setIsFeeSubmitting] = useState(false);
+    const [isLinkSubmitting, setIsLinkSubmitting] = useState(false);
 
     const formatPrice = (price: number) => (price || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
     const formatTimestamp = (timestamp: any) => {
@@ -32,6 +35,14 @@ const OrderCard: React.FC<{
         setIsFeeSubmitting(false);
     };
     
+    const handleLinkSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!paymentLink.trim()) return;
+        setIsLinkSubmitting(true);
+        await onPaymentLinkUpdate(order.id, paymentLink);
+        setIsLinkSubmitting(false);
+    };
+
     const totalWithFee = (order.total || 0) + (order.deliveryFee || 0);
 
     const actionButtons = () => {
@@ -112,10 +123,27 @@ const OrderCard: React.FC<{
                                 placeholder="R$"
                             />
                             <button type="submit" disabled={isFeeSubmitting} className="px-3 py-1.5 text-sm font-medium text-white bg-brand-primary rounded-md hover:bg-brand-primary-dark disabled:opacity-50">
-                                {isFeeSubmitting ? 'Salvando...' : 'Salvar'}
+                                {isFeeSubmitting ? 'Enviando...' : 'Enviar'}
                             </button>
                         </form>
-                        <p className="text-xs text-gray-500 mt-1">Salvar a taxa irá notificar o admin no Telegram para enviar o valor ao cliente.</p>
+                        <p className="text-xs text-gray-500 mt-1">"Enviar" a taxa irá notificar o admin no Telegram para confirmar o pedido com o cliente.</p>
+                    </div>
+                    <div className="pt-4">
+                        <form onSubmit={handleLinkSubmit} className="flex flex-wrap items-center gap-2">
+                            <label htmlFor={`paymentLink-${order.id}`} className="text-sm font-medium text-brand-text-light">Link de Pagamento:</label>
+                            <input
+                                id={`paymentLink-${order.id}`}
+                                type="url"
+                                value={paymentLink}
+                                onChange={(e) => setPaymentLink(e.target.value)}
+                                className="flex-grow px-2 py-1 bg-white border border-gray-300 rounded-md shadow-sm text-gray-900 text-sm"
+                                placeholder="https://..."
+                            />
+                            <button type="submit" disabled={isLinkSubmitting} className="px-3 py-1.5 text-sm font-medium text-white bg-brand-primary rounded-md hover:bg-brand-primary-dark disabled:opacity-50">
+                                {isLinkSubmitting ? 'Enviando...' : 'Enviar Link'}
+                            </button>
+                        </form>
+                        <p className="text-xs text-gray-500 mt-1">"Enviar" o link irá notificar o admin no Telegram para enviá-lo ao cliente.</p>
                     </div>
                     <div className="flex flex-wrap items-center justify-end gap-2 border-t pt-4">
                         {actionButtons()}
@@ -186,7 +214,7 @@ const OrdersView: React.FC = () => {
                 await fetch('/api/notify-delivery-fee', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ order: { ...updatedOrder, deliveryFee } }),
+                    body: JSON.stringify({ order: { ...updatedOrder, deliveryFee }, type: 'delivery_fee' }),
                 });
             }
             fetchOrders();
@@ -194,6 +222,25 @@ const OrdersView: React.FC = () => {
         } catch (e) {
             console.error("Failed to update delivery fee", e);
             alert("Erro ao atualizar a taxa de entrega.");
+        }
+    };
+
+    const handlePaymentLinkUpdate = async (orderId: string, paymentLink: string) => {
+        try {
+            await updateOrderPaymentLink(orderId, paymentLink);
+            const updatedOrder = orders.find(o => o.id === orderId);
+
+            if (updatedOrder) {
+                await fetch('/api/notify-delivery-fee', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ order: { ...updatedOrder, paymentLink }, type: 'payment_link' }),
+                });
+            }
+            fetchOrders();
+        } catch (e) {
+            console.error("Failed to update payment link", e);
+            alert("Erro ao atualizar o link de pagamento.");
         }
     };
     
@@ -249,6 +296,7 @@ const OrdersView: React.FC = () => {
                                 order={order}
                                 onStatusUpdate={handleStatusUpdate}
                                 onDeliveryFeeUpdate={handleDeliveryFeeUpdate}
+                                onPaymentLinkUpdate={handlePaymentLinkUpdate}
                             />
                         ))
                     ) : (

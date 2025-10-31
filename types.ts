@@ -68,6 +68,7 @@ export interface Order {
     items: OrderItem[];
     total: number;
     deliveryFee?: number;
+    paymentLink?: string;
     paymentMethod: string;
     deliveryDate: string; // YYYY-MM-DD
 }

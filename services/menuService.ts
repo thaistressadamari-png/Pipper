@@ -299,6 +299,14 @@ export const updateOrderDeliveryFee = (orderId: string, deliveryFee: number): Pr
     });
 };
 
+export const updateOrderPaymentLink = (orderId: string, paymentLink: string): Promise<void> => {
+    const orderRef = doc(ordersCollection, orderId);
+    return updateDoc(orderRef, {
+        paymentLink,
+        updatedAt: serverTimestamp(),
+    });
+};
+
 export const getClients = async (): Promise<Client[]> => {
     const q = query(clientsCollection, orderBy('lastOrderDate', 'desc'));
     const querySnapshot = await getDocs(q);

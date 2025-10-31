@@ -44,8 +44,6 @@ async function sendNewOrderNotification(order: any) {
 
     const message = `*🔔 NOVO PEDIDO - #${order.orderNumber} 🔔*
 
-Um novo pedido foi realizado no site!
-
 *🗓️ DATA AGENDADA:*
 *${formatDisplayDate(order.deliveryDate)}*
 
@@ -71,19 +69,22 @@ ${itemsList}
 
 *🚚 ENDEREÇO DE ENTREGA*
 ${fullAddress}
-*CEP:* ${address.cep}
-
----
-
-*➡️ PRÓXIMOS PASSOS*
-1. Acesse o painel de admin.
-2. Calcule a taxa de entrega.
-3. Adicione a taxa ao pedido para notificar o cliente.`;
+*CEP:* ${address.cep}`;
 
     const data = JSON.stringify({
       chat_id: chatId,
       text: message,
       parse_mode: "Markdown",
+      reply_markup: {
+        inline_keyboard: [
+          [
+            {
+              text: "Ir para pedido no site",
+              url: "https://pipper-psi.vercel.app/",
+            },
+          ],
+        ],
+      },
     });
 
     const options = {
