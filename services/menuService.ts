@@ -282,6 +282,11 @@ export const getOrdersByDateRange = async (startDate: Date, endDate: Date): Prom
     } as Order));
 };
 
+export const getNewOrdersCount = async (): Promise<number> => {
+    const q = query(ordersCollection, where('status', '==', 'new'));
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.size;
+};
 
 export const updateOrderStatus = (orderId: string, status: Order['status']): Promise<void> => {
     const orderRef = doc(ordersCollection, orderId);

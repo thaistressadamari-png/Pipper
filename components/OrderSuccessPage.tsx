@@ -50,7 +50,7 @@ const OrderSuccessPage: React.FC<OrderSuccessPageProps> = ({ order, storeInfo, o
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <h2 className="text-2xl font-bold text-brand-text mt-4">Obrigado pela sua compra!</h2>
-            <p className="text-brand-text-light mt-2">Seu pedido foi recebido com sucesso e já está sendo preparado pela nossa equipe.</p>
+            <p className="text-brand-text-light mt-2">Seu pedido foi recebido com sucesso e em breve entraremos em contato.</p>
             
             <div className="mt-6 text-left bg-gray-50 p-4 rounded-lg border">
                 <p className="text-sm text-gray-600">Número do Pedido:</p>

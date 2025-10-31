@@ -6,6 +6,7 @@ import StoreInfoView from './StoreInfoView';
 import OrdersView from './OrdersView';
 import ClientsView from './ClientsView';
 import { DashboardIcon, BoxIcon, StoreIcon, MenuIcon, XIcon, ClipboardListIcon, UsersIcon } from './IconComponents';
+import { getNewOrdersCount } from '../services/menuService';
 
 interface AdminPageProps {
   products: Product[];
@@ -24,6 +25,23 @@ interface AdminPageProps {
 const AdminPage: React.FC<AdminPageProps> = (props) => {
   const [activeView, setActiveView] = useState<'dashboard' | 'products' | 'store' | 'orders' | 'clients'>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [newOrdersCount, setNewOrdersCount] = useState(0);
+
+  useEffect(() => {
+    const fetchCount = async () => {
+        try {
+            const count = await getNewOrdersCount();
+            setNewOrdersCount(count);
+        } catch (error) {
+            console.error("Failed to fetch new orders count:", error);
+        }
+    };
+
+    fetchCount();
+    const intervalId = setInterval(fetchCount, 30000); // Poll every 30 seconds
+
+    return () => clearInterval(intervalId); // Cleanup on unmount
+  }, []);
 
   const handleNavClick = (view: 'dashboard' | 'products' | 'store' | 'orders' | 'clients') => {
     setActiveView(view);
@@ -73,6 +91,11 @@ const AdminPage: React.FC<AdminPageProps> = (props) => {
           <button onClick={() => handleNavClick('orders')} className={navItemClasses('orders')}>
             <ClipboardListIcon className={navIconClasses('orders')} />
             Pedidos
+            {newOrdersCount > 0 && (
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 bg-red-600 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                    {newOrdersCount}
+                </span>
+            )}
           </button>
           <button onClick={() => handleNavClick('clients')} className={navItemClasses('clients')}>
             <UsersIcon className={navIconClasses('clients')} />

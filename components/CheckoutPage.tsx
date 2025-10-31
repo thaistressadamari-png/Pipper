@@ -59,6 +59,8 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
   const [isPhoneModalOpen, setIsPhoneModalOpen] = useState(false);
 
   const whatsappInputRef = useRef<HTMLInputElement>(null);
+  const calendarButtonRef = useRef<HTMLButtonElement>(null);
+  const [calendarPosition, setCalendarPosition] = useState<'bottom' | 'top'>('bottom');
 
   const total = useMemo(() => cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0), [cartItems]);
   
@@ -158,6 +160,20 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
     } finally {
         setIsCepLoading(false);
     }
+  };
+  
+  const handleCalendarToggle = () => {
+    if (!isCalendarOpen && calendarButtonRef.current) {
+        const rect = calendarButtonRef.current.getBoundingClientRect();
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const calendarHeight = 400; // Estimated height of the calendar component
+        if (spaceBelow < calendarHeight && rect.top > calendarHeight) {
+            setCalendarPosition('top');
+        } else {
+            setCalendarPosition('bottom');
+        }
+    }
+    setIsCalendarOpen(!isCalendarOpen);
   };
   
   const handleDateSelect = (date: string) => {
@@ -343,7 +359,12 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
                             <p className="text-sm text-gray-500 mt-1">O prazo mínimo para este pedido é de {minLeadTime} dia(s).</p>
                          )}
                         <div className="mt-4 relative">
-                            <button type="button" onClick={() => setIsCalendarOpen(!isCalendarOpen)} className="w-full sm:w-auto flex items-center gap-2 text-left px-4 py-2 bg-white border border-gray-300 rounded-md shadow-sm">
+                            <button
+                                ref={calendarButtonRef}
+                                type="button"
+                                onClick={handleCalendarToggle}
+                                className="w-full sm:w-auto flex items-center gap-2 text-left px-4 py-2 bg-white border border-gray-300 rounded-md shadow-sm"
+                            >
                                 <CalendarIcon className="w-5 h-5 text-gray-400" />
                                 <div>
                                     <span className="text-sm text-gray-500">Data selecionada</span>
@@ -354,7 +375,7 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
                              {isCalendarOpen && (
                                 <>
                                     <div className="fixed inset-0 z-10" onClick={() => setIsCalendarOpen(false)}></div>
-                                    <div className="absolute top-full left-0 mt-2 z-20">
+                                    <div className={`absolute left-0 z-20 ${calendarPosition === 'bottom' ? 'top-full mt-2' : 'bottom-full mb-2'}`}>
                                         <Calendar minDate={minDate} selectedDate={formData.deliveryDate} onDateSelect={handleDateSelect} />
                                     </div>
                                 </>
