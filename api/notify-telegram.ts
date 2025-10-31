@@ -127,16 +127,16 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         const chatId = process.env.TELEGRAM_CHAT_ID;
         console.log(`Variáveis de ambiente carregadas: botToken existe = ${!!botToken}, chatId existe = ${!!chatId}`);
         
-        const orderData = req.body;
-        console.log("Dados do pedido recebidos:", JSON.stringify(orderData, null, 2));
+        const { order } = req.body;
+        console.log("Dados do pedido recebidos:", JSON.stringify(order, null, 2));
 
-        if (!orderData || typeof orderData.orderNumber === 'undefined') {
+        if (!order || typeof order.orderNumber === 'undefined') {
              console.error("Dados do pedido inválidos recebidos.");
              return res.status(400).json({ error: 'Dados do pedido inválidos.' });
         }
 
-        await sendTelegramNotification(orderData);
-        console.log(`Notificação para o pedido #${orderData.orderNumber} enviada com sucesso.`);
+        await sendTelegramNotification(order);
+        console.log(`Notificação para o pedido #${order.orderNumber} enviada com sucesso.`);
         return res.status(200).json({ message: 'Notificação enviada com sucesso.' });
     } catch (error: any) {
         console.error("!!! Erro crítico na função 'notify-telegram':", error);

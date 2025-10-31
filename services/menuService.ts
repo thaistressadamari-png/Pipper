@@ -253,7 +253,7 @@ export const addOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'upda
         await fetch('/api/notify-telegram', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(orderForApi),
+            body: JSON.stringify({ order: orderForApi }),
         });
     } catch (error) {
         // Log the error but don't block the user flow
