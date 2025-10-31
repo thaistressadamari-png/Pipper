@@ -213,7 +213,7 @@ const OrdersView: React.FC = () => {
                 await fetch('/api/notify-delivery-fee', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ order: { ...updatedOrder, deliveryFee }, type: 'delivery_fee' }),
+                    body: JSON.stringify({ order: { ...updatedOrder, deliveryFee } }),
                 });
             }
             fetchOrders();
