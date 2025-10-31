@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import type { CartItem, StoreInfoData, Order, OrderItem, CustomerInfo, DeliveryInfo } from '../types';
-import { ArrowLeftIcon, CalendarIcon } from './IconComponents';
+import { ArrowLeftIcon, CalendarIcon, SpinnerIcon } from './IconComponents';
 import { addOrder } from '../services/menuService';
 import Calendar from './Calendar';
 
@@ -148,7 +148,7 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
         }
         setFormData(prev => ({
             ...prev,
-            street: data.logouro,
+            street: data.logradouro,
             neighborhood: data.bairro,
         }));
         document.getElementById('number')?.focus();
@@ -305,8 +305,14 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
                              <div className="sm:col-span-1">
                                 <label htmlFor="cep" className="block text-sm font-medium text-brand-text-light">CEP</label>
-                                <input type="text" name="cep" id="cep" value={formData.cep} onChange={handleCepChange} className={`${inputStyles} ${getBorderColor('cep')}`} required />
-                                {isCepLoading && <p className="text-xs text-gray-500 mt-1">Buscando...</p>}
+                                <div className="relative">
+                                    <input type="tel" inputMode="numeric" pattern="[0-9]*" name="cep" id="cep" value={formData.cep} onChange={handleCepChange} className={`${inputStyles} ${getBorderColor('cep')}`} required disabled={isCepLoading} />
+                                    {isCepLoading && (
+                                        <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                                            <SpinnerIcon className="h-5 w-5 text-gray-400" />
+                                        </div>
+                                    )}
+                                </div>
                                 {cepError && <p className="text-xs text-red-500 mt-1">{cepError}</p>}
                                 {formErrors.cep && <p className="text-xs text-red-500 mt-1">{formErrors.cep}</p>}
                             </div>

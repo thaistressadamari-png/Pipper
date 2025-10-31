@@ -39,39 +39,46 @@ async function sendNewOrderNotification(order: any) {
     const address = order.delivery.address;
     const fullAddress = `${address.street}, ${address.number}${address.complement ? `, ${address.complement}` : ''} - ${address.neighborhood}`;
     
-    // The createdAt is a server timestamp, which is null on the client when creating the order.
-    // It's better to use the current time for the notification.
-    const orderDate = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+    const customerWhatsapp = `55${order.customer.whatsapp.replace(/\D/g, '')}`;
+    const whatsappLink = `https://wa.me/${customerWhatsapp}`;
 
-    const message = `🎉 *Novo Pedido Recebido!* 🎉
+    const message = `*🔔 NOVO PEDIDO - #${order.orderNumber} 🔔*
 
-*Pedido:* #${order.orderNumber}
-*Data do Pedido:* ${orderDate}
+Um novo pedido foi realizado no site!
 
----
-
-*Cliente:*
-- *Nome:* ${order.customer.name}
-- *WhatsApp:* ${order.customer.whatsapp}
+*🗓️ DATA AGENDADA:*
+*${formatDisplayDate(order.deliveryDate)}*
 
 ---
 
-*Itens:*
+*👤 CLIENTE*
+*Nome:* ${order.customer.name}
+*WhatsApp:* ${order.customer.whatsapp}
+> [💬 Iniciar conversa no WhatsApp](${whatsappLink})
+
+---
+
+*📦 ITENS DO PEDIDO*
 ${itemsList}
 
 ---
 
-*Valores:*
-- *Subtotal:* ${formatPrice(order.total)}
-- *Pagamento:* ${order.paymentMethod}
+*💰 PAGAMENTO*
+*Subtotal:* ${formatPrice(order.total)}
+*Método:* ${order.paymentMethod}
 
 ---
 
-*Entrega:*
-- *Endereço:* ${fullAddress}
-- *Data Agendada:* ${formatDisplayDate(order.deliveryDate)}
+*🚚 ENDEREÇO DE ENTREGA*
+${fullAddress}
+*CEP:* ${address.cep}
 
-Acesse o painel de admin para gerenciar este pedido.`;
+---
+
+*➡️ PRÓXIMOS PASSOS*
+1. Acesse o painel de admin.
+2. Calcule a taxa de entrega.
+3. Adicione a taxa ao pedido para notificar o cliente.`;
 
     const data = JSON.stringify({
       chat_id: chatId,
