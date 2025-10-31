@@ -28,7 +28,7 @@ async function sendDeliveryFeeLinkToTelegram(order: any) {
     // 1. Construir a mensagem para o CLIENTE
     const itemsList = order.items.map((item: any) => `- ${item.quantity}x ${item.name}`).join("\n");
 
-    let customerMessage = `Olá, ${order.customer.name}! 💙
+    let customerMessage = `Olá, ${order.customer.name}! ✨
 
 Recebemos o seu pedido *#${order.orderNumber}* na Pipper Confeitaria.
 
@@ -43,13 +43,13 @@ ${itemsList}
     if (order.paymentLink) {
         customerMessage += `
 
-Pagar agora
+*Link para pagamento*
 ${order.paymentLink}`;
     }
 
     customerMessage += `
 
-Assim que o pagamento for confirmado, preparamos tudo com muito carinho pra você 💛
+Assim que o pagamento for confirmado, preparamos tudo com muito carinho pra você 💙
 
 Qualquer dúvida é só responder por aqui!`;
 

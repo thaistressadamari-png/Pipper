@@ -35,12 +35,12 @@ const OrderCard: React.FC<{
         setIsFeeSubmitting(false);
     };
     
-    const handleLinkSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!paymentLink.trim()) return;
-        setIsLinkSubmitting(true);
-        await onPaymentLinkUpdate(order.id, paymentLink);
-        setIsLinkSubmitting(false);
+    const handleLinkBlur = async () => {
+        if (paymentLink.trim() !== (order.paymentLink || '')) {
+            setIsLinkSubmitting(true);
+            await onPaymentLinkUpdate(order.id, paymentLink.trim());
+            setIsLinkSubmitting(false);
+        }
     };
 
     const totalWithFee = (order.total || 0) + (order.deliveryFee || 0);
@@ -129,21 +129,20 @@ const OrderCard: React.FC<{
                         <p className="text-xs text-gray-500 mt-1">"Enviar" a taxa irá notificar o admin no Telegram para confirmar o pedido com o cliente.</p>
                     </div>
                     <div className="pt-4">
-                        <form onSubmit={handleLinkSubmit} className="flex flex-wrap items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                             <label htmlFor={`paymentLink-${order.id}`} className="text-sm font-medium text-brand-text-light">Link de Pagamento:</label>
                             <input
                                 id={`paymentLink-${order.id}`}
                                 type="url"
                                 value={paymentLink}
                                 onChange={(e) => setPaymentLink(e.target.value)}
+                                onBlur={handleLinkBlur}
                                 className="flex-grow px-2 py-1 bg-white border border-gray-300 rounded-md shadow-sm text-gray-900 text-sm"
                                 placeholder="https://..."
+                                disabled={isLinkSubmitting}
                             />
-                            <button type="submit" disabled={isLinkSubmitting} className="px-3 py-1.5 text-sm font-medium text-white bg-brand-primary rounded-md hover:bg-brand-primary-dark disabled:opacity-50">
-                                {isLinkSubmitting ? 'Enviando...' : 'Enviar Link'}
-                            </button>
-                        </form>
-                        <p className="text-xs text-gray-500 mt-1">"Enviar" o link irá notificar o admin no Telegram para enviá-lo ao cliente.</p>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">O link será salvo automaticamente e incluído na mensagem de resumo ao enviar a taxa de entrega.</p>
                     </div>
                     <div className="flex flex-wrap items-center justify-end gap-2 border-t pt-4">
                         {actionButtons()}
@@ -228,15 +227,6 @@ const OrdersView: React.FC = () => {
     const handlePaymentLinkUpdate = async (orderId: string, paymentLink: string) => {
         try {
             await updateOrderPaymentLink(orderId, paymentLink);
-            const updatedOrder = orders.find(o => o.id === orderId);
-
-            if (updatedOrder) {
-                await fetch('/api/notify-delivery-fee', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ order: { ...updatedOrder, paymentLink }, type: 'payment_link' }),
-                });
-            }
             fetchOrders();
         } catch (e) {
             console.error("Failed to update payment link", e);
