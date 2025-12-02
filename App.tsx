@@ -15,6 +15,8 @@ import OrderSuccessPage from './components/OrderSuccessPage';
 import OrderTrackingModal from './components/OrderTrackingModal';
 import type { Product, CartItem, StoreInfoData, Order } from './types';
 import { getMenu, addProduct, getStoreInfo, updateStoreInfo, updateProduct, deleteProduct, addCategory, deleteCategory, initializeFirebaseData, updateCategoryOrder, incrementVisitCount } from './services/menuService';
+import { auth } from './firebase';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
 
 const App: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -36,6 +38,19 @@ const App: React.FC = () => {
   useEffect(() => {
     // Increment visit count on initial app load
     incrementVisitCount();
+
+    // Listen to Firebase Auth state
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setIsAuthenticated(true);
+      } else {
+        setIsAuthenticated(false);
+        // If we are on admin page but logged out, go to login
+        setView(currentView => currentView === 'admin' ? 'login' : currentView);
+      }
+    });
+
+    return () => unsubscribe();
   }, []);
 
   useEffect(() => {
@@ -179,6 +194,15 @@ const App: React.FC = () => {
     setOrderSuccessData(order);
     setCartItems([]);
     setView('orderSuccess');
+  };
+  
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      setView('login');
+    } catch (error) {
+      console.error("Error signing out", error);
+    }
   };
 
   const SectionTitle: React.FC<{ title: string }> = ({ title }) => (
@@ -333,15 +357,14 @@ const App: React.FC = () => {
     case 'login':
       return <LoginPage
         onLoginSuccess={() => {
-          setIsAuthenticated(true);
           setView('admin');
         }}
         onNavigateBack={() => setView('menu')}
       />;
     case 'admin':
       if (!isAuthenticated) {
-        setTimeout(() => setView('login'), 0);
-        return null;
+        // Just a safe guard, useEffect handles the redirect
+        return <div className="min-h-screen flex items-center justify-center">Verificando acesso...</div>;
       }
       return <AdminPage
         products={products}
@@ -355,6 +378,7 @@ const App: React.FC = () => {
         onDeleteCategory={handleDeleteCategory}
         onUpdateCategoryOrder={handleUpdateCategoryOrder}
         onNavigateBack={() => setView('menu')}
+        onLogout={handleLogout}
       />;
     case 'checkout':
         return <CheckoutPage 

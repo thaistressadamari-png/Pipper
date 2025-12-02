@@ -20,8 +20,20 @@ const Calendar: React.FC<CalendarProps> = ({
   onRangeSelect,
   mode = 'single',
 }) => {
-  const initialDisplayDate = new Date(((mode === 'single' ? selectedDate : startDate) || minDate) + 'T00:00:00');
-  const [displayDate, setDisplayDate] = useState(initialDisplayDate);
+  const [displayDate, setDisplayDate] = useState(() => {
+      const targetDateStr = mode === 'single' ? selectedDate : startDate;
+      if (targetDateStr) {
+          return new Date(targetDateStr + 'T00:00:00');
+      }
+      const now = new Date();
+      const min = new Date(minDate + 'T00:00:00');
+      // If today is valid (>= minDate), show today. Otherwise show minDate.
+      if (now >= min) {
+          return now;
+      }
+      return min;
+  });
+  
   const [hoveredDate, setHoveredDate] = useState<Date | null>(null);
 
   const selected = selectedDate ? new Date(selectedDate + 'T00:00:00') : null;
@@ -29,8 +41,17 @@ const Calendar: React.FC<CalendarProps> = ({
   const end = endDate ? new Date(endDate + 'T00:00:00') : null;
   const minimum = new Date(minDate + 'T00:00:00');
 
+  // Helper to format date as YYYY-MM-DD in local time
+  const formatDateLocal = (date: Date) => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+  };
+
   const handleDateClick = (date: Date) => {
-    const dateString = date.toISOString().split('T')[0];
+    const dateString = formatDateLocal(date);
+    
     if (mode === 'single' && onDateSelect) {
         onDateSelect(dateString);
     } else if (mode === 'range' && onRangeSelect) {
@@ -38,9 +59,9 @@ const Calendar: React.FC<CalendarProps> = ({
             onRangeSelect(dateString, ''); // Start new range
         } else if (start && !end) { // Start date is set, now set end date
             if (date < start) {
-                onRangeSelect(dateString, start.toISOString().split('T')[0]); // New start is earlier
+                onRangeSelect(dateString, formatDateLocal(start)); // New start is earlier
             } else {
-                onRangeSelect(start.toISOString().split('T')[0], dateString); // Complete the range
+                onRangeSelect(formatDateLocal(start), dateString); // Complete the range
             }
         }
     }

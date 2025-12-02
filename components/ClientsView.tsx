@@ -3,6 +3,64 @@ import type { Client } from '../types';
 import { getClients } from '../services/menuService';
 import { SearchIcon } from './IconComponents';
 
+const formatPrice = (price: number) => {
+    return (price || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+};
+
+const formatWhatsapp = (rawNumber: string = '') => {
+    return rawNumber
+      .replace(/\D/g, '')
+      .replace(/^(\d{2})(\d)/g, '($1) $2')
+      .replace(/(\d)(\d{4})$/, '$1-$2');
+};
+
+const formatTimestamp = (timestamp: any): string => {
+    if (!timestamp || !timestamp.toDate) return 'N/A';
+    return timestamp.toDate().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+};
+
+const getRelativeTime = (timestamp: any): string => {
+    if (!timestamp || !timestamp.toDate) return '';
+    const lastOrderDate = timestamp.toDate();
+    const now = new Date();
+
+    lastOrderDate.setHours(0, 0, 0, 0);
+    now.setHours(0, 0, 0, 0);
+
+    const diffTime = now.getTime() - lastOrderDate.getTime();
+    if (diffTime < 0) return ''; // Future date
+
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays === 0) {
+        return 'hoje';
+    } else if (diffDays === 1) {
+        return 'ontem';
+    } else {
+        return `há ${diffDays} dias`;
+    }
+};
+
+const ClientCard: React.FC<{ client: Client }> = ({ client }) => {
+    const averageTicket = client.totalOrders > 0 ? client.totalSpent / client.totalOrders : 0;
+    const lastOrderDate = formatTimestamp(client.lastOrderDate);
+    const relativeTime = getRelativeTime(client.lastOrderDate);
+
+    return (
+        <div className="bg-white p-5 rounded-lg shadow-md border border-gray-100 transition-shadow hover:shadow-lg">
+            <h3 className="text-lg font-bold text-brand-text truncate">{client.name}</h3>
+            <div className="mt-3 space-y-2 text-sm text-gray-700">
+                <p><span className="font-medium text-gray-500">WhatsApp:</span> {formatWhatsapp(client.id)}</p>
+                <p><span className="font-medium text-gray-500">Total de Pedidos:</span> {client.totalOrders}</p>
+                <p><span className="font-medium text-gray-500">Total Gasto:</span> {formatPrice(client.totalSpent)}</p>
+                <p><span className="font-medium text-gray-500">Ticket Médio:</span> {formatPrice(averageTicket)}</p>
+                <p><span className="font-medium text-gray-500">Último Pedido:</span> {lastOrderDate} {relativeTime && `(${relativeTime})`}</p>
+            </div>
+        </div>
+    );
+};
+
+
 const ClientsView: React.FC = () => {
     const [clients, setClients] = useState<Client[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -27,21 +85,12 @@ const ClientsView: React.FC = () => {
     const filteredClients = useMemo(() => {
         return clients.filter(client =>
             client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            client.id.includes(searchQuery)
+            client.id.includes(searchQuery.replace(/\D/g, ''))
         );
     }, [clients, searchQuery]);
 
-    const formatTimestamp = (timestamp: any) => {
-        if (!timestamp || !timestamp.toDate) return 'N/A';
-        return timestamp.toDate().toLocaleDateString('pt-BR');
-    }
-    
-    const formatPrice = (price: number) => {
-        return price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-    }
-
-    if (isLoading) return <p>Carregando clientes...</p>;
-    if (error) return <p className="text-red-500">{error}</p>;
+    if (isLoading) return <p className="text-center text-gray-500 py-8">Carregando clientes...</p>;
+    if (error) return <p className="text-center text-red-500 py-8">{error}</p>;
 
     return (
         <div className="space-y-6">
@@ -59,59 +108,11 @@ const ClientsView: React.FC = () => {
             </div>
 
             {filteredClients.length > 0 ? (
-                <>
-                    {/* Mobile View: Cards */}
-                    <div className="md:hidden space-y-3">
-                        {filteredClients.map(client => (
-                            <div key={client.id} className="bg-white p-4 rounded-lg shadow">
-                                <p className="font-bold text-brand-text">{client.name}</p>
-                                <p className="text-sm text-gray-500 mt-1">{client.id}</p>
-                                <div className="mt-3 pt-3 border-t border-gray-100 grid grid-cols-3 gap-2 text-center">
-                                    <div>
-                                        <p className="text-xs text-gray-500">Pedidos</p>
-                                        <p className="font-semibold text-brand-text">{client.totalOrders}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-xs text-gray-500">Gasto Total</p>
-                                        <p className="font-semibold text-brand-text">{formatPrice(client.totalSpent)}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-xs text-gray-500">Último Pedido</p>
-                                        <p className="font-semibold text-brand-text text-xs">{formatTimestamp(client.lastOrderDate)}</p>
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-
-                    {/* Desktop View: Table */}
-                    <div className="hidden md:block bg-white rounded-lg shadow overflow-hidden">
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-sm text-left text-gray-500">
-                                <thead className="text-xs text-gray-700 uppercase bg-gray-50">
-                                    <tr>
-                                        <th scope="col" className="px-6 py-3">Nome</th>
-                                        <th scope="col" className="px-6 py-3">WhatsApp</th>
-                                        <th scope="col" className="px-6 py-3">Último Pedido</th>
-                                        <th scope="col" className="px-6 py-3">Total Pedidos</th>
-                                        <th scope="col" className="px-6 py-3">Total Gasto</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {filteredClients.map(client => (
-                                        <tr key={client.id} className="bg-white border-b hover:bg-gray-50">
-                                            <td scope="row" className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">{client.name}</td>
-                                            <td className="px-6 py-4">{client.id}</td>
-                                            <td className="px-6 py-4">{formatTimestamp(client.lastOrderDate)}</td>
-                                            <td className="px-6 py-4">{client.totalOrders}</td>
-                                            <td className="px-6 py-4 font-medium text-brand-text">{formatPrice(client.totalSpent)}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {filteredClients.map(client => (
+                        <ClientCard key={client.id} client={client} />
+                    ))}
+                </div>
             ) : (
                  <div className="bg-white rounded-lg shadow text-center p-8">
                     <p className="text-gray-500">Nenhum cliente encontrado.</p>
