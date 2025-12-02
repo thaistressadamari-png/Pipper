@@ -110,7 +110,7 @@ const ProductsView: React.FC<ProductsViewProps> = ({ products, categories, onAdd
         originalPrice: product.originalPrice ? String(product.originalPrice) : '',
         promotionalTag: product.promotionalTag || '',
         category: product.category,
-        imageUrls: product.imageUrls.join('\n'),
+        imageUrls: product.imageUrls ? product.imageUrls.join('\n') : '',
         leadTimeDays: String(product.leadTimeDays || 0),
     });
     window.scrollTo(0, 0); 
@@ -141,8 +141,8 @@ const ProductsView: React.FC<ProductsViewProps> = ({ products, categories, onAdd
     setIsSubmitting(true);
     const imageUrlsArray = productForm.imageUrls.split('\n').map(url => url.trim()).filter(url => url);
 
-    if (!productForm.name || !productForm.description || !productForm.price || !productForm.category || imageUrlsArray.length === 0) {
-        setMessage({ type: 'error', text: 'Por favor, preencha todos os campos obrigatórios, incluindo ao menos uma URL de imagem.' });
+    if (!productForm.name || !productForm.description || !productForm.price || !productForm.category) {
+        setMessage({ type: 'error', text: 'Por favor, preencha todos os campos obrigatórios (Nome, Descrição, Preço e Categoria).' });
         setIsSubmitting(false);
         return;
     }
@@ -268,8 +268,8 @@ const ProductsView: React.FC<ProductsViewProps> = ({ products, categories, onAdd
                         <textarea name="description" id="description" value={productForm.description} onChange={handleProductFormChange} rows={3} className={inputStyles} required></textarea>
                     </div>
                     <div>
-                        <label htmlFor="imageUrls" className="block text-sm font-medium text-brand-text-light">URLs da Imagem (uma por linha)</label>
-                        <textarea name="imageUrls" id="imageUrls" value={productForm.imageUrls} onChange={handleProductFormChange} rows={4} className={inputStyles} required placeholder="https://exemplo.com/imagem1.jpg&#10;https://exemplo.com/imagem2.jpg"></textarea>
+                        <label htmlFor="imageUrls" className="block text-sm font-medium text-brand-text-light">URLs da Imagem (uma por linha) - Opcional</label>
+                        <textarea name="imageUrls" id="imageUrls" value={productForm.imageUrls} onChange={handleProductFormChange} rows={4} className={inputStyles} placeholder="https://exemplo.com/imagem1.jpg&#10;https://exemplo.com/imagem2.jpg"></textarea>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
@@ -363,7 +363,11 @@ const ProductsView: React.FC<ProductsViewProps> = ({ products, categories, onAdd
                     {filteredProducts.map(p => (
                         <div key={p.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-md">
                             <div className="flex items-center gap-4">
-                                <img src={p.imageUrls[0]} alt={p.name} className="w-12 h-12 object-cover rounded"/>
+                                {p.imageUrls && p.imageUrls.length > 0 ? (
+                                    <img src={p.imageUrls[0]} alt={p.name} className="w-12 h-12 object-cover rounded"/>
+                                ) : (
+                                    <div className="w-12 h-12 bg-gray-200 rounded flex items-center justify-center text-gray-400 text-xs">Sem img</div>
+                                )}
                                 <div>
                                     <p className="font-semibold text-brand-text">{p.name}</p>
                                     <p className="text-sm text-gray-500">{p.category}</p>

@@ -13,13 +13,15 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onProductClick }) =>
 
   return (
     <button onClick={() => onProductClick(product)} className="w-full text-left flex items-center bg-white p-2 rounded-lg gap-4 hover:shadow-md transition-shadow duration-200 focus:outline-none focus:ring-2 focus:ring-brand-primary focus:ring-offset-2">
-      <div className="flex-shrink-0">
-        <img 
-            src={product.imageUrls[0]} 
-            alt={product.name} 
-            className="w-24 h-24 sm:w-32 sm:h-32 object-cover rounded-md" 
-        />
-      </div>
+      {product.imageUrls && product.imageUrls.length > 0 && (
+          <div className="flex-shrink-0">
+            <img 
+                src={product.imageUrls[0]} 
+                alt={product.name} 
+                className="w-24 h-24 sm:w-32 sm:h-32 object-cover rounded-md" 
+            />
+          </div>
+      )}
       <div className="flex flex-col flex-grow py-2">
         {product.promotionalTag && (
             <div className="mb-1">

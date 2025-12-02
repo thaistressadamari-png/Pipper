@@ -50,8 +50,10 @@ const Cart: React.FC<CartProps> = ({ isOpen, onClose, cartItems, onUpdateQuantit
             ) : (
               cartItems.map(item => (
                 <div key={item.id} className="flex items-center bg-white p-3 rounded-lg shadow-sm">
-                  <img src={item.imageUrls[0]} alt={item.name} className="w-20 h-20 object-cover rounded-md" />
-                  <div className="flex-grow ml-4">
+                  {item.imageUrls && item.imageUrls.length > 0 && (
+                      <img src={item.imageUrls[0]} alt={item.name} className="w-20 h-20 object-cover rounded-md" />
+                  )}
+                  <div className={`flex-grow ${item.imageUrls && item.imageUrls.length > 0 ? 'ml-4' : ''}`}>
                     <h3 className="font-semibold text-brand-text">{item.name}</h3>
                     <p className="text-brand-primary font-bold">{formatPrice(item.price)}</p>
                     <div className="flex items-center mt-2">

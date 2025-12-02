@@ -66,10 +66,11 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
   if (!product) return null;
 
   const total = product.price * quantity;
+  const hasImages = product.imageUrls && product.imageUrls.length > 0;
 
   return (
     <>
-      {isImageFullscreen && (
+      {isImageFullscreen && hasImages && (
         <div 
             className="fixed inset-0 bg-black bg-opacity-90 z-[60] flex items-center justify-center p-4"
             onClick={() => setIsImageFullscreen(false)}
@@ -126,51 +127,63 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
         aria-labelledby="product-title"
       >
         <div className="relative bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] flex flex-col">
-          <div className="relative group">
-             <img src={product.imageUrls[currentImageIndex]} alt={product.name} className="w-full h-96 md:h-[30rem] object-cover rounded-t-lg" />
-             <button 
-                onClick={onClose} 
-                className="absolute top-4 left-4 p-2 bg-white/70 backdrop-blur-sm rounded-full text-brand-text hover:bg-white transition-colors z-20"
-                aria-label="Voltar"
-            >
-                <ArrowLeftIcon className="w-6 h-6"/>
-            </button>
-            <button 
-                onClick={() => setIsImageFullscreen(true)} 
-                className="absolute top-4 right-4 p-2 bg-white/70 backdrop-blur-sm rounded-full text-brand-text hover:bg-white transition-colors z-20"
-                aria-label="Ver imagem em tela cheia"
-            >
-                <ExpandIcon className="w-6 h-6"/>
-            </button>
-            {product.imageUrls.length > 1 && (
-                <>
-                    <button
-                        onClick={() => handleImageNavigation('prev')}
-                        className="absolute left-2 top-1/2 -translate-y-1/2 p-2 bg-white/70 backdrop-blur-sm rounded-full text-brand-text hover:bg-white transition-transform duration-200 ease-in-out hover:scale-110 opacity-0 group-hover:opacity-100 z-20"
-                        aria-label="Imagem anterior"
-                    >
-                        <ChevronLeftIcon className="w-6 h-6"/>
-                    </button>
-                    <button
-                        onClick={() => handleImageNavigation('next')}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-white/70 backdrop-blur-sm rounded-full text-brand-text hover:bg-white transition-transform duration-200 ease-in-out hover:scale-110 opacity-0 group-hover:opacity-100 z-20"
-                        aria-label="Próxima imagem"
-                    >
-                        <ChevronRightIcon className="w-6 h-6"/>
-                    </button>
-                    <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex space-x-2 z-20">
-                        {product.imageUrls.map((_, index) => (
-                            <button
-                                key={index}
-                                onClick={() => setCurrentImageIndex(index)}
-                                className={`w-2 h-2 rounded-full transition-all duration-300 ${index === currentImageIndex ? 'bg-white scale-125' : 'bg-white/60'}`}
-                                aria-label={`Ir para imagem ${index + 1}`}
-                            />
-                        ))}
-                    </div>
-                </>
-            )}
-          </div>
+          {hasImages ? (
+            <div className="relative group">
+                <img src={product.imageUrls[currentImageIndex]} alt={product.name} className="w-full h-96 md:h-[30rem] object-cover rounded-t-lg" />
+                <button 
+                    onClick={onClose} 
+                    className="absolute top-4 left-4 p-2 bg-white/70 backdrop-blur-sm rounded-full text-brand-text hover:bg-white transition-colors z-20"
+                    aria-label="Voltar"
+                >
+                    <ArrowLeftIcon className="w-6 h-6"/>
+                </button>
+                <button 
+                    onClick={() => setIsImageFullscreen(true)} 
+                    className="absolute top-4 right-4 p-2 bg-white/70 backdrop-blur-sm rounded-full text-brand-text hover:bg-white transition-colors z-20"
+                    aria-label="Ver imagem em tela cheia"
+                >
+                    <ExpandIcon className="w-6 h-6"/>
+                </button>
+                {product.imageUrls.length > 1 && (
+                    <>
+                        <button
+                            onClick={() => handleImageNavigation('prev')}
+                            className="absolute left-2 top-1/2 -translate-y-1/2 p-2 bg-white/70 backdrop-blur-sm rounded-full text-brand-text hover:bg-white transition-transform duration-200 ease-in-out hover:scale-110 opacity-0 group-hover:opacity-100 z-20"
+                            aria-label="Imagem anterior"
+                        >
+                            <ChevronLeftIcon className="w-6 h-6"/>
+                        </button>
+                        <button
+                            onClick={() => handleImageNavigation('next')}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-white/70 backdrop-blur-sm rounded-full text-brand-text hover:bg-white transition-transform duration-200 ease-in-out hover:scale-110 opacity-0 group-hover:opacity-100 z-20"
+                            aria-label="Próxima imagem"
+                        >
+                            <ChevronRightIcon className="w-6 h-6"/>
+                        </button>
+                        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex space-x-2 z-20">
+                            {product.imageUrls.map((_, index) => (
+                                <button
+                                    key={index}
+                                    onClick={() => setCurrentImageIndex(index)}
+                                    className={`w-2 h-2 rounded-full transition-all duration-300 ${index === currentImageIndex ? 'bg-white scale-125' : 'bg-white/60'}`}
+                                    aria-label={`Ir para imagem ${index + 1}`}
+                                />
+                            ))}
+                        </div>
+                    </>
+                )}
+            </div>
+          ) : (
+             <div className="relative p-4 border-b border-gray-100 flex items-center">
+                <button 
+                    onClick={onClose} 
+                    className="p-2 -ml-2 rounded-full text-brand-text hover:bg-gray-100 transition-colors"
+                    aria-label="Voltar"
+                >
+                    <ArrowLeftIcon className="w-6 h-6"/>
+                </button>
+            </div>
+          )}
           
           <div className="flex-grow overflow-y-auto p-6 space-y-4">
               <h1 id="product-title" className="text-2xl font-bold text-brand-text">{product.name}</h1>
