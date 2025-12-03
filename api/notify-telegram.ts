@@ -1,3 +1,4 @@
+
 /*
   This serverless function is triggered when a new order is created.
   It sends a formatted notification message to a Telegram chat via a bot.
@@ -34,7 +35,16 @@ async function sendNewOrderNotification(order: any) {
         throw new Error("Telegram Bot Token or Chat ID are not configured in environment variables.");
     }
 
-    const itemsList = order.items.map((item: any) => `- ${item.quantity}x ${item.name}${item.observations ? ` (${item.observations})` : ''}`).join("\n");
+    const itemsList = order.items.map((item: any) => {
+        let text = `- ${item.quantity}x ${item.name}`;
+        if (item.option) {
+            text += ` (${item.option})`;
+        }
+        if (item.observations) {
+            text += `\n  Obs: ${item.observations}`;
+        }
+        return text;
+    }).join("\n");
 
     const address = order.delivery.address;
     const fullAddress = `${address.street}, ${address.number}${address.complement ? `, ${address.complement}` : ''} - ${address.neighborhood}`;

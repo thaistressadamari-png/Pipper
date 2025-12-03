@@ -1,3 +1,4 @@
+
 import * as https from "https";
 import { Buffer } from "buffer";
 
@@ -26,7 +27,13 @@ async function sendDeliveryFeeLinkToTelegram(order: any) {
     }
     
     // 1. Construir a mensagem para o CLIENTE
-    const itemsList = order.items.map((item: any) => `- ${item.quantity}x ${item.name}`).join("\n");
+    const itemsList = order.items.map((item: any) => {
+        let text = `- ${item.quantity}x ${item.name}`;
+        if (item.option) {
+            text += ` (${item.option})`;
+        }
+        return text;
+    }).join("\n");
 
     let customerMessage = `Olá, ${order.customer.name}! ✨
 

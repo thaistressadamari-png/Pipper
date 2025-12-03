@@ -1,5 +1,4 @@
 
-
 import React from 'react';
 import type { CartItem } from '../types';
 import { XIcon, PlusIcon, MinusIcon, TrashIcon } from './IconComponents';
@@ -8,8 +7,8 @@ interface CartProps {
   isOpen: boolean;
   onClose: () => void;
   cartItems: CartItem[];
-  onUpdateQuantity: (productId: string, newQuantity: number) => void;
-  onRemoveItem: (productId: string) => void;
+  onUpdateQuantity: (productId: string, newQuantity: number, optionName?: string) => void;
+  onRemoveItem: (productId: string, optionName?: string) => void;
   onCheckout: () => void;
 }
 
@@ -48,21 +47,24 @@ const Cart: React.FC<CartProps> = ({ isOpen, onClose, cartItems, onUpdateQuantit
                 <p className="text-gray-500 mt-2">Adicione delícias do nosso cardápio!</p>
               </div>
             ) : (
-              cartItems.map(item => (
-                <div key={item.id} className="flex items-center bg-white p-3 rounded-lg shadow-sm">
+              cartItems.map((item, index) => (
+                <div key={`${item.id}-${item.selectedOption?.name || index}`} className="flex items-center bg-white p-3 rounded-lg shadow-sm">
                   {item.imageUrls && item.imageUrls.length > 0 && (
                       <img src={item.imageUrls[0]} alt={item.name} className="w-20 h-20 object-cover rounded-md" />
                   )}
                   <div className={`flex-grow ${item.imageUrls && item.imageUrls.length > 0 ? 'ml-4' : ''}`}>
                     <h3 className="font-semibold text-brand-text">{item.name}</h3>
+                    {item.selectedOption && (
+                        <p className="text-xs text-gray-500 mb-1">{item.selectedOption.name}</p>
+                    )}
                     <p className="text-brand-primary font-bold">{formatPrice(item.price)}</p>
                     <div className="flex items-center mt-2">
-                      <button onClick={() => onUpdateQuantity(item.id, item.quantity - 1)} className="p-1 rounded-full bg-brand-secondary/50 text-brand-text"><MinusIcon className="w-4 h-4" /></button>
+                      <button onClick={() => onUpdateQuantity(item.id, item.quantity - 1, item.selectedOption?.name)} className="p-1 rounded-full bg-brand-secondary/50 text-brand-text"><MinusIcon className="w-4 h-4" /></button>
                       <span className="px-3 font-bold text-brand-text">{item.quantity}</span>
-                      <button onClick={() => onUpdateQuantity(item.id, item.quantity + 1)} className="p-1 rounded-full bg-brand-secondary/50 text-brand-text"><PlusIcon className="w-4 h-4" /></button>
+                      <button onClick={() => onUpdateQuantity(item.id, item.quantity + 1, item.selectedOption?.name)} className="p-1 rounded-full bg-brand-secondary/50 text-brand-text"><PlusIcon className="w-4 h-4" /></button>
                     </div>
                   </div>
-                  <button onClick={() => onRemoveItem(item.id)} className="ml-4 p-2 text-gray-400 hover:text-brand-primary">
+                  <button onClick={() => onRemoveItem(item.id, item.selectedOption?.name)} className="ml-4 p-2 text-gray-400 hover:text-brand-primary">
                     <TrashIcon className="w-5 h-5" />
                   </button>
                 </div>

@@ -112,8 +112,12 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ order, isOpen, onCl
                         <div>
                             <h4 className="font-semibold text-brand-text">Itens</h4>
                             <ul className="text-sm text-gray-600 list-disc list-inside mt-1">
-                                {order.items?.map(item => (
-                                    <li key={item.id}>{item.quantity}x {item.name} {item.observations && `(${item.observations})`}</li>
+                                {order.items?.map((item, index) => (
+                                    <li key={index}>
+                                        {item.quantity}x {item.name} 
+                                        {item.option && <span className="text-gray-500 font-medium"> ({item.option})</span>}
+                                        {item.observations && ` - Obs: ${item.observations}`}
+                                    </li>
                                 ))}
                             </ul>
                         </div>

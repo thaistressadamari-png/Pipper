@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import StoreInfo from './components/StoreInfo';
 import CategoryTabs from './components/CategoryTabs';
@@ -13,7 +14,7 @@ import CartButton from './components/CartButton';
 import CheckoutPage from './components/CheckoutPage';
 import OrderSuccessPage from './components/OrderSuccessPage';
 import OrderTrackingModal from './components/OrderTrackingModal';
-import type { Product, CartItem, StoreInfoData, Order } from './types';
+import type { Product, CartItem, StoreInfoData, Order, ProductOption } from './types';
 import { getMenu, addProduct, getStoreInfo, updateStoreInfo, updateProduct, deleteProduct, addCategory, deleteCategory, initializeFirebaseData, updateCategoryOrder, incrementVisitCount } from './services/menuService';
 import { auth } from './firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
@@ -153,36 +154,56 @@ const App: React.FC = () => {
     setSelectedProduct(null);
   }, []);
   
-  const handleAddToCart = useCallback((productToAdd: Product, quantity: number, observations?: string) => {
+  const handleAddToCart = useCallback((productToAdd: Product, quantity: number, observations?: string, selectedOption?: ProductOption) => {
     setCartItems(prevItems => {
-        const existingItem = prevItems.find(item => item.id === productToAdd.id);
+        // Find if item exists with same ID AND same option
+        const existingItemIndex = prevItems.findIndex(item => 
+            item.id === productToAdd.id && 
+            item.selectedOption?.name === selectedOption?.name
+        );
 
-        if (existingItem) {
-            return prevItems.map(item =>
-                item.id === productToAdd.id
-                    ? { ...item, quantity: item.quantity + quantity, observations }
-                    : item
-            );
+        if (existingItemIndex !== -1) {
+            // Update existing item
+            const newItems = [...prevItems];
+            newItems[existingItemIndex] = {
+                ...newItems[existingItemIndex],
+                quantity: newItems[existingItemIndex].quantity + quantity,
+                observations: observations // Update obs or concatenate? Usually replacing is clearer for user edit intent, or we could handle it differently. Let's replace.
+            };
+            return newItems;
         } else {
-            return [...prevItems, { ...productToAdd, quantity, observations }];
+            // Add new item. 
+            // IMPORTANT: If an option is selected, override the price of the product for the cart item.
+            const itemPrice = selectedOption ? selectedOption.price : productToAdd.price;
+            
+            return [...prevItems, { 
+                ...productToAdd, 
+                price: itemPrice, // Override price
+                quantity, 
+                observations, 
+                selectedOption 
+            }];
         }
     });
     setSelectedProduct(null);
     setTimeout(() => setIsCartOpen(true), 300);
   }, []);
 
-  const handleUpdateCartQuantity = useCallback((productId: string, newQuantity: number) => {
-    if (newQuantity <= 0) {
-        setCartItems(prev => prev.filter(item => item.id !== productId));
-    } else {
-        setCartItems(prev => prev.map(item =>
-            item.id === productId ? { ...item, quantity: newQuantity } : item
-        ));
-    }
+  const handleUpdateCartQuantity = useCallback((productId: string, newQuantity: number, optionName?: string) => {
+    setCartItems(prev => {
+        if (newQuantity <= 0) {
+            return prev.filter(item => !(item.id === productId && item.selectedOption?.name === optionName));
+        }
+        return prev.map(item =>
+            (item.id === productId && item.selectedOption?.name === optionName) 
+                ? { ...item, quantity: newQuantity } 
+                : item
+        );
+    });
   }, []);
 
-  const handleRemoveFromCart = useCallback((productId: string) => {
-    setCartItems(prev => prev.filter(item => item.id !== productId));
+  const handleRemoveFromCart = useCallback((productId: string, optionName?: string) => {
+    setCartItems(prev => prev.filter(item => !(item.id === productId && item.selectedOption?.name === optionName)));
   }, []);
   
   const handleCheckout = useCallback(() => {

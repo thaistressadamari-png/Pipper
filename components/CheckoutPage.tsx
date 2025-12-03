@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import type { CartItem, StoreInfoData, Order, OrderItem, CustomerInfo, DeliveryInfo } from '../types';
 import { ArrowLeftIcon, CalendarIcon, SpinnerIcon } from './IconComponents';
@@ -222,6 +223,7 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
             quantity: item.quantity,
             price: item.price,
             observations: item.observations,
+            option: item.selectedOption?.name, // Pass the option name
         }));
         
         const customer: CustomerInfo = {
@@ -400,9 +402,12 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
                     <div className="border-t pt-4 space-y-2">
                         <h2 className="text-xl font-bold text-brand-text">Resumo do Pedido</h2>
                         <div className="space-y-2 border-b pb-4">
-                            {cartItems.map(item => (
-                                <div key={item.id} className="flex justify-between text-sm">
-                                    <span className="text-gray-600">{item.quantity}x {item.name}</span>
+                            {cartItems.map((item, idx) => (
+                                <div key={idx} className="flex justify-between text-sm">
+                                    <span className="text-gray-600">
+                                        {item.quantity}x {item.name}
+                                        {item.selectedOption && <span className="text-xs block text-gray-400">({item.selectedOption.name})</span>}
+                                    </span>
                                     <span className="text-gray-800 font-medium">{formatPrice(item.price * item.quantity)}</span>
                                 </div>
                             ))}

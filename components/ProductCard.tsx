@@ -1,3 +1,4 @@
+
 import React from 'react';
 import type { Product } from '../types';
 
@@ -10,7 +11,13 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onProductClick }) =>
   const formatPrice = (price: number) => {
     return price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   };
-
+  
+  const hasOptions = product.options && product.options.length > 0;
+  
+  // Logic: if has options, 'product.price' is technically the minimum price due to ProductsView logic,
+  // but let's re-calculate safely or rely on the prop.
+  // The 'price' field in DB should be the min option price.
+  
   return (
     <button onClick={() => onProductClick(product)} className="w-full text-left flex items-center bg-white p-2 rounded-lg gap-4 hover:shadow-md transition-shadow duration-200 focus:outline-none focus:ring-2 focus:ring-brand-primary focus:ring-offset-2">
       {product.imageUrls && product.imageUrls.length > 0 && (
@@ -38,9 +45,12 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onProductClick }) =>
               {formatPrice(product.originalPrice)}
             </span>
           )}
-          <span className={`text-base sm:text-lg font-bold ${product.originalPrice ? 'text-brand-accent' : 'text-brand-text'}`}>
-            {formatPrice(product.price)}
-          </span>
+          <div className="flex flex-col sm:flex-row sm:items-baseline">
+              {hasOptions && <span className="text-xs text-gray-500 mr-1">A partir de</span>}
+              <span className={`text-base sm:text-lg font-bold ${product.originalPrice ? 'text-brand-accent' : 'text-brand-text'}`}>
+                {formatPrice(product.price)}
+              </span>
+          </div>
         </div>
       </div>
     </button>

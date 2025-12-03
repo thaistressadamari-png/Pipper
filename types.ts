@@ -1,4 +1,9 @@
 
+export interface ProductOption {
+  name: string;
+  price: number;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -9,11 +14,13 @@ export interface Product {
   category: string;
   imageUrls: string[];
   leadTimeDays: number;
+  options?: ProductOption[];
 }
 
 export interface CartItem extends Product {
   quantity: number;
   observations?: string;
+  selectedOption?: ProductOption;
 }
 
 export interface OperatingHours {
@@ -40,6 +47,7 @@ export interface OrderItem {
   quantity: number;
   price: number;
   observations?: string;
+  option?: string;
 }
 
 export interface CustomerInfo {

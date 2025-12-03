@@ -1,11 +1,12 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
-import type { Product } from '../types';
+import type { Product, ProductOption } from '../types';
 import { ArrowLeftIcon, PlusIcon, MinusIcon, ShoppingBagIcon, ExpandIcon, XIcon, ChevronLeftIcon, ChevronRightIcon } from './IconComponents';
 
 interface ProductDetailModalProps {
   product: Product | null;
   onClose: () => void;
-  onAddToCart: (product: Product, quantity: number, observations?: string) => void;
+  onAddToCart: (product: Product, quantity: number, observations?: string, selectedOption?: ProductOption) => void;
 }
 
 const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClose, onAddToCart }) => {
@@ -13,6 +14,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
   const [observations, setObservations] = useState('');
   const [isImageFullscreen, setIsImageFullscreen] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [selectedOption, setSelectedOption] = useState<ProductOption | null>(null);
 
   useEffect(() => {
     if (product) {
@@ -20,6 +22,14 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
       setObservations('');
       setIsImageFullscreen(false);
       setCurrentImageIndex(0);
+      // Automatically select the first option if available
+      if (product.options && product.options.length > 0) {
+          // Sort options by price ascending for better UX? Or just take first.
+          // Let's assume order in Admin is order intended.
+          setSelectedOption(product.options[0]);
+      } else {
+          setSelectedOption(null);
+      }
     }
   }, [product]);
 
@@ -55,7 +65,12 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
   
   const handleAddToCartClick = () => {
     if (product) {
-      onAddToCart(product, quantity, observations);
+        // If options exist but none selected (shouldn't happen due to useEffect default, but safety check)
+        if (product.options && product.options.length > 0 && !selectedOption) {
+            alert("Por favor, selecione uma opção.");
+            return;
+        }
+      onAddToCart(product, quantity, observations, selectedOption || undefined);
     }
   };
 
@@ -65,7 +80,9 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
   
   if (!product) return null;
 
-  const total = product.price * quantity;
+  // If options exist, selectedOption.price is THE price. Otherwise, product.price.
+  const currentPrice = selectedOption ? selectedOption.price : product.price;
+  const total = currentPrice * quantity;
   const hasImages = product.imageUrls && product.imageUrls.length > 0;
 
   return (
@@ -188,6 +205,30 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
           <div className="flex-grow overflow-y-auto p-6 space-y-4">
               <h1 id="product-title" className="text-2xl font-bold text-brand-text">{product.name}</h1>
               <p className="text-brand-text-light whitespace-pre-wrap">{product.description}</p>
+              
+              {product.options && product.options.length > 0 && (
+                  <div>
+                      <h3 className="text-sm font-bold text-brand-text mb-2">Escolha uma opção:</h3>
+                      <div className="space-y-2">
+                          {product.options.map((option, index) => (
+                              <label key={index} className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-all ${selectedOption?.name === option.name ? 'border-brand-primary bg-brand-secondary/20 ring-1 ring-brand-primary' : 'border-gray-200 hover:bg-gray-50'}`}>
+                                  <div className="flex items-center">
+                                      <input 
+                                          type="radio" 
+                                          name="productOption" 
+                                          checked={selectedOption?.name === option.name}
+                                          onChange={() => setSelectedOption(option)}
+                                          className="w-4 h-4 text-brand-primary focus:ring-brand-primary border-gray-300"
+                                      />
+                                      <span className="ml-3 font-medium text-brand-text">{option.name}</span>
+                                  </div>
+                                  <span className="font-bold text-brand-text">{formatPrice(option.price)}</span>
+                              </label>
+                          ))}
+                      </div>
+                  </div>
+              )}
+
               <div>
                   <label htmlFor="observations" className="block text-sm font-medium text-brand-text-light mb-1">Observações</label>
                   <textarea 
@@ -203,9 +244,12 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
           
           <div className="p-4 border-t border-gray-200 bg-white rounded-b-lg mt-auto">
               <div className="flex justify-between items-center mb-4">
-                  <span className={`text-xl font-bold ${product.originalPrice ? 'text-brand-accent' : 'text-brand-text'}`}>
-                    {formatPrice(total)}
-                  </span>
+                  <div className="flex flex-col">
+                    <span className="text-sm text-gray-500">Total</span>
+                    <span className={`text-xl font-bold ${product.originalPrice && !selectedOption ? 'text-brand-accent' : 'text-brand-text'}`}>
+                        {formatPrice(total)}
+                    </span>
+                  </div>
                   <div className="flex items-center">
                     <button onClick={() => handleQuantityChange(-1)} disabled={quantity === 1} className="p-2 rounded-full bg-brand-secondary text-brand-text hover:bg-gray-200 transition disabled:opacity-50"><MinusIcon className="w-5 h-5" /></button>
                     <span className="px-4 text-lg font-bold w-12 text-center text-brand-text">{quantity}</span>
@@ -217,7 +261,9 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
                 className="w-full bg-brand-primary text-white font-bold py-3 px-4 rounded-lg text-lg flex items-center justify-center gap-2 hover:bg-brand-primary-dark transition-colors duration-300"
               >
                   <ShoppingBagIcon className="w-6 h-6" />
-                  <span>ADICIONAR</span>
+                  <span>
+                      {selectedOption ? `ADICIONAR ${formatPrice(total)}` : 'ADICIONAR'}
+                  </span>
               </button>
           </div>
         </div>
