@@ -217,25 +217,42 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
 
     setIsSubmitting(true);
     try {
+        // Sanitização rigorosa dos itens do pedido
         const orderItems: OrderItem[] = cartItems.map(item => {
-            // Concatena a opção ao nome do produto para evitar erro de permissão no Firebase
-            // pois o schema do banco pode não aceitar o campo 'option'
-            let itemName = item.name || 'Produto sem nome';
+            // Usa o nome original do produto. Modificar o nome aqui pode causar erro 
+            // se o Firebase validar contra o cadastro de produtos.
+            // As variações serão movidas para "observations".
+            const itemName = item.name || 'Produto sem nome';
+            
+            // Construção da string de observações combinando variação e obs do usuário
+            let finalObservations = '';
+            
+            // 1. Adiciona a variação, se houver
             if (item.selectedOption && item.selectedOption.name) {
-                itemName += ` (${item.selectedOption.name})`;
+                finalObservations += `Opção: ${item.selectedOption.name}`;
+            }
+            
+            // 2. Adiciona observações do usuário, se houver
+            if (item.observations && item.observations.trim() !== '') {
+                if (finalObservations) {
+                    finalObservations += `. ${item.observations}`;
+                } else {
+                    finalObservations += item.observations;
+                }
             }
 
-            // IMPORTANTE: Criamos o objeto explicitamente para garantir que
-            // propriedades extras (como 'selectedOption' ou 'option') NÃO sejam enviadas.
-            const orderItem: OrderItem = {
+            // CRÍTICO: Criar um novo objeto explícito para garantir que campos extras 
+            // (como 'selectedOption', 'imageUrls', etc) NÃO sejam enviados ao Firestore.
+            // O Firestore rejeita o documento se houver campos não permitidos nas regras ou se for undefined.
+            const cleanItem: OrderItem = {
                 id: item.id || '',
                 name: itemName,
-                quantity: item.quantity || 1,
-                price: item.price || 0,
-                observations: item.observations || '',
+                quantity: Number(item.quantity) || 1,
+                price: Number(item.price) || 0,
+                observations: finalObservations,
             };
 
-            return orderItem;
+            return cleanItem;
         });
         
         const customer: CustomerInfo = {
@@ -263,7 +280,7 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
             deliveryDate: formData.deliveryDate,
         };
         
-        console.log("Enviando pedido para o Firebase:", orderData); // Debug log
+        console.log("Enviando pedido (Sanitizado):", JSON.stringify(orderData));
 
         const newOrder = await addOrder(orderData);
         
@@ -271,7 +288,7 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
 
     } catch (err) {
         console.error("Erro ao enviar pedido:", err);
-        setFormErrors({ form: 'Ocorreu um erro ao finalizar o pedido. Tente novamente.' });
+        setFormErrors({ form: 'Ocorreu um erro ao finalizar o pedido. Tente novamente ou entre em contato pelo WhatsApp.' });
     } finally {
         setIsSubmitting(false);
     }
