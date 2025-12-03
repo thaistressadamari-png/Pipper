@@ -1,8 +1,9 @@
 
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import type { CartItem, StoreInfoData, Order, OrderItem, CustomerInfo, DeliveryInfo } from '../types';
-import { ArrowLeftIcon, CalendarIcon, SpinnerIcon, XIcon, CheckCircleIcon } from './IconComponents';
-import { addOrder, getClient } from '../services/menuService';
+import type { CartItem, StoreInfoData, Order, DeliveryInfo } from '../types';
+import { ArrowLeftIcon, CalendarIcon, SpinnerIcon, XIcon, CheckCircleIcon, TrashIcon, MapPinIcon } from './IconComponents';
+import { addOrder, getClient, removeClientAddress } from '../services/menuService';
 import Calendar from './Calendar';
 
 interface CheckoutPageProps {
@@ -39,12 +40,37 @@ const PhoneConfirmationModal: React.FC<{
     );
 };
 
+const AddressDeleteConfirmationModal: React.FC<{
+    isOpen: boolean;
+    onCancel: () => void;
+    onConfirm: () => void;
+}> = ({ isOpen, onCancel, onConfirm }) => {
+    if (!isOpen) return null;
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-[60] flex items-center justify-center p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-sm w-full p-6 text-center animate-fade-in-up">
+                <h3 className="text-lg font-bold text-brand-text">Excluir Endereço</h3>
+                <p className="text-gray-600 my-4">Tem certeza que deseja remover este endereço da sua lista?</p>
+                <div className="mt-6 flex justify-center gap-4">
+                    <button onClick={onCancel} className="px-6 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+                        Cancelar
+                    </button>
+                    <button onClick={onConfirm} className="px-6 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700">
+                        Sim, excluir
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const SavedAddressesModal: React.FC<{
     isOpen: boolean;
     addresses: DeliveryInfo['address'][];
     onSelect: (address: DeliveryInfo['address']) => void;
     onClose: () => void;
-}> = ({ isOpen, addresses, onSelect, onClose }) => {
+    onDelete: (address: DeliveryInfo['address']) => void;
+}> = ({ isOpen, addresses, onSelect, onClose, onDelete }) => {
     if (!isOpen) return null;
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
@@ -54,25 +80,39 @@ const SavedAddressesModal: React.FC<{
                      <button onClick={onClose}><XIcon className="w-6 h-6 text-gray-400"/></button>
                 </div>
                 <div className="p-4 overflow-y-auto space-y-3">
-                    <p className="text-sm text-gray-600 mb-2">Encontramos endereços salvos para este número. Selecione um para preencher automaticamente:</p>
-                    {addresses.map((addr, idx) => (
-                        <button 
-                            key={idx}
-                            onClick={() => onSelect(addr)}
-                            className="w-full text-left p-4 border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-brand-primary transition-all group"
-                        >
-                            <div className="flex items-start gap-3">
-                                <div className="mt-1">
-                                    <div className="w-5 h-5 rounded-full border-2 border-gray-300 group-hover:border-brand-primary"></div>
-                                </div>
-                                <div>
-                                    <p className="font-bold text-brand-text">{addr.street}, {addr.number}</p>
-                                    <p className="text-sm text-gray-600">{addr.neighborhood} - {addr.cep}</p>
-                                    {addr.complement && <p className="text-xs text-gray-500 mt-1">{addr.complement}</p>}
-                                </div>
+                    {addresses.length === 0 ? (
+                        <p className="text-center text-gray-500">Nenhum endereço salvo encontrado.</p>
+                    ) : (
+                        <>
+                        <p className="text-sm text-gray-600 mb-2">Selecione um endereço para preencher:</p>
+                        {addresses.map((addr, idx) => (
+                            <div key={idx} className="flex items-center gap-2">
+                                <button 
+                                    onClick={() => onSelect(addr)}
+                                    className="flex-grow text-left p-4 border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-brand-primary transition-all group relative"
+                                >
+                                    <div className="flex items-start gap-3">
+                                        <div className="mt-1">
+                                            <div className="w-5 h-5 rounded-full border-2 border-gray-300 group-hover:border-brand-primary"></div>
+                                        </div>
+                                        <div>
+                                            <p className="font-bold text-brand-text">{addr.street}, {addr.number}</p>
+                                            <p className="text-sm text-gray-600">{addr.neighborhood} - {addr.cep}</p>
+                                            {addr.complement && <p className="text-xs text-gray-500 mt-1">{addr.complement}</p>}
+                                        </div>
+                                    </div>
+                                </button>
+                                <button 
+                                    onClick={(e) => { e.stopPropagation(); onDelete(addr); }}
+                                    className="p-3 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                    title="Remover endereço"
+                                >
+                                    <TrashIcon className="w-5 h-5" />
+                                </button>
                             </div>
-                        </button>
-                    ))}
+                        ))}
+                        </>
+                    )}
                 </div>
                 <div className="p-4 border-t bg-gray-50 text-center">
                     <button onClick={onClose} className="text-sm text-brand-primary font-medium hover:underline">
@@ -113,6 +153,7 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
   // Address search state
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
   const [foundAddresses, setFoundAddresses] = useState<DeliveryInfo['address'][]>([]);
+  const [addressToDelete, setAddressToDelete] = useState<DeliveryInfo['address'] | null>(null);
 
   const whatsappInputRef = useRef<HTMLInputElement>(null);
   const calendarButtonRef = useRef<HTMLButtonElement>(null);
@@ -186,7 +227,6 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
         setFormErrors(prev => ({...prev, neighborhood: ''}));
     }
 
-
     if (cep.length !== 8) {
       setCepError('');
       if (e.target.value.length < formData.cep.length) {
@@ -217,347 +257,431 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
         setIsCepLoading(false);
     }
   };
-  
-  const handleCalendarToggle = () => {
-    if (!isCalendarOpen && calendarButtonRef.current) {
-        const rect = calendarButtonRef.current.getBoundingClientRect();
-        const spaceBelow = window.innerHeight - rect.bottom;
-        const calendarHeight = 400; // Estimated height of the calendar component
-        if (spaceBelow < calendarHeight && rect.top > calendarHeight) {
-            setCalendarPosition('top');
-        } else {
-            setCalendarPosition('bottom');
-        }
-    }
-    setIsCalendarOpen(!isCalendarOpen);
-  };
-  
+
   const handleDateSelect = (date: string) => {
     setFormData(prev => ({ ...prev, deliveryDate: date }));
     setIsCalendarOpen(false);
-  }
+  };
   
-  const handleWhatsappBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-    const rawPhone = e.target.value.replace(/\D/g, '');
-    if (rawPhone.length === 11) {
-        setIsPhoneModalOpen(true);
-    }
+  const toggleCalendar = () => {
+      if (!isCalendarOpen && calendarButtonRef.current) {
+          const rect = calendarButtonRef.current.getBoundingClientRect();
+          const windowHeight = window.innerHeight;
+          const spaceBelow = windowHeight - rect.bottom;
+          if (spaceBelow < 350) { // Approx height of calendar
+              setCalendarPosition('top');
+          } else {
+              setCalendarPosition('bottom');
+          }
+      }
+      setIsCalendarOpen(!isCalendarOpen);
   };
 
-  const handlePhoneConfirm = async () => {
-    setIsPhoneModalOpen(false);
-    
-    // Check for saved addresses
-    try {
-        const client = await getClient(formData.whatsapp);
-        if (client && client.addresses && client.addresses.length > 0) {
-            // Remove duplicates based on street + number
-            const uniqueAddresses = client.addresses.filter((addr, index, self) => 
-                index === self.findIndex((t) => (
-                    t.street === addr.street && t.number === addr.number && t.cep === addr.cep
-                ))
-            );
-            
-            if (uniqueAddresses.length > 0) {
-                setFoundAddresses(uniqueAddresses);
-                setIsAddressModalOpen(true);
-                
-                // If the client has a name and we don't have one yet (or it's partial), fill it
-                if (client.name && (!formData.name || formData.name.length < 3)) {
-                    setFormData(prev => ({...prev, name: client.name}));
-                }
-            }
-        }
-    } catch (error) {
-        console.error("Error fetching client addresses:", error);
-    }
+  const checkClient = async (whatsapp: string) => {
+      const client = await getClient(whatsapp);
+      if (client) {
+          setFormData(prev => ({ ...prev, name: client.name }));
+          if (client.addresses && client.addresses.length > 0) {
+              setFoundAddresses(client.addresses);
+              setIsAddressModalOpen(true);
+          }
+      }
   };
 
-  const handleAddressSelect = (address: DeliveryInfo['address']) => {
+  const handleSelectAddress = (address: DeliveryInfo['address']) => {
       setFormData(prev => ({
           ...prev,
-          cep: address.cep || '',
-          street: address.street || '',
-          number: address.number || '',
-          neighborhood: address.neighborhood || '',
+          cep: address.cep,
+          street: address.street,
+          number: address.number,
+          neighborhood: address.neighborhood,
           complement: address.complement || '',
       }));
       setIsAddressModalOpen(false);
-      
-      // Focus on Complement or Payment Method to keep flow
-      // Optional: focus logic
   };
 
-  const validateForm = (): boolean => {
-    const newErrors: { [key: string]: string } = {};
-    const { name, whatsapp, cep, street, number, neighborhood, deliveryDate, paymentMethod } = formData;
-    const rawWhatsapp = whatsapp.replace(/\D/g, '');
+  const handleDeleteAddress = (address: DeliveryInfo['address']) => {
+      setAddressToDelete(address);
+  };
 
-    if (!name.trim()) newErrors.name = "Preencha este campo.";
-    if (!rawWhatsapp) {
-        newErrors.whatsapp = "Preencha este campo.";
-    } else if (rawWhatsapp.length !== 11) {
-        newErrors.whatsapp = "Preencha este campo.";
-    }
-    if (!cep.trim()) newErrors.cep = "Preencha este campo.";
-    if (!street.trim()) newErrors.street = "Preencha este campo.";
-    if (!number.trim()) newErrors.number = "Preencha este campo.";
-    if (!neighborhood.trim()) newErrors.neighborhood = "Preencha este campo.";
-    if (!deliveryDate) newErrors.deliveryDate = "Selecione uma data.";
-    if (!paymentMethod) newErrors.paymentMethod = "Selecione um método.";
-
-    setFormErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  }
+  const confirmDeleteAddress = async () => {
+      if (!addressToDelete) return;
+      try {
+          await removeClientAddress(formData.whatsapp, addressToDelete);
+          setFoundAddresses(prev => prev.filter(addr => addr !== addressToDelete));
+      } catch (error) {
+          console.error("Failed to delete address", error);
+          alert("Erro ao excluir endereço.");
+      } finally {
+          setAddressToDelete(null);
+      }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validateForm()) return;
+    const errors: { [key: string]: string } = {};
+    if (!formData.name) errors.name = 'Nome é obrigatório';
+    if (!formData.whatsapp || formData.whatsapp.length < 14) errors.whatsapp = 'WhatsApp válido é obrigatório';
+    if (!formData.cep || formData.cep.length < 9) errors.cep = 'CEP válido é obrigatório';
+    if (!formData.street) errors.street = 'Rua é obrigatória';
+    if (!formData.number) errors.number = 'Número é obrigatório';
+    if (!formData.neighborhood) errors.neighborhood = 'Bairro é obrigatório';
+    
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      const firstError = Object.keys(errors)[0];
+      const element = document.getElementById(firstError);
+      if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          element.focus();
+      }
+      return;
+    }
 
     setIsSubmitting(true);
+
     try {
-        const orderItems: OrderItem[] = cartItems.map(item => ({
-            id: item.id,
-            name: item.name,
-            quantity: item.quantity,
-            price: item.price,
-            observations: item.observations || '',
-            // Only add option if it exists and is not undefined, otherwise Firestore throws an error
-            ...(item.selectedOption?.name ? { option: item.selectedOption.name } : {}),
-        }));
-        
-        const customer: CustomerInfo = {
-            name: formData.name,
-            whatsapp: formData.whatsapp.replace(/\D/g, ''),
-        };
-
-        const delivery: DeliveryInfo = {
-            type: 'delivery',
-            address: {
-                cep: formData.cep,
-                street: formData.street,
-                number: formData.number,
-                neighborhood: formData.neighborhood,
-                complement: formData.complement,
-            }
-        };
-
         const orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt' | 'orderNumber' | 'status'> = {
-            customer,
-            delivery,
-            items: orderItems,
-            total,
+            customer: {
+                name: formData.name,
+                whatsapp: formData.whatsapp,
+            },
+            delivery: {
+                type: 'delivery',
+                address: {
+                    cep: formData.cep,
+                    street: formData.street,
+                    number: formData.number,
+                    neighborhood: formData.neighborhood,
+                    complement: formData.complement,
+                }
+            },
+            items: cartItems.map(item => ({
+                id: item.id,
+                name: item.name,
+                quantity: item.quantity,
+                price: item.price,
+                observations: item.observations,
+                option: item.selectedOption?.name
+            })),
+            total: total,
             paymentMethod: formData.paymentMethod,
-            deliveryDate: formData.deliveryDate,
+            deliveryDate: formData.deliveryDate
         };
-        
+
         const newOrder = await addOrder(orderData, saveAddress);
-        
         onOrderSuccess(newOrder);
 
-    } catch (err) {
-        setFormErrors({ form: 'Ocorreu um erro ao finalizar o pedido. Tente novamente.' });
-        console.error(err);
+    } catch (error) {
+        console.error("Error submitting order:", error);
+        alert("Ocorreu um erro ao enviar seu pedido. Por favor, tente novamente.");
     } finally {
         setIsSubmitting(false);
     }
   };
 
-  const getBorderColor = (field: keyof typeof formData) => {
-    return formErrors[field] ? 'border-red-500' : 'border-gray-300';
-  }
-  const inputStyles = "mt-1 block w-full px-3 py-2 bg-white border rounded-md shadow-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-brand-primary focus:border-brand-primary sm:text-sm";
-
-  if (cartItems.length === 0) {
-    return (
-        <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 p-4">
-            <h1 className="text-2xl font-bold text-center text-brand-text mb-2">Seu carrinho está vazio</h1>
-            <button onClick={onNavigateBack} className="mt-6 text-sm text-brand-primary hover:underline">
-                &larr; Voltar ao cardápio
-            </button>
-        </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-gray-50">
-        <header className="bg-white shadow-sm sticky top-0 z-10">
-            <div className="container mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center">
-                <button onClick={onNavigateBack} className="p-2 rounded-full hover:bg-gray-100">
-                    <ArrowLeftIcon className="w-6 h-6 text-brand-text" />
-                </button>
-                <h1 className="text-lg font-bold text-brand-text ml-4">Finalizar Pedido</h1>
-            </div>
-        </header>
-        <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-                <div className="lg:col-span-2 bg-white p-6 rounded-lg shadow space-y-6">
-                    <div>
-                        <h2 className="text-xl font-bold text-brand-text">Informações de Contato</h2>
-                        <div className="mt-4 space-y-4">
-                             <div>
-                                <label htmlFor="whatsapp" className="block text-sm font-medium text-brand-text-light">WhatsApp (com DDD)</label>
-                                <input 
-                                    type="tel" 
-                                    name="whatsapp" 
-                                    id="whatsapp"
-                                    ref={whatsappInputRef}
-                                    value={formData.whatsapp} 
-                                    onChange={handleInputChange}
-                                    onBlur={handleWhatsappBlur}
-                                    className={`${inputStyles} ${getBorderColor('whatsapp')}`}
-                                    placeholder="(11) 91234-5678" 
-                                    required 
-                                />
-                                {formErrors.whatsapp && <p className="text-xs text-red-500 mt-1">{formErrors.whatsapp}</p>}
-                            </div>
-                             <div>
-                                <label htmlFor="name" className="block text-sm font-medium text-brand-text-light">Nome e sobrenome</label>
-                                <input type="text" name="name" id="name" value={formData.name} onChange={handleInputChange} className={`${inputStyles} ${getBorderColor('name')}`} required />
-                                {formErrors.name && <p className="text-xs text-red-500 mt-1">{formErrors.name}</p>}
-                            </div>
-                        </div>
-                    </div>
-                    <div className="border-t pt-6">
-                        <h2 className="text-xl font-bold text-brand-text">Endereço de Entrega</h2>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
-                             <div className="sm:col-span-1">
-                                <label htmlFor="cep" className="block text-sm font-medium text-brand-text-light">CEP</label>
-                                <div className="relative">
-                                    <input type="tel" inputMode="numeric" pattern="\d{5}-\d{3}" title="Formato do CEP: 00000-000" name="cep" id="cep" value={formData.cep} onChange={handleCepChange} className={`${inputStyles} ${getBorderColor('cep')}`} required disabled={isCepLoading} />
-                                    {isCepLoading && (
-                                        <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                                            <SpinnerIcon className="h-5 w-5 text-gray-400" />
-                                        </div>
-                                    )}
-                                </div>
-                                {cepError && <p className="text-xs text-red-500 mt-1">{cepError}</p>}
-                                {formErrors.cep && <p className="text-xs text-red-500 mt-1">{formErrors.cep}</p>}
-                            </div>
-                            <div className="sm:col-span-2">
-                                <label htmlFor="street" className="block text-sm font-medium text-brand-text-light">Rua / Avenida</label>
-                                <input type="text" name="street" id="street" value={formData.street} onChange={handleInputChange} className={`${inputStyles} ${getBorderColor('street')}`} required />
-                                {formErrors.street && <p className="text-xs text-red-500 mt-1">{formErrors.street}</p>}
-                            </div>
-                            <div className="sm:col-span-1">
-                                <label htmlFor="number" className="block text-sm font-medium text-brand-text-light">Número</label>
-                                <input type="text" name="number" id="number" value={formData.number} onChange={handleInputChange} className={`${inputStyles} ${getBorderColor('number')}`} required />
-                                {formErrors.number && <p className="text-xs text-red-500 mt-1">{formErrors.number}</p>}
-                            </div>
-                            <div className="sm:col-span-2">
-                                <label htmlFor="neighborhood" className="block text-sm font-medium text-brand-text-light">Bairro</label>
-                                <input type="text" name="neighborhood" id="neighborhood" value={formData.neighborhood} onChange={handleInputChange} className={`${inputStyles} ${getBorderColor('neighborhood')}`} required />
-                                {formErrors.neighborhood && <p className="text-xs text-red-500 mt-1">{formErrors.neighborhood}</p>}
-                            </div>
-                             <div className="sm:col-span-3">
-                                <label htmlFor="complement" className="block text-sm font-medium text-brand-text-light">Complemento (Opcional)</label>
-                                <input type="text" name="complement" id="complement" value={formData.complement} onChange={handleInputChange} className={inputStyles} placeholder="Apto, bloco, casa, etc." />
-                            </div>
-                        </div>
-                        
-                        <div className="mt-4 flex items-center">
-                            <input
-                                id="save-address"
-                                type="checkbox"
-                                checked={saveAddress}
-                                onChange={(e) => setSaveAddress(e.target.checked)}
-                                className="h-4 w-4 text-brand-primary focus:ring-brand-primary border-gray-300 rounded"
-                            />
-                            <label htmlFor="save-address" className="ml-2 block text-sm text-gray-900">
-                                Salvar este endereço para agilizar compras futuras
-                            </label>
-                        </div>
+    <>
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      <header className="bg-white shadow-sm sticky top-0 z-30">
+        <div className="container mx-auto px-4 h-16 flex items-center">
+            <button onClick={onNavigateBack} className="p-2 -ml-2 rounded-full hover:bg-gray-100 transition-colors">
+                <ArrowLeftIcon className="w-6 h-6 text-gray-700" />
+            </button>
+            <h1 className="text-xl font-bold text-gray-800 ml-2">Finalizar Pedido</h1>
+        </div>
+      </header>
 
+      <main className="flex-grow container mx-auto px-4 py-6 max-w-2xl">
+        <form onSubmit={handleSubmit} className="space-y-6">
+            
+            {/* 1. Identification */}
+            <section className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
+                <div className="flex items-center gap-2 mb-4">
+                    <div className="bg-brand-primary text-white w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold">1</div>
+                    <h2 className="text-lg font-bold text-brand-text">Seus Dados</h2>
+                </div>
+                <div className="space-y-4">
+                    <div>
+                        <label htmlFor="whatsapp" className="block text-sm font-medium text-brand-text-light">WhatsApp (com DDD)</label>
+                        <input
+                            ref={whatsappInputRef}
+                            type="tel"
+                            name="whatsapp"
+                            id="whatsapp"
+                            value={formData.whatsapp}
+                            onChange={handleInputChange}
+                            onBlur={() => {
+                                if (formData.whatsapp.length >= 14) {
+                                    setIsPhoneModalOpen(true);
+                                }
+                            }}
+                            className={`mt-1 block w-full px-3 py-2 bg-white border rounded-md shadow-sm focus:outline-none focus:ring-brand-primary focus:border-brand-primary sm:text-sm ${formErrors.whatsapp ? 'border-red-500' : 'border-gray-300'}`}
+                            placeholder="(00) 00000-0000"
+                            maxLength={15}
+                        />
+                        {formErrors.whatsapp && <p className="mt-1 text-sm text-red-500">{formErrors.whatsapp}</p>}
                     </div>
-                    <div className="border-t pt-6">
-                        <h2 className="text-xl font-bold text-brand-text">Data da Entrega</h2>
-                         {minLeadTime > 0 && (
-                            <p className="text-sm text-gray-500 mt-1">O prazo mínimo para este pedido é de {minLeadTime} dia(s).</p>
-                         )}
-                        <div className="mt-4 relative">
-                            <button
-                                ref={calendarButtonRef}
-                                type="button"
-                                onClick={handleCalendarToggle}
-                                className="w-full sm:w-auto flex items-center gap-2 text-left px-4 py-2 bg-white border border-gray-300 rounded-md shadow-sm"
-                            >
-                                <CalendarIcon className="w-5 h-5 text-gray-400" />
-                                <div>
-                                    <span className="text-sm text-gray-500">Data selecionada</span>
-                                    <p className="font-medium text-brand-text">{new Date(formData.deliveryDate + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                    <div>
+                        <label htmlFor="name" className="block text-sm font-medium text-brand-text-light">Nome Completo</label>
+                        <input
+                            type="text"
+                            name="name"
+                            id="name"
+                            value={formData.name}
+                            onChange={handleInputChange}
+                            className={`mt-1 block w-full px-3 py-2 bg-white border rounded-md shadow-sm focus:outline-none focus:ring-brand-primary focus:border-brand-primary sm:text-sm ${formErrors.name ? 'border-red-500' : 'border-gray-300'}`}
+                            placeholder="Seu nome"
+                        />
+                         {formErrors.name && <p className="mt-1 text-sm text-red-500">{formErrors.name}</p>}
+                    </div>
+                </div>
+            </section>
+
+             {/* 2. Delivery Address */}
+            <section className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
+                <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                        <div className="bg-brand-primary text-white w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold">2</div>
+                        <h2 className="text-lg font-bold text-brand-text">Entrega</h2>
+                    </div>
+                </div>
+                
+                {foundAddresses.length > 0 && (
+                    <div className="mb-6 flex justify-end">
+                        <button
+                            type="button"
+                            onClick={() => setIsAddressModalOpen(true)}
+                            className="group flex items-center gap-2 px-5 py-2.5 bg-white text-brand-primary border border-brand-secondary/50 text-sm font-semibold rounded-full hover:bg-brand-secondary hover:border-brand-secondary transition-all duration-300 shadow-sm hover:shadow-md active:scale-95"
+                        >
+                            <MapPinIcon className="w-5 h-5 text-brand-primary group-hover:scale-110 transition-transform duration-300" />
+                            <span>Meus endereços salvos</span>
+                        </button>
+                    </div>
+                )}
+
+                <div className="space-y-4">
+                     <div>
+                        <label htmlFor="cep" className="block text-sm font-medium text-brand-text-light">CEP</label>
+                        <div className="relative">
+                            <input
+                                type="text"
+                                name="cep"
+                                id="cep"
+                                value={formData.cep}
+                                onChange={handleCepChange}
+                                className={`mt-1 block w-full px-3 py-2 bg-white border rounded-md shadow-sm focus:outline-none focus:ring-brand-primary focus:border-brand-primary sm:text-sm ${formErrors.cep ? 'border-red-500' : 'border-gray-300'}`}
+                                placeholder="00000-000"
+                                maxLength={9}
+                                required
+                                disabled={isCepLoading}
+                            />
+                             {isCepLoading && (
+                                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                    <SpinnerIcon className="w-5 h-5 text-brand-primary" />
                                 </div>
-                            </button>
-                            {formErrors.deliveryDate && <p className="text-xs text-red-500 mt-1">{formErrors.deliveryDate}</p>}
-                             {isCalendarOpen && (
-                                <>
-                                    <div className="fixed inset-0 z-10" onClick={() => setIsCalendarOpen(false)}></div>
-                                    <div className={`absolute left-0 z-20 ${calendarPosition === 'bottom' ? 'top-full mt-2' : 'bottom-full mb-2'}`}>
-                                        <Calendar minDate={minDate} selectedDate={formData.deliveryDate} onDateSelect={handleDateSelect} />
-                                    </div>
-                                </>
                             )}
                         </div>
-                    </div>
-                </div>
-
-                <div className="lg:col-span-1 bg-white p-6 rounded-lg shadow space-y-6 sticky top-24">
-                    <div>
-                        <h2 className="text-xl font-bold text-brand-text mb-4">Forma de Pagamento</h2>
-                        <div className="space-y-2">
-                             {storeInfo?.paymentMethods?.online.map(method => (
-                                <label key={method} className="flex items-center p-3 border rounded-lg cursor-pointer has-[:checked]:bg-brand-secondary has-[:checked]:border-brand-primary">
-                                    <input type="radio" name="paymentMethod" value={method} checked={formData.paymentMethod === method} onChange={handleInputChange} className="h-4 w-4 text-brand-primary focus:ring-brand-primary"/>
-                                    <span className="ml-3 font-medium text-brand-text">{method}</span>
-                                </label>
-                            ))}
-                        </div>
-                        {formErrors.paymentMethod && <p className="text-xs text-red-500 mt-1">{formErrors.paymentMethod}</p>}
-                    </div>
-                    <div className="border-t pt-4 space-y-2">
-                        <h2 className="text-xl font-bold text-brand-text">Resumo do Pedido</h2>
-                        <div className="space-y-2 border-b pb-4">
-                            {cartItems.map((item, idx) => (
-                                <div key={idx} className="flex justify-between text-sm">
-                                    <span className="text-gray-600">
-                                        {item.quantity}x {item.name}
-                                        {item.selectedOption && <span className="text-xs block text-gray-400">({item.selectedOption.name})</span>}
-                                    </span>
-                                    <span className="text-gray-800 font-medium">{formatPrice(item.price * item.quantity)}</span>
-                                </div>
-                            ))}
-                        </div>
-                        <div className="flex justify-between font-bold text-lg text-brand-text pt-2">
-                            <span>Subtotal</span>
-                            <span>{formatPrice(total)}</span>
-                        </div>
-                        <div className="text-right text-sm text-gray-500">
-                            + taxa de envio
-                        </div>
+                         {cepError && <p className="mt-1 text-sm text-red-500">{cepError}</p>}
+                         {formErrors.cep && <p className="mt-1 text-sm text-red-500">{formErrors.cep}</p>}
                     </div>
 
-                     {formErrors.form && <p className="text-sm text-red-600 text-center">{formErrors.form}</p>}
-                    <button type="submit" disabled={isSubmitting || isCepLoading} className="w-full bg-brand-primary text-white font-bold py-3 rounded-lg text-lg hover:bg-brand-primary-dark transition-colors duration-300 disabled:opacity-50">
-                        {isSubmitting ? 'Finalizando...' : 'Finalizar Pedido'}
-                    </button>
+                    <div className="grid grid-cols-3 gap-4">
+                        <div className="col-span-2">
+                            <label htmlFor="street" className="block text-sm font-medium text-brand-text-light">Rua</label>
+                            <input
+                                type="text"
+                                name="street"
+                                id="street"
+                                value={formData.street}
+                                onChange={handleInputChange}
+                                className={`mt-1 block w-full px-3 py-2 bg-white border rounded-md shadow-sm focus:outline-none focus:ring-brand-primary focus:border-brand-primary sm:text-sm ${formErrors.street ? 'border-red-500' : 'border-gray-300'}`}
+                                required
+                            />
+                            {formErrors.street && <p className="mt-1 text-sm text-red-500">{formErrors.street}</p>}
+                        </div>
+                        <div>
+                             <label htmlFor="number" className="block text-sm font-medium text-brand-text-light">Número</label>
+                            <input
+                                type="text"
+                                name="number"
+                                id="number"
+                                value={formData.number}
+                                onChange={handleInputChange}
+                                className={`mt-1 block w-full px-3 py-2 bg-white border rounded-md shadow-sm focus:outline-none focus:ring-brand-primary focus:border-brand-primary sm:text-sm ${formErrors.number ? 'border-red-500' : 'border-gray-300'}`}
+                                required
+                            />
+                             {formErrors.number && <p className="mt-1 text-sm text-red-500">{formErrors.number}</p>}
+                        </div>
+                    </div>
+                     <div>
+                        <label htmlFor="neighborhood" className="block text-sm font-medium text-brand-text-light">Bairro</label>
+                        <input
+                            type="text"
+                            name="neighborhood"
+                            id="neighborhood"
+                            value={formData.neighborhood}
+                            onChange={handleInputChange}
+                             className={`mt-1 block w-full px-3 py-2 bg-white border rounded-md shadow-sm focus:outline-none focus:ring-brand-primary focus:border-brand-primary sm:text-sm ${formErrors.neighborhood ? 'border-red-500' : 'border-gray-300'}`}
+                            required
+                        />
+                         {formErrors.neighborhood && <p className="mt-1 text-sm text-red-500">{formErrors.neighborhood}</p>}
+                    </div>
+                     <div>
+                        <label htmlFor="complement" className="block text-sm font-medium text-brand-text-light">Complemento (Opcional)</label>
+                        <input
+                            type="text"
+                            name="complement"
+                            id="complement"
+                            value={formData.complement}
+                            onChange={handleInputChange}
+                            className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-brand-primary focus:border-brand-primary sm:text-sm"
+                        />
+                    </div>
+                     <div className="flex items-center mt-2">
+                        <input
+                            id="save-address"
+                            name="save-address"
+                            type="checkbox"
+                            checked={saveAddress}
+                            onChange={(e) => setSaveAddress(e.target.checked)}
+                            className="h-4 w-4 text-brand-primary focus:ring-brand-primary border-gray-300 rounded"
+                        />
+                        <label htmlFor="save-address" className="ml-2 block text-sm text-gray-900">
+                            Salvar este endereço para futuras compras
+                        </label>
+                    </div>
                 </div>
-            </form>
-        </main>
-        <PhoneConfirmationModal
-            isOpen={isPhoneModalOpen}
-            phoneNumber={formData.whatsapp}
-            onConfirm={handlePhoneConfirm}
-            onCorrect={() => {
-                setIsPhoneModalOpen(false);
-                whatsappInputRef.current?.focus();
-            }}
-        />
-        <SavedAddressesModal
-            isOpen={isAddressModalOpen}
-            addresses={foundAddresses}
-            onSelect={handleAddressSelect}
-            onClose={() => setIsAddressModalOpen(false)}
-        />
+            </section>
+
+             {/* 3. Delivery Date */}
+             <section className="bg-white p-6 rounded-lg shadow-sm border border-gray-100 relative">
+                <div className="flex items-center gap-2 mb-4">
+                    <div className="bg-brand-primary text-white w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold">3</div>
+                    <h2 className="text-lg font-bold text-brand-text">Data de Entrega</h2>
+                </div>
+                 <div>
+                     <label className="block text-sm font-medium text-brand-text-light mb-1">Selecione a data</label>
+                     <div className="relative">
+                        <button
+                            ref={calendarButtonRef}
+                            type="button"
+                            onClick={toggleCalendar}
+                            className="w-full flex items-center justify-between px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm text-sm text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                        >
+                            <span>{new Date(formData.deliveryDate + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                            <CalendarIcon className="w-5 h-5 text-gray-400" />
+                        </button>
+                        {isCalendarOpen && (
+                             <div className={`absolute z-20 left-0 right-0 ${calendarPosition === 'top' ? 'bottom-full mb-2' : 'top-full mt-2'}`}>
+                                <Calendar
+                                    selectedDate={formData.deliveryDate}
+                                    minDate={minDate}
+                                    onDateSelect={handleDateSelect}
+                                />
+                             </div>
+                        )}
+                     </div>
+                     <p className="mt-2 text-xs text-gray-500">
+                        {minLeadTime > 0 ? `Este pedido requer no mínimo ${minLeadTime} dias de antecedência.` : 'Disponível para pronta entrega (sujeito a disponibilidade).'}
+                     </p>
+                 </div>
+            </section>
+
+             {/* 4. Payment */}
+            <section className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
+                 <div className="flex items-center gap-2 mb-4">
+                    <div className="bg-brand-primary text-white w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold">4</div>
+                    <h2 className="text-lg font-bold text-brand-text">Pagamento</h2>
+                </div>
+                 <div>
+                    <label className="block text-sm font-medium text-brand-text-light mb-2">Forma de Pagamento</label>
+                     <div className="space-y-2">
+                         {storeInfo?.paymentMethods?.online.map((method) => (
+                             <label key={method} className={`flex items-center p-3 border rounded-lg cursor-pointer transition-colors ${formData.paymentMethod === method ? 'border-brand-primary bg-brand-secondary/20' : 'border-gray-200 hover:bg-gray-50'}`}>
+                                 <input
+                                     type="radio"
+                                     name="paymentMethod"
+                                     value={method}
+                                     checked={formData.paymentMethod === method}
+                                     onChange={() => setFormData(prev => ({ ...prev, paymentMethod: method }))}
+                                     className="h-4 w-4 text-brand-primary focus:ring-brand-primary border-gray-300"
+                                 />
+                                 <span className="ml-3 block text-sm font-medium text-gray-700">
+                                     {method}
+                                 </span>
+                             </label>
+                         ))}
+                     </div>
+                 </div>
+            </section>
+
+             {/* Order Summary */}
+            <section className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
+                <h2 className="text-lg font-bold text-brand-text mb-4">Resumo do Pedido</h2>
+                <div className="space-y-3 mb-4">
+                    {cartItems.map((item, index) => (
+                        <div key={`${item.id}-${index}`} className="flex justify-between text-sm">
+                            <span className="text-gray-600">{item.quantity}x {item.name} {item.selectedOption ? `(${item.selectedOption.name})` : ''}</span>
+                            <span className="font-medium text-gray-900">{formatPrice(item.price * item.quantity)}</span>
+                        </div>
+                    ))}
+                </div>
+                <div className="border-t pt-4">
+                    <div className="flex justify-between items-center text-xl font-bold text-brand-text">
+                        <span>Total</span>
+                        <span>{formatPrice(total)}</span>
+                    </div>
+                     <p className="text-xs text-gray-500 mt-1 text-right">* Taxa de entrega calculada após confirmação.</p>
+                </div>
+            </section>
+            
+            <button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full bg-brand-primary text-white font-bold py-4 rounded-lg text-lg shadow-lg hover:bg-brand-primary-dark transition-all duration-300 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center"
+            >
+                {isSubmitting ? (
+                    <>
+                         <SpinnerIcon className="w-6 h-6 mr-2" />
+                         Enviando Pedido...
+                    </>
+                ) : (
+                    'Enviar Pedido pelo WhatsApp'
+                )}
+            </button>
+
+        </form>
+      </main>
+      
+      <PhoneConfirmationModal
+        isOpen={isPhoneModalOpen}
+        phoneNumber={formData.whatsapp}
+        onCorrect={() => {
+            setIsPhoneModalOpen(false);
+            setTimeout(() => whatsappInputRef.current?.focus(), 100);
+        }}
+        onConfirm={() => {
+            setIsPhoneModalOpen(false);
+            checkClient(formData.whatsapp);
+        }}
+      />
+      
+      <SavedAddressesModal 
+          isOpen={isAddressModalOpen}
+          addresses={foundAddresses}
+          onSelect={handleSelectAddress}
+          onDelete={handleDeleteAddress}
+          onClose={() => setIsAddressModalOpen(false)}
+      />
+
+      <AddressDeleteConfirmationModal
+          isOpen={!!addressToDelete}
+          onCancel={() => setAddressToDelete(null)}
+          onConfirm={confirmDeleteAddress}
+      />
     </div>
+    </>
   );
 };
 

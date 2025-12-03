@@ -21,7 +21,7 @@ import {
     documentId,
 } from "firebase/firestore";
 import { db } from '../firebase';
-import type { Product, StoreInfoData, Order, Client } from '../types';
+import type { Product, StoreInfoData, Order, Client, DeliveryInfo } from '../types';
 
 // Collection references
 const productsCollection = collection(db, 'products');
@@ -184,6 +184,14 @@ export const getClient = async (whatsapp: string): Promise<Client | null> => {
         return clientDoc.data() as Client;
     }
     return null;
+};
+
+export const removeClientAddress = async (whatsapp: string, address: DeliveryInfo['address']): Promise<void> => {
+    const rawWhatsapp = whatsapp.replace(/\D/g, '');
+    const clientRef = doc(clientsCollection, rawWhatsapp);
+    await updateDoc(clientRef, {
+        addresses: arrayRemove(address)
+    });
 };
 
 const updateClientOnOrder = async (order: Order, saveAddress: boolean) => {
