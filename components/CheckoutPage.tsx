@@ -225,13 +225,14 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
                 itemName += ` (${item.selectedOption.name})`;
             }
 
+            // IMPORTANTE: Criamos o objeto explicitamente para garantir que
+            // propriedades extras (como 'selectedOption' ou 'option') NÃO sejam enviadas.
             const orderItem: OrderItem = {
                 id: item.id || '',
                 name: itemName,
                 quantity: item.quantity || 1,
                 price: item.price || 0,
                 observations: item.observations || '',
-                // IMPORTANTE: Não incluímos o campo 'option' ou 'selectedOption' aqui
             };
 
             return orderItem;
@@ -262,13 +263,15 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
             deliveryDate: formData.deliveryDate,
         };
         
+        console.log("Enviando pedido para o Firebase:", orderData); // Debug log
+
         const newOrder = await addOrder(orderData);
         
         onOrderSuccess(newOrder);
 
     } catch (err) {
+        console.error("Erro ao enviar pedido:", err);
         setFormErrors({ form: 'Ocorreu um erro ao finalizar o pedido. Tente novamente.' });
-        console.error(err);
     } finally {
         setIsSubmitting(false);
     }
