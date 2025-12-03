@@ -217,23 +217,15 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
 
     setIsSubmitting(true);
     try {
-        const orderItems: OrderItem[] = cartItems.map(item => {
-            // Constrói o objeto explicitamente para evitar campos undefined
-            const orderItem: OrderItem = {
-                id: item.id,
-                name: item.name,
-                quantity: item.quantity,
-                price: item.price,
-                observations: item.observations || '',
-            };
-
-            // Adiciona a opção SOMENTE se ela existir e tiver um nome válido
-            if (item.selectedOption && item.selectedOption.name) {
-                orderItem.option = item.selectedOption.name;
-            }
-
-            return orderItem;
-        });
+        const orderItems: OrderItem[] = cartItems.map(item => ({
+            id: item.id,
+            name: item.name,
+            quantity: item.quantity,
+            price: item.price,
+            observations: item.observations || '',
+            // Only add option if it exists and is not undefined, otherwise Firestore throws an error
+            ...(item.selectedOption?.name ? { option: item.selectedOption.name } : {}),
+        }));
         
         const customer: CustomerInfo = {
             name: formData.name,
@@ -247,7 +239,7 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
                 street: formData.street,
                 number: formData.number,
                 neighborhood: formData.neighborhood,
-                complement: formData.complement || '', // Garante string vazia se undefined
+                complement: formData.complement,
             }
         };
 
