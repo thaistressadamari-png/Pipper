@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import type { Product } from '../types';
-import { TrashIcon, SearchIcon, DragHandleIcon } from './IconComponents';
+import { TrashIcon, SearchIcon, DragHandleIcon, CopyIcon } from './IconComponents';
 
 interface ProductsViewProps {
   products: Product[];
@@ -116,6 +117,23 @@ const ProductsView: React.FC<ProductsViewProps> = ({ products, categories, onAdd
     window.scrollTo(0, 0); 
   };
   
+  const handleDuplicateClick = (product: Product) => {
+    setProductForm({
+        name: `${product.name} (Cópia)`,
+        description: product.description,
+        price: String(product.price),
+        originalPrice: product.originalPrice ? String(product.originalPrice) : '',
+        promotionalTag: product.promotionalTag || '',
+        category: product.category,
+        imageUrls: product.imageUrls ? product.imageUrls.join('\n') : '',
+        leadTimeDays: String(product.leadTimeDays || 0),
+    });
+    setEditingProduct(null); // Ensure we are NOT in edit mode (we want a new ID)
+    window.scrollTo(0, 0);
+    setMessage({ type: 'success', text: 'Dados copiados para o formulário. Ajuste e salve como novo produto.' });
+    setTimeout(() => setMessage(null), 4000);
+  };
+
   const confirmDelete = async () => {
     if (!productToDelete) return;
     setMessage(null);
@@ -374,6 +392,10 @@ const ProductsView: React.FC<ProductsViewProps> = ({ products, categories, onAdd
                                 </div>
                             </div>
                             <div className="flex items-center gap-4">
+                                <button onClick={() => handleDuplicateClick(p)} className="flex items-center gap-1 text-sm font-medium text-gray-500 hover:text-brand-primary hover:underline" title="Duplicar">
+                                    <CopyIcon className="w-5 h-5" />
+                                    <span className="hidden sm:inline">Duplicar</span>
+                                </button>
                                 <button onClick={() => handleEditClick(p)} className="text-sm font-medium text-brand-primary hover:underline">Editar</button>
                                 <button onClick={() => setProductToDelete(p)} className="text-sm font-medium text-red-600 hover:underline">Apagar</button>
                             </div>
