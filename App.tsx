@@ -195,12 +195,6 @@ const App: React.FC = () => {
     setCartItems([]);
     setView('orderSuccess');
   };
-
-  const handleTrackOrder = useCallback((order: Order) => {
-    setOrderSuccessData(order);
-    setView('orderSuccess');
-    setIsOrderTrackingOpen(false);
-  }, []);
   
   const handleLogout = async () => {
     try {
@@ -353,7 +347,6 @@ const App: React.FC = () => {
         <OrderTrackingModal
             isOpen={isOrderTrackingOpen}
             onClose={() => setIsOrderTrackingOpen(false)}
-            onTrackOrder={handleTrackOrder}
         />
         </>
     );

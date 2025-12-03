@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { Order, StoreInfoData } from '../types';
-import { ArrowLeftIcon, ClockIcon, WhatsappIcon, CheckCircleIcon, ChefHatIcon, BikeIcon, XIcon } from './IconComponents';
+import { ArrowLeftIcon, ClockIcon, WhatsappIcon, ShoppingBagIcon, CheckCircleIcon, ChefHatIcon, BikeIcon, XIcon } from './IconComponents';
 
 interface OrderSuccessPageProps {
   order: Order | null;
@@ -20,18 +20,18 @@ const TrackingStep: React.FC<StepProps> = ({ isActive, isCompleted, isLast, icon
     return (
         <div className="flex gap-4 relative">
             <div className="flex flex-col items-center">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center z-10 transition-colors duration-300 ${
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center z-10 ${
                     isActive ? 'bg-orange-100 text-orange-500' : 
-                    isCompleted ? 'bg-orange-100 text-orange-500' : 'bg-gray-100 text-gray-400'
+                    isCompleted ? 'bg-green-100 text-green-500' : 'bg-gray-100 text-gray-400'
                 }`}>
-                    {isCompleted && !isActive ? <CheckCircleIcon className="w-6 h-6" /> : icon}
+                    {isCompleted ? <CheckCircleIcon className="w-6 h-6" /> : icon}
                 </div>
                 {!isLast && (
-                    <div className={`w-0.5 flex-grow my-2 transition-colors duration-300 ${isCompleted ? 'bg-orange-200' : 'bg-gray-200'}`} style={{ minHeight: '40px' }}></div>
+                    <div className={`w-0.5 flex-grow my-2 ${isCompleted ? 'bg-green-200' : 'bg-gray-200'}`} style={{ minHeight: '40px' }}></div>
                 )}
             </div>
             <div className="pt-2 pb-8">
-                <h3 className={`font-semibold text-lg transition-colors duration-300 ${
+                <h3 className={`font-semibold text-lg ${
                     isActive ? 'text-gray-900' : 
                     isCompleted ? 'text-gray-800' : 'text-gray-400'
                 }`}>
@@ -91,46 +91,27 @@ const OrderSuccessPage: React.FC<OrderSuccessPageProps> = ({ order, storeInfo, o
     );
   }
 
-  // Determine active step
-  // 1: New/Pending (Pedido pendente)
-  // 2: Confirmed (Preparo)
-  // 3: Completed (Envio)
+  // Determine current step based on status
+  // Status flow: new -> pending_payment -> confirmed -> completed
   const getStepStatus = () => {
-    if (order.status === 'completed' || order.status === 'archived') return 3;
-    if (order.status === 'confirmed') return 2;
-    return 1; // 'new' or 'pending_payment'
+    let activeStep = 1;
+    if (order.status === 'confirmed') activeStep = 2;
+    if (order.status === 'completed') activeStep = 3;
+    if (order.status === 'archived') activeStep = 3; // Treat archived as completed for display
+    return activeStep;
   };
 
   const activeStep = getStepStatus();
 
-  // Header Banner Content
-  const getBannerContent = () => {
-      if (activeStep === 1) {
-          return {
-              title: "Pedido enviado!",
-              subtitle: "Aguardando a confirmação da loja",
-              icon: <ClockIcon className="w-8 h-8 animate-pulse" />,
-              colorClass: "bg-gray-800 text-white"
-          };
-      }
-      if (activeStep === 2) {
-           return {
-              title: "Pedido em preparo!",
-              subtitle: "Estamos caprichando no seu pedido",
-              icon: <ChefHatIcon className="w-8 h-8" />,
-              colorClass: "bg-orange-500 text-white"
-          };
-      }
-      // activeStep 3
-      return {
-          title: "Saiu para entrega!",
-          subtitle: "Logo chega aí",
-          icon: <BikeIcon className="w-8 h-8" />,
-          colorClass: "bg-green-500 text-white"
-      };
+  // Dynamic header message
+  const getHeaderMessage = () => {
+      if (activeStep === 1) return { title: "Pedido enviado!", subtitle: "Aguardando a confirmação da loja" };
+      if (activeStep === 2) return { title: "Pedido em preparo!", subtitle: "Estamos preparando suas delícias" };
+      if (activeStep === 3) return { title: "Saiu para entrega!", subtitle: "Logo chega até você" };
+      return { title: "Pedido atualizado", subtitle: "" };
   };
 
-  const banner = getBannerContent();
+  const headerInfo = getHeaderMessage();
   const totalPrice = (order.total || 0) + (order.deliveryFee || 0);
 
   const whatsappMessage = `Olá! Gostaria de falar sobre o pedido #${order.orderNumber}.`;
@@ -152,19 +133,23 @@ const OrderSuccessPage: React.FC<OrderSuccessPageProps> = ({ order, storeInfo, o
         
         {/* Status Banner */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-8 flex items-center gap-4 border border-gray-100">
-            <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${banner.colorClass}`}>
-                {banner.icon}
+            <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${activeStep === 3 ? 'bg-green-100 text-green-600' : 'bg-gray-800 text-white'}`}>
+                {activeStep === 3 ? (
+                     <CheckCircleIcon className="w-8 h-8" />
+                ) : (
+                    <ClockIcon className="w-8 h-8 animate-pulse" />
+                )}
             </div>
             <div>
-                <h2 className="font-bold text-lg text-gray-900">{banner.title}</h2>
-                <p className="text-gray-500 text-sm">{banner.subtitle}</p>
+                <h2 className="font-bold text-lg text-gray-900">{headerInfo.title}</h2>
+                <p className="text-gray-500 text-sm">{headerInfo.subtitle}</p>
             </div>
         </div>
 
         {/* Timeline */}
         <div className="pl-4">
             <TrackingStep 
-                title={activeStep === 1 ? "Pedido pendente..." : "Pedido recebido"}
+                title="Pedido pendente..."
                 isActive={activeStep === 1}
                 isCompleted={activeStep > 1}
                 isLast={false}
@@ -178,9 +163,9 @@ const OrderSuccessPage: React.FC<OrderSuccessPageProps> = ({ order, storeInfo, o
                 icon={<ChefHatIcon className="w-5 h-5" />}
             />
             <TrackingStep 
-                title="Envio"
+                title="Saiu para entrega"
                 isActive={activeStep === 3}
-                isCompleted={activeStep > 3} // Never strictly completed visually past 3 in this UI
+                isCompleted={activeStep > 3} // Never strictly "completed" past this, visually active is fine
                 isLast={true}
                 icon={<BikeIcon className="w-5 h-5" />}
             />
@@ -199,8 +184,7 @@ const OrderSuccessPage: React.FC<OrderSuccessPageProps> = ({ order, storeInfo, o
                         <p className="text-sm text-gray-500">#{order.orderNumber.toString().padStart(4, '0')}</p>
                     </div>
                     <div className="text-right">
-                        <p className="text-sm text-gray-500">Total:</p>
-                        <p className="text-sm font-bold text-gray-900">{formatPrice(totalPrice)}</p>
+                        <p className="text-sm font-bold text-gray-900">Total: {formatPrice(totalPrice)}</p>
                     </div>
                 </div>
                 
@@ -209,14 +193,14 @@ const OrderSuccessPage: React.FC<OrderSuccessPageProps> = ({ order, storeInfo, o
                         href={whatsappUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex-1 flex items-center justify-center gap-2 py-3 px-4 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                        className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                     >
                         <WhatsappIcon className="w-5 h-5 text-green-600" />
                         Iniciar conversa
                     </a>
                     <button 
                         onClick={() => setIsDetailsOpen(true)}
-                        className="flex-1 flex items-center justify-center gap-2 py-3 px-4 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                        className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                     >
                         Ver pedido
                     </button>
