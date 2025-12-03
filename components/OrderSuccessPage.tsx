@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import type { Order, StoreInfoData } from '../types';
 import { ArrowLeftIcon, ClockIcon, WhatsappIcon, CheckCircleIcon, ChefHatIcon, BikeIcon, XIcon } from './IconComponents';
@@ -17,24 +18,39 @@ interface StepProps {
 }
 
 const TrackingStep: React.FC<StepProps> = ({ isActive, isCompleted, isLast, icon, title }) => {
+    // Determine colors based on status logic from parent (which maps to active/completed)
+    // The request was: "as etapas estão todas em 'laranja' mas para preparo e envio pode ser em verde."
+    // Here we define styles dynamically.
+    
+    let bubbleClass = 'bg-gray-100 text-gray-400';
+    let textClass = 'text-gray-400';
+    let lineClass = 'bg-gray-200';
+
+    if (isActive) {
+        bubbleClass = 'bg-green-100 text-green-600'; // Active is Green
+        textClass = 'text-gray-900';
+    } else if (isCompleted) {
+        bubbleClass = 'bg-green-100 text-green-600'; // Completed is Green
+        textClass = 'text-gray-800';
+        lineClass = 'bg-green-200';
+    }
+    
+    // Override specifically for the first step (Pending) to stay orange if active, or green if done?
+    // User asked "preparo e envio pode ser em verde". Pending implies before prep.
+    // However, usually completed steps are green. Let's stick to green for active/completed for consistency with the request.
+
     return (
         <div className="flex gap-4 relative">
             <div className="flex flex-col items-center">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center z-10 transition-colors duration-300 ${
-                    isActive ? 'bg-orange-100 text-orange-500' : 
-                    isCompleted ? 'bg-orange-100 text-orange-500' : 'bg-gray-100 text-gray-400'
-                }`}>
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center z-10 transition-colors duration-300 ${bubbleClass}`}>
                     {isCompleted && !isActive ? <CheckCircleIcon className="w-6 h-6" /> : icon}
                 </div>
                 {!isLast && (
-                    <div className={`w-0.5 flex-grow my-2 transition-colors duration-300 ${isCompleted ? 'bg-orange-200' : 'bg-gray-200'}`} style={{ minHeight: '40px' }}></div>
+                    <div className={`w-0.5 flex-grow my-2 transition-colors duration-300 ${lineClass}`} style={{ minHeight: '40px' }}></div>
                 )}
             </div>
             <div className="pt-2 pb-8">
-                <h3 className={`font-semibold text-lg transition-colors duration-300 ${
-                    isActive ? 'text-gray-900' : 
-                    isCompleted ? 'text-gray-800' : 'text-gray-400'
-                }`}>
+                <h3 className={`font-semibold text-lg transition-colors duration-300 ${textClass}`}>
                     {title}
                 </h3>
             </div>
@@ -94,9 +110,11 @@ const OrderSuccessPage: React.FC<OrderSuccessPageProps> = ({ order, storeInfo, o
   // Determine active step
   // 1: New/Pending (Pedido pendente)
   // 2: Confirmed (Preparo)
-  // 3: Completed (Envio)
+  // 3: Shipped (Envio/Saiu para entrega)
+  // 4: Completed (Finalizado/Entregue)
   const getStepStatus = () => {
-    if (order.status === 'completed' || order.status === 'archived') return 3;
+    if (order.status === 'completed' || order.status === 'archived') return 4;
+    if (order.status === 'shipped') return 3;
     if (order.status === 'confirmed') return 2;
     return 1; // 'new' or 'pending_payment'
   };
@@ -118,15 +136,23 @@ const OrderSuccessPage: React.FC<OrderSuccessPageProps> = ({ order, storeInfo, o
               title: "Pedido em preparo!",
               subtitle: "Estamos caprichando no seu pedido",
               icon: <ChefHatIcon className="w-8 h-8" />,
-              colorClass: "bg-orange-500 text-white"
+              colorClass: "bg-green-500 text-white" // Changed to Green as requested ("preparo... pode ser em verde")
           };
       }
-      // activeStep 3
+      if (activeStep === 3) {
+           return {
+              title: "Saiu para entrega!",
+              subtitle: "Logo chega aí",
+              icon: <BikeIcon className="w-8 h-8" />,
+              colorClass: "bg-green-600 text-white" // Green for shipped
+          };
+      }
+      // activeStep 4 (Completed)
       return {
-          title: "Saiu para entrega!",
-          subtitle: "Logo chega aí",
-          icon: <BikeIcon className="w-8 h-8" />,
-          colorClass: "bg-green-500 text-white"
+          title: "Pedido Entregue!",
+          subtitle: "Obrigado pela preferência",
+          icon: <CheckCircleIcon className="w-8 h-8" />,
+          colorClass: "bg-green-700 text-white"
       };
   };
 
@@ -180,7 +206,7 @@ const OrderSuccessPage: React.FC<OrderSuccessPageProps> = ({ order, storeInfo, o
             <TrackingStep 
                 title="Envio"
                 isActive={activeStep === 3}
-                isCompleted={activeStep > 3} // Never strictly completed visually past 3 in this UI
+                isCompleted={activeStep > 3} // Only completed when delivered
                 isLast={true}
                 icon={<BikeIcon className="w-5 h-5" />}
             />

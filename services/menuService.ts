@@ -325,7 +325,7 @@ export const getOrdersByWhatsapp = async (whatsapp: string): Promise<Order[]> =>
     const q = query(
         ordersCollection,
         where('customer.whatsapp', '==', rawWhatsapp),
-        where('status', 'in', ['new', 'pending_payment', 'confirmed', 'completed'])
+        where('status', 'in', ['new', 'pending_payment', 'confirmed', 'shipped', 'completed'])
     );
     const querySnapshot = await getDocs(q);
     const orders = querySnapshot.docs.map(doc => ({

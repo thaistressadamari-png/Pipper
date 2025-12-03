@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import type { Order } from '../types';
 import { XIcon } from './IconComponents';
@@ -75,7 +76,14 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ order, isOpen, onCl
             case 'confirmed':
                 return (
                     <>
-                        <button onClick={() => handleActionClick(() => onStatusUpdate(order.id, 'completed'))} disabled={isSubmitting} className="px-3 py-1.5 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50">Finalizar</button>
+                        <button onClick={() => handleActionClick(() => onStatusUpdate(order.id, 'shipped'))} disabled={isSubmitting} className="px-3 py-1.5 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:opacity-50">Enviar Entrega</button>
+                        <button onClick={() => handleActionClick(() => onStatusUpdate(order.id, 'archived'))} disabled={isSubmitting} className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 disabled:opacity-50">Arquivar</button>
+                    </>
+                );
+            case 'shipped':
+                return (
+                    <>
+                        <button onClick={() => handleActionClick(() => onStatusUpdate(order.id, 'completed'))} disabled={isSubmitting} className="px-3 py-1.5 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50">Finalizar Pedido</button>
                         <button onClick={() => handleActionClick(() => onStatusUpdate(order.id, 'archived'))} disabled={isSubmitting} className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 disabled:opacity-50">Arquivar</button>
                     </>
                 );

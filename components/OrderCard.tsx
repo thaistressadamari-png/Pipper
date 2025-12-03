@@ -1,3 +1,4 @@
+
 import React from 'react';
 import type { Order } from '../types';
 
@@ -25,6 +26,7 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onCardClick }) => {
         new: { text: 'Novo', color: 'bg-yellow-400' },
         pending_payment: { text: 'Pendente', color: 'bg-orange-400' },
         confirmed: { text: 'Confirmado', color: 'bg-blue-500' },
+        shipped: { text: 'Enviado', color: 'bg-indigo-500' },
         completed: { text: 'Finalizado', color: 'bg-green-500' },
         archived: { text: 'Arquivado', color: 'bg-gray-400' },
     };

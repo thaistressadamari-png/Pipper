@@ -1,3 +1,4 @@
+
 export interface Product {
   id: string;
   name: string;
@@ -60,7 +61,7 @@ export interface DeliveryInfo {
 export interface Order {
     id: string;
     orderNumber: number;
-    status: 'new' | 'pending_payment' | 'confirmed' | 'completed' | 'archived';
+    status: 'new' | 'pending_payment' | 'confirmed' | 'shipped' | 'completed' | 'archived';
     createdAt: any; // Firestore Timestamp
     updatedAt: any; // Firestore Timestamp
     customer: CustomerInfo;

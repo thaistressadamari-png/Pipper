@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { XIcon, ArrowLeftIcon } from './IconComponents';
 import { getOrdersByWhatsapp } from '../services/menuService';
@@ -51,6 +52,7 @@ const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ isOpen, onClose
         new: 'bg-yellow-100 text-yellow-800',
         pending_payment: 'bg-orange-100 text-orange-800',
         confirmed: 'bg-blue-100 text-blue-800',
+        shipped: 'bg-indigo-100 text-indigo-800',
         completed: 'bg-green-100 text-green-800',
         archived: 'bg-gray-100 text-gray-800',
     };
@@ -58,6 +60,7 @@ const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ isOpen, onClose
         new: 'Recebido',
         pending_payment: 'Pendente',
         confirmed: 'Em Preparo',
+        shipped: 'Enviado',
         completed: 'Finalizado',
         archived: 'Arquivado'
     }

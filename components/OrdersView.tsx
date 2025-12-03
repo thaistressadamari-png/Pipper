@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import type { Order } from '../types';
 import { getOrders, updateOrderStatus, updateOrderDeliveryFee, updateOrderPaymentLink } from '../services/menuService';
@@ -99,6 +100,7 @@ const OrdersView: React.FC = () => {
         { key: 'new', label: 'Novos' },
         { key: 'pending_payment', label: 'Pagamento Pendente' },
         { key: 'confirmed', label: 'Confirmados' },
+        { key: 'shipped', label: 'Enviado' },
         { key: 'completed', label: 'Finalizados' },
         { key: 'archived', label: 'Arquivados' },
     ];
