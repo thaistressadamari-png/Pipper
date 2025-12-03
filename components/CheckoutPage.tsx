@@ -211,49 +211,21 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
     return Object.keys(newErrors).length === 0;
   }
 
-  const handleSubmit = async (e?: React.FormEvent) => {
-    if(e) e.preventDefault();
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!validateForm()) return;
 
     setIsSubmitting(true);
     try {
-        // Sanitização rigorosa dos itens do pedido
-        const orderItems: OrderItem[] = cartItems.map(item => {
-            // Usa o nome original do produto. Modificar o nome aqui pode causar erro 
-            // se o Firebase validar contra o cadastro de produtos.
-            // As variações serão movidas para "observations".
-            const itemName = item.name || 'Produto sem nome';
-            
-            // Construção da string de observações combinando variação e obs do usuário
-            let finalObservations = '';
-            
-            // 1. Adiciona a variação, se houver
-            if (item.selectedOption && item.selectedOption.name) {
-                finalObservations += `Opção: ${item.selectedOption.name}`;
-            }
-            
-            // 2. Adiciona observações do usuário, se houver
-            if (item.observations && item.observations.trim() !== '') {
-                if (finalObservations) {
-                    finalObservations += `. ${item.observations}`;
-                } else {
-                    finalObservations += item.observations;
-                }
-            }
-
-            // CRÍTICO: Criar um novo objeto explícito para garantir que campos extras 
-            // (como 'selectedOption', 'imageUrls', etc) NÃO sejam enviados ao Firestore.
-            // O Firestore rejeita o documento se houver campos não permitidos nas regras ou se for undefined.
-            const cleanItem: OrderItem = {
-                id: item.id || '',
-                name: itemName,
-                quantity: Number(item.quantity) || 1,
-                price: Number(item.price) || 0,
-                observations: finalObservations,
-            };
-
-            return cleanItem;
-        });
+        const orderItems: OrderItem[] = cartItems.map(item => ({
+            id: item.id,
+            name: item.name,
+            quantity: item.quantity,
+            price: item.price,
+            observations: item.observations || '',
+            // Only add option if it exists and is not undefined, otherwise Firestore throws an error
+            ...(item.selectedOption?.name ? { option: item.selectedOption.name } : {}),
+        }));
         
         const customer: CustomerInfo = {
             name: formData.name,
@@ -267,7 +239,7 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
                 street: formData.street,
                 number: formData.number,
                 neighborhood: formData.neighborhood,
-                complement: formData.complement || '',
+                complement: formData.complement,
             }
         };
 
@@ -280,15 +252,13 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
             deliveryDate: formData.deliveryDate,
         };
         
-        console.log("Enviando pedido (Sanitizado):", JSON.stringify(orderData));
-
         const newOrder = await addOrder(orderData);
         
         onOrderSuccess(newOrder);
 
     } catch (err) {
-        console.error("Erro ao enviar pedido:", err);
-        setFormErrors({ form: 'Ocorreu um erro ao finalizar o pedido. Tente novamente ou entre em contato pelo WhatsApp.' });
+        setFormErrors({ form: 'Ocorreu um erro ao finalizar o pedido. Tente novamente.' });
+        console.error(err);
     } finally {
         setIsSubmitting(false);
     }
@@ -389,115 +359,83 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
                     <div className="border-t pt-6">
                         <h2 className="text-xl font-bold text-brand-text">Data da Entrega</h2>
                          {minLeadTime > 0 && (
-                            <p className="text-sm text-yellow-600 bg-yellow-50 p-3 rounded-md mb-4 border border-yellow-200">
-                                Alguns itens do seu pedido exigem um tempo mínimo de preparo de {minLeadTime} dia(s).
-                            </p>
+                            <p className="text-sm text-gray-500 mt-1">O prazo mínimo para este pedido é de {minLeadTime} dia(s).</p>
                          )}
-                        <div className="relative">
-                             <div 
-                                className={`w-full px-3 py-2 bg-white border rounded-md shadow-sm text-gray-900 cursor-pointer flex items-center justify-between ${getBorderColor('deliveryDate')}`}
+                        <div className="mt-4 relative">
+                            <button
+                                ref={calendarButtonRef}
+                                type="button"
                                 onClick={handleCalendarToggle}
-                                ref={calendarButtonRef as any}
-                             >
-                                <span>{formData.deliveryDate ? new Date(formData.deliveryDate + 'T00:00:00').toLocaleDateString('pt-BR') : 'Selecione uma data'}</span>
+                                className="w-full sm:w-auto flex items-center gap-2 text-left px-4 py-2 bg-white border border-gray-300 rounded-md shadow-sm"
+                            >
                                 <CalendarIcon className="w-5 h-5 text-gray-400" />
-                             </div>
-                             {isCalendarOpen && (
-                                <div className={`absolute left-0 z-20 mt-2 ${calendarPosition === 'top' ? 'bottom-full mb-2' : 'top-full'}`}>
-                                    <div 
-                                        className="fixed inset-0 z-10" 
-                                        onClick={() => setIsCalendarOpen(false)}
-                                    ></div>
-                                    <div className="relative z-20">
-                                        <Calendar 
-                                            minDate={minDate} 
-                                            onDateSelect={handleDateSelect}
-                                            selectedDate={formData.deliveryDate}
-                                        />
-                                    </div>
+                                <div>
+                                    <span className="text-sm text-gray-500">Data selecionada</span>
+                                    <p className="font-medium text-brand-text">{new Date(formData.deliveryDate + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
                                 </div>
-                             )}
+                            </button>
+                            {formErrors.deliveryDate && <p className="text-xs text-red-500 mt-1">{formErrors.deliveryDate}</p>}
+                             {isCalendarOpen && (
+                                <>
+                                    <div className="fixed inset-0 z-10" onClick={() => setIsCalendarOpen(false)}></div>
+                                    <div className={`absolute left-0 z-20 ${calendarPosition === 'bottom' ? 'top-full mt-2' : 'bottom-full mb-2'}`}>
+                                        <Calendar minDate={minDate} selectedDate={formData.deliveryDate} onDateSelect={handleDateSelect} />
+                                    </div>
+                                </>
+                            )}
                         </div>
-                         {formErrors.deliveryDate && <p className="text-xs text-red-500 mt-1">{formErrors.deliveryDate}</p>}
                     </div>
-                     <div className="border-t pt-6">
-                        <h2 className="text-xl font-bold text-brand-text">Pagamento</h2>
-                        <div className="mt-4 space-y-3">
-                            {storeInfo?.paymentMethods?.online?.map((method) => (
-                                <label key={method} className={`flex items-center p-4 border rounded-lg cursor-pointer transition-all ${formData.paymentMethod === method ? 'border-brand-primary bg-brand-secondary/10 ring-1 ring-brand-primary' : 'border-gray-200 hover:bg-gray-50'}`}>
-                                    <input
-                                        type="radio"
-                                        name="paymentMethod"
-                                        value={method}
-                                        checked={formData.paymentMethod === method}
-                                        onChange={handleInputChange}
-                                        className="h-4 w-4 text-brand-primary focus:ring-brand-primary border-gray-300"
-                                    />
+                </div>
+
+                <div className="lg:col-span-1 bg-white p-6 rounded-lg shadow space-y-6 sticky top-24">
+                    <div>
+                        <h2 className="text-xl font-bold text-brand-text mb-4">Forma de Pagamento</h2>
+                        <div className="space-y-2">
+                             {storeInfo?.paymentMethods?.online.map(method => (
+                                <label key={method} className="flex items-center p-3 border rounded-lg cursor-pointer has-[:checked]:bg-brand-secondary has-[:checked]:border-brand-primary">
+                                    <input type="radio" name="paymentMethod" value={method} checked={formData.paymentMethod === method} onChange={handleInputChange} className="h-4 w-4 text-brand-primary focus:ring-brand-primary"/>
                                     <span className="ml-3 font-medium text-brand-text">{method}</span>
                                 </label>
                             ))}
-                            {!storeInfo?.paymentMethods?.online?.length && (
-                                <p className="text-gray-500 italic">Nenhum método de pagamento disponível no momento.</p>
-                            )}
                         </div>
-                         {formErrors.paymentMethod && <p className="text-xs text-red-500 mt-1">{formErrors.paymentMethod}</p>}
+                        {formErrors.paymentMethod && <p className="text-xs text-red-500 mt-1">{formErrors.paymentMethod}</p>}
                     </div>
-                </div>
-                
-                <div className="bg-white p-6 rounded-lg shadow lg:sticky lg:top-24">
-                    <h2 className="text-xl font-bold text-brand-text mb-4">Resumo do Pedido</h2>
-                    <div className="space-y-4 max-h-60 overflow-y-auto pr-2 no-scrollbar">
-                        {cartItems.map((item, index) => (
-                            <div key={`${item.id}-${index}`} className="flex justify-between items-start text-sm">
-                                <div>
-                                    <span className="font-bold text-brand-text">{item.quantity}x</span> <span className="text-gray-700">{item.name}</span>
-                                    {item.selectedOption && (
-                                        <p className="text-xs text-gray-500 ml-5">{item.selectedOption.name}</p>
-                                    )}
+                    <div className="border-t pt-4 space-y-2">
+                        <h2 className="text-xl font-bold text-brand-text">Resumo do Pedido</h2>
+                        <div className="space-y-2 border-b pb-4">
+                            {cartItems.map((item, idx) => (
+                                <div key={idx} className="flex justify-between text-sm">
+                                    <span className="text-gray-600">
+                                        {item.quantity}x {item.name}
+                                        {item.selectedOption && <span className="text-xs block text-gray-400">({item.selectedOption.name})</span>}
+                                    </span>
+                                    <span className="text-gray-800 font-medium">{formatPrice(item.price * item.quantity)}</span>
                                 </div>
-                                <span className="font-medium text-brand-text whitespace-nowrap">{formatPrice(item.price * item.quantity)}</span>
-                            </div>
-                        ))}
-                    </div>
-                    <div className="border-t mt-4 pt-4">
-                        <div className="flex justify-between items-center text-xl font-bold text-brand-text">
-                            <span>Total</span>
+                            ))}
+                        </div>
+                        <div className="flex justify-between font-bold text-lg text-brand-text pt-2">
+                            <span>Subtotal</span>
                             <span>{formatPrice(total)}</span>
                         </div>
-                        <p className="text-xs text-gray-500 mt-2 text-right">* Taxa de entrega calculada após confirmação.</p>
-                    </div>
-                    
-                    {formErrors.form && (
-                        <div className="mt-4 p-3 bg-red-100 text-red-700 text-sm rounded-md">
-                            {formErrors.form}
+                        <div className="text-right text-sm text-gray-500">
+                            + taxa de envio
                         </div>
-                    )}
+                    </div>
 
-                    <button
-                        type="submit"
-                        disabled={isSubmitting}
-                        className="w-full mt-6 bg-brand-primary text-white font-bold py-3 rounded-lg text-lg hover:bg-brand-primary-dark transition-colors duration-300 disabled:opacity-70 flex justify-center items-center"
-                    >
-                        {isSubmitting ? (
-                            <>
-                                <SpinnerIcon className="w-5 h-5 mr-2" />
-                                Processando...
-                            </>
-                        ) : 'Confirmar Pedido'}
+                     {formErrors.form && <p className="text-sm text-red-600 text-center">{formErrors.form}</p>}
+                    <button type="submit" disabled={isSubmitting || isCepLoading} className="w-full bg-brand-primary text-white font-bold py-3 rounded-lg text-lg hover:bg-brand-primary-dark transition-colors duration-300 disabled:opacity-50">
+                        {isSubmitting ? 'Finalizando...' : 'Finalizar Pedido'}
                     </button>
                 </div>
             </form>
         </main>
-        
-        <PhoneConfirmationModal 
+        <PhoneConfirmationModal
             isOpen={isPhoneModalOpen}
             phoneNumber={formData.whatsapp}
+            onConfirm={() => setIsPhoneModalOpen(false)}
             onCorrect={() => {
                 setIsPhoneModalOpen(false);
-                setTimeout(() => whatsappInputRef.current?.focus(), 100);
-            }}
-            onConfirm={() => {
-                setIsPhoneModalOpen(false);
+                whatsappInputRef.current?.focus();
             }}
         />
     </div>
