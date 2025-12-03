@@ -240,13 +240,7 @@ export const addOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'upda
     }
 
     // This runs outside the transaction to avoid contention
-    // We wrap it in a try-catch so that if the Client History update fails (e.g., rules issue),
-    // the main order is still considered successful from the user's perspective.
-    try {
-        await updateClientOnOrder(newOrder);
-    } catch (error) {
-        console.error("Non-critical error: Failed to update client history", error);
-    }
+    await updateClientOnOrder(newOrder);
     
     // Send notification, but don't wait for it and don't block the UI
     try {
@@ -347,13 +341,9 @@ export const getOrdersByWhatsapp = async (whatsapp: string): Promise<Order[]> =>
 
 
 export const incrementVisitCount = async (): Promise<void> => {
-    try {
-        const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
-        const dailyVisitRef = doc(dailyVisitsCollection, today);
-        await setDoc(dailyVisitRef, { count: increment(1) }, { merge: true });
-    } catch (error) {
-        console.error("Non-critical error: Failed to increment visit count", error);
-    }
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+    const dailyVisitRef = doc(dailyVisitsCollection, today);
+    await setDoc(dailyVisitRef, { count: increment(1) }, { merge: true });
 };
 
 

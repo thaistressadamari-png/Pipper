@@ -222,9 +222,8 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
             name: item.name,
             quantity: item.quantity,
             price: item.price,
-            observations: item.observations || '',
-            // Only add option if it exists and is not undefined, otherwise Firestore throws an error
-            ...(item.selectedOption?.name ? { option: item.selectedOption.name } : {}),
+            observations: item.observations,
+            option: item.selectedOption?.name, // Pass the option name
         }));
         
         const customer: CustomerInfo = {
