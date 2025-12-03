@@ -176,10 +176,22 @@ export const updateCategoryOrder = async (newOrder: string[]): Promise<void> => 
     await updateDoc(categoriesDoc, { names: newOrder });
 };
 
-const updateClientOnOrder = async (order: Order) => {
+export const getClient = async (whatsapp: string): Promise<Client | null> => {
+    const rawWhatsapp = whatsapp.replace(/\D/g, '');
+    const clientRef = doc(clientsCollection, rawWhatsapp);
+    const clientDoc = await getDoc(clientRef);
+    if (clientDoc.exists()) {
+        return clientDoc.data() as Client;
+    }
+    return null;
+};
+
+const updateClientOnOrder = async (order: Order, saveAddress: boolean) => {
     const clientRef = doc(clientsCollection, order.customer.whatsapp);
     const clientDoc = await getDoc(clientRef);
     const now = serverTimestamp();
+
+    const addressUpdate = saveAddress ? { addresses: arrayUnion(order.delivery.address) } : {};
 
     if (clientDoc.exists()) {
         // Update existing client
@@ -188,8 +200,8 @@ const updateClientOnOrder = async (order: Order) => {
             lastOrderDate: now,
             totalOrders: increment(1),
             totalSpent: increment(order.total),
-            addresses: arrayUnion(order.delivery.address),
-            orderIds: arrayUnion(order.id)
+            orderIds: arrayUnion(order.id),
+            ...addressUpdate
         });
     } else {
         // Create new client
@@ -200,14 +212,14 @@ const updateClientOnOrder = async (order: Order) => {
             lastOrderDate: now,
             totalOrders: 1,
             totalSpent: order.total,
-            addresses: [order.delivery.address],
+            addresses: saveAddress ? [order.delivery.address] : [],
             orderIds: [order.id]
         };
         await setDoc(clientRef, newClient);
     }
 };
 
-export const addOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt' | 'orderNumber' | 'status'>): Promise<Order> => {
+export const addOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt' | 'orderNumber' | 'status'>, saveAddress: boolean = true): Promise<Order> => {
     let newOrder: Order | null = null;
     await runTransaction(db, async (transaction) => {
         const counterRef = doc(db, 'metadata', 'counters');
@@ -240,7 +252,7 @@ export const addOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'upda
     }
 
     // This runs outside the transaction to avoid contention
-    await updateClientOnOrder(newOrder);
+    await updateClientOnOrder(newOrder, saveAddress);
     
     // Send notification, but don't wait for it and don't block the UI
     try {

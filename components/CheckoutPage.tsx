@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import type { CartItem, StoreInfoData, Order, OrderItem, CustomerInfo, DeliveryInfo } from '../types';
-import { ArrowLeftIcon, CalendarIcon, SpinnerIcon } from './IconComponents';
-import { addOrder } from '../services/menuService';
+import { ArrowLeftIcon, CalendarIcon, SpinnerIcon, XIcon, CheckCircleIcon } from './IconComponents';
+import { addOrder, getClient } from '../services/menuService';
 import Calendar from './Calendar';
 
 interface CheckoutPageProps {
@@ -39,6 +39,51 @@ const PhoneConfirmationModal: React.FC<{
     );
 };
 
+const SavedAddressesModal: React.FC<{
+    isOpen: boolean;
+    addresses: DeliveryInfo['address'][];
+    onSelect: (address: DeliveryInfo['address']) => void;
+    onClose: () => void;
+}> = ({ isOpen, addresses, onSelect, onClose }) => {
+    if (!isOpen) return null;
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[80vh] flex flex-col animate-fade-in-up">
+                <div className="p-4 border-b flex justify-between items-center">
+                     <h3 className="text-lg font-bold text-brand-text">Endereços Salvos</h3>
+                     <button onClick={onClose}><XIcon className="w-6 h-6 text-gray-400"/></button>
+                </div>
+                <div className="p-4 overflow-y-auto space-y-3">
+                    <p className="text-sm text-gray-600 mb-2">Encontramos endereços salvos para este número. Selecione um para preencher automaticamente:</p>
+                    {addresses.map((addr, idx) => (
+                        <button 
+                            key={idx}
+                            onClick={() => onSelect(addr)}
+                            className="w-full text-left p-4 border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-brand-primary transition-all group"
+                        >
+                            <div className="flex items-start gap-3">
+                                <div className="mt-1">
+                                    <div className="w-5 h-5 rounded-full border-2 border-gray-300 group-hover:border-brand-primary"></div>
+                                </div>
+                                <div>
+                                    <p className="font-bold text-brand-text">{addr.street}, {addr.number}</p>
+                                    <p className="text-sm text-gray-600">{addr.neighborhood} - {addr.cep}</p>
+                                    {addr.complement && <p className="text-xs text-gray-500 mt-1">{addr.complement}</p>}
+                                </div>
+                            </div>
+                        </button>
+                    ))}
+                </div>
+                <div className="p-4 border-t bg-gray-50 text-center">
+                    <button onClick={onClose} className="text-sm text-brand-primary font-medium hover:underline">
+                        Usar um novo endereço
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 
 const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNavigateBack, onOrderSuccess }) => {
   const [formData, setFormData] = useState({
@@ -52,12 +97,17 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
     deliveryDate: '',
     paymentMethod: storeInfo?.paymentMethods?.online[0] || '',
   });
+  const [saveAddress, setSaveAddress] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [isCepLoading, setIsCepLoading] = useState(false);
   const [cepError, setCepError] = useState('');
   const [isPhoneModalOpen, setIsPhoneModalOpen] = useState(false);
+  
+  // Address search state
+  const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
+  const [foundAddresses, setFoundAddresses] = useState<DeliveryInfo['address'][]>([]);
 
   const whatsappInputRef = useRef<HTMLInputElement>(null);
   const calendarButtonRef = useRef<HTMLButtonElement>(null);
@@ -189,6 +239,50 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
     }
   };
 
+  const handlePhoneConfirm = async () => {
+    setIsPhoneModalOpen(false);
+    
+    // Check for saved addresses
+    try {
+        const client = await getClient(formData.whatsapp);
+        if (client && client.addresses && client.addresses.length > 0) {
+            // Remove duplicates based on street + number
+            const uniqueAddresses = client.addresses.filter((addr, index, self) => 
+                index === self.findIndex((t) => (
+                    t.street === addr.street && t.number === addr.number && t.cep === addr.cep
+                ))
+            );
+            
+            if (uniqueAddresses.length > 0) {
+                setFoundAddresses(uniqueAddresses);
+                setIsAddressModalOpen(true);
+                
+                // If the client has a name and we don't have one yet (or it's partial), fill it
+                if (client.name && (!formData.name || formData.name.length < 3)) {
+                    setFormData(prev => ({...prev, name: client.name}));
+                }
+            }
+        }
+    } catch (error) {
+        console.error("Error fetching client addresses:", error);
+    }
+  };
+
+  const handleAddressSelect = (address: DeliveryInfo['address']) => {
+      setFormData(prev => ({
+          ...prev,
+          cep: address.cep || '',
+          street: address.street || '',
+          number: address.number || '',
+          neighborhood: address.neighborhood || '',
+          complement: address.complement || '',
+      }));
+      setIsAddressModalOpen(false);
+      
+      // Focus on Complement or Payment Method to keep flow
+      // Optional: focus logic
+  };
+
   const validateForm = (): boolean => {
     const newErrors: { [key: string]: string } = {};
     const { name, whatsapp, cep, street, number, neighborhood, deliveryDate, paymentMethod } = formData;
@@ -252,7 +346,7 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
             deliveryDate: formData.deliveryDate,
         };
         
-        const newOrder = await addOrder(orderData);
+        const newOrder = await addOrder(orderData, saveAddress);
         
         onOrderSuccess(newOrder);
 
@@ -297,11 +391,6 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
                         <h2 className="text-xl font-bold text-brand-text">Informações de Contato</h2>
                         <div className="mt-4 space-y-4">
                              <div>
-                                <label htmlFor="name" className="block text-sm font-medium text-brand-text-light">Nome e sobrenome</label>
-                                <input type="text" name="name" id="name" value={formData.name} onChange={handleInputChange} className={`${inputStyles} ${getBorderColor('name')}`} required />
-                                {formErrors.name && <p className="text-xs text-red-500 mt-1">{formErrors.name}</p>}
-                            </div>
-                            <div>
                                 <label htmlFor="whatsapp" className="block text-sm font-medium text-brand-text-light">WhatsApp (com DDD)</label>
                                 <input 
                                     type="tel" 
@@ -316,6 +405,11 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
                                     required 
                                 />
                                 {formErrors.whatsapp && <p className="text-xs text-red-500 mt-1">{formErrors.whatsapp}</p>}
+                            </div>
+                             <div>
+                                <label htmlFor="name" className="block text-sm font-medium text-brand-text-light">Nome e sobrenome</label>
+                                <input type="text" name="name" id="name" value={formData.name} onChange={handleInputChange} className={`${inputStyles} ${getBorderColor('name')}`} required />
+                                {formErrors.name && <p className="text-xs text-red-500 mt-1">{formErrors.name}</p>}
                             </div>
                         </div>
                     </div>
@@ -355,6 +449,20 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
                                 <input type="text" name="complement" id="complement" value={formData.complement} onChange={handleInputChange} className={inputStyles} placeholder="Apto, bloco, casa, etc." />
                             </div>
                         </div>
+                        
+                        <div className="mt-4 flex items-center">
+                            <input
+                                id="save-address"
+                                type="checkbox"
+                                checked={saveAddress}
+                                onChange={(e) => setSaveAddress(e.target.checked)}
+                                className="h-4 w-4 text-brand-primary focus:ring-brand-primary border-gray-300 rounded"
+                            />
+                            <label htmlFor="save-address" className="ml-2 block text-sm text-gray-900">
+                                Salvar este endereço para agilizar compras futuras
+                            </label>
+                        </div>
+
                     </div>
                     <div className="border-t pt-6">
                         <h2 className="text-xl font-bold text-brand-text">Data da Entrega</h2>
@@ -432,11 +540,17 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
         <PhoneConfirmationModal
             isOpen={isPhoneModalOpen}
             phoneNumber={formData.whatsapp}
-            onConfirm={() => setIsPhoneModalOpen(false)}
+            onConfirm={handlePhoneConfirm}
             onCorrect={() => {
                 setIsPhoneModalOpen(false);
                 whatsappInputRef.current?.focus();
             }}
+        />
+        <SavedAddressesModal
+            isOpen={isAddressModalOpen}
+            addresses={foundAddresses}
+            onSelect={handleAddressSelect}
+            onClose={() => setIsAddressModalOpen(false)}
         />
     </div>
   );
