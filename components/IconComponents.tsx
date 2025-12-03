@@ -99,7 +99,6 @@ export const TruckIcon: React.FC<{ className?: string }> = ({ className }) => (
     </svg>
 );
 
-// Manter ícones antigos caso sejam úteis no futuro
 export const ShoppingCartIcon: React.FC<{ className?: string }> = ({ className }) => (
   <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -152,5 +151,37 @@ export const SpinnerIcon: React.FC<{ className?: string }> = ({ className }) => 
     <svg className={`animate-spin ${className}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+    </svg>
+);
+
+export const WhatsappIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91C2.13 13.66 2.59 15.36 3.45 16.86L2.05 22L7.3 20.62C8.75 21.41 10.38 21.83 12.04 21.83C17.5 21.83 21.95 17.38 21.95 11.92C21.95 9.27 20.92 6.78 19.05 4.91C17.18 3.03 14.69 2 12.04 2ZM12.05 20.16C10.58 20.16 9.11 19.76 7.85 19L7.55 18.83L4.43 19.65L5.26 16.61L4.97 16.15C4.08 14.73 3.61 13.06 3.61 11.36C3.61 6.7 7.4 2.91 12.05 2.91C14.3 2.91 16.42 3.78 18.01 5.37C19.6 6.96 20.48 9.08 20.48 11.33C20.48 15.99 16.7 19.78 12.05 19.78V20.16Z" />
+        <path d="M16.92 14.89C16.65 14.76 15.32 14.11 15.07 14.03C14.82 13.94 14.64 13.9 14.46 14.17C14.28 14.44 13.76 15.05 13.61 15.23C13.46 15.41 13.31 15.43 13.04 15.3C12.77 15.17 11.9 14.88 10.87 13.97C10.07 13.25 9.53 12.37 9.39 12.13C9.25 11.89 9.38 11.76 9.51 11.63C9.63 11.51 9.78 11.32 9.91 11.16C10.04 11.01 10.09 10.89 10.18 10.71C10.27 10.53 10.22 10.37 10.15 10.23C10.08 10.09 9.55 8.78 9.33 8.25C9.11 7.73 8.89 7.8 8.73 7.8C8.58 7.8 8.4 7.8 8.22 7.8C8.04 7.8 7.75 7.87 7.5 8.14C7.25 8.41 6.54 9.07 6.54 10.42C6.54 11.77 7.53 13.08 7.67 13.27C7.81 13.46 9.6 16.22 12.34 17.4C12.99 17.68 13.5 17.85 13.9 17.98C14.56 18.19 15.16 18.16 15.64 18.09C16.17 18.01 17.28 17.42 17.51 16.77C17.74 16.12 17.74 15.57 17.67 15.46C17.6 15.35 17.42 15.28 17.15 15.14L16.92 14.89Z" />
+    </svg>
+);
+
+export const CheckCircleIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 24 24" fill="currentColor">
+        <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" />
+    </svg>
+);
+
+export const ChefHatIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6Z"/>
+        <line x1="6" y1="17" x2="18" y2="17"/>
+    </svg>
+);
+
+export const BikeIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="5.5" cy="17.5" r="3.5"/>
+        <circle cx="18.5" cy="17.5" r="3.5"/>
+        <path d="M15 6h-5a1 1 0 0 0-1 1v3.5"/>
+        <path d="M12 5.5V11"/>
+        <path d="M12 11h5.5l2-4H22"/>
+        <path d="M11.5 11 9 17.5"/>
+        <path d="M15 11 18.5 17.5"/>
     </svg>
 );

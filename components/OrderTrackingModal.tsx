@@ -6,9 +6,10 @@ import type { Order } from '../types';
 interface OrderTrackingModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onTrackOrder: (order: Order) => void;
 }
 
-const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ isOpen, onClose }) => {
+const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ isOpen, onClose, onTrackOrder }) => {
   const [step, setStep] = useState<'input' | 'results'>('input');
   const [whatsapp, setWhatsapp] = useState('');
   const [orders, setOrders] = useState<Order[]>([]);
@@ -48,15 +49,19 @@ const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ isOpen, onClose
   const statusPill = (status: Order['status']) => {
     const styles = {
         new: 'bg-yellow-100 text-yellow-800',
+        pending_payment: 'bg-orange-100 text-orange-800',
         confirmed: 'bg-blue-100 text-blue-800',
         completed: 'bg-green-100 text-green-800',
+        archived: 'bg-gray-100 text-gray-800',
     };
     const text = {
         new: 'Recebido',
+        pending_payment: 'Pendente',
         confirmed: 'Em Preparo',
-        completed: 'Finalizado'
+        completed: 'Finalizado',
+        archived: 'Arquivado'
     }
-    return <span className={`px-2.5 py-1 text-sm font-medium rounded-full ${styles[status]}`}>{text[status]}</span>;
+    return <span className={`px-2.5 py-1 text-sm font-medium rounded-full ${styles[status] || styles.new}`}>{text[status] || text.new}</span>;
   };
 
   return (
@@ -121,7 +126,11 @@ const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ isOpen, onClose
                 <div className="space-y-4">
                     {orders.length > 0 ? (
                         orders.map(order => (
-                            <div key={order.id} className="bg-gray-50 p-4 rounded-lg border">
+                            <button 
+                              key={order.id} 
+                              onClick={() => onTrackOrder(order)}
+                              className="w-full text-left bg-gray-50 hover:bg-gray-100 p-4 rounded-lg border transition-colors focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                            >
                                 <div className="flex justify-between items-start">
                                     <div>
                                         <p className="font-bold text-brand-primary">Pedido #{order.orderNumber}</p>
@@ -131,7 +140,7 @@ const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ isOpen, onClose
                                     </div>
                                     {statusPill(order.status)}
                                 </div>
-                            </div>
+                            </button>
                         ))
                     ) : (
                         <div className="text-center py-8">

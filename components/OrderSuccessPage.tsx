@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { Order, StoreInfoData } from '../types';
+import { ArrowLeftIcon, ClockIcon, WhatsappIcon, CheckCircleIcon, ChefHatIcon, BikeIcon, XIcon } from './IconComponents';
 
 interface OrderSuccessPageProps {
   order: Order | null;
@@ -7,97 +8,234 @@ interface OrderSuccessPageProps {
   onNavigateBack: () => void;
 }
 
+interface StepProps {
+    isActive: boolean;
+    isCompleted: boolean;
+    isLast: boolean;
+    icon: React.ReactNode;
+    title: string;
+}
+
+const TrackingStep: React.FC<StepProps> = ({ isActive, isCompleted, isLast, icon, title }) => {
+    return (
+        <div className="flex gap-4 relative">
+            <div className="flex flex-col items-center">
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center z-10 transition-colors duration-300 ${
+                    isActive ? 'bg-orange-100 text-orange-500' : 
+                    isCompleted ? 'bg-orange-100 text-orange-500' : 'bg-gray-100 text-gray-400'
+                }`}>
+                    {isCompleted && !isActive ? <CheckCircleIcon className="w-6 h-6" /> : icon}
+                </div>
+                {!isLast && (
+                    <div className={`w-0.5 flex-grow my-2 transition-colors duration-300 ${isCompleted ? 'bg-orange-200' : 'bg-gray-200'}`} style={{ minHeight: '40px' }}></div>
+                )}
+            </div>
+            <div className="pt-2 pb-8">
+                <h3 className={`font-semibold text-lg transition-colors duration-300 ${
+                    isActive ? 'text-gray-900' : 
+                    isCompleted ? 'text-gray-800' : 'text-gray-400'
+                }`}>
+                    {title}
+                </h3>
+            </div>
+        </div>
+    );
+};
+
+const OrderDetailsModal: React.FC<{ order: Order; isOpen: boolean; onClose: () => void }> = ({ order, isOpen, onClose }) => {
+    if (!isOpen) return null;
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" onClick={onClose}>
+            <div className="bg-white rounded-lg w-full max-w-sm p-6" onClick={e => e.stopPropagation()}>
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-bold text-lg">Detalhes do Pedido</h3>
+                    <button onClick={onClose}><XIcon className="w-6 h-6 text-gray-400" /></button>
+                </div>
+                <div className="space-y-3 max-h-[60vh] overflow-y-auto">
+                    {order.items.map((item, idx) => (
+                        <div key={idx} className="flex justify-between text-sm">
+                            <span className="text-gray-600">{item.quantity}x {item.name}</span>
+                            <span className="font-medium">{(item.price * item.quantity).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                        </div>
+                    ))}
+                    {order.deliveryFee ? (
+                         <div className="flex justify-between text-sm text-gray-600 pt-2 border-t">
+                            <span>Taxa de entrega</span>
+                            <span>{order.deliveryFee.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                        </div>
+                    ) : null}
+                    <div className="flex justify-between font-bold pt-2 border-t mt-2">
+                        <span>Total</span>
+                        <span>{(order.total + (order.deliveryFee || 0)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const OrderSuccessPage: React.FC<OrderSuccessPageProps> = ({ order, storeInfo, onNavigateBack }) => {
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
 
   if (!order || !storeInfo) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 p-4 text-center">
-        <h1 className="text-2xl font-bold text-brand-text mb-4">Ocorreu um erro</h1>
-        <p className="text-brand-text-light mb-6">Não foi possível carregar os detalhes do seu pedido.</p>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4 text-center">
+        <p className="text-gray-500 mb-6">Não foi possível carregar o pedido.</p>
         <button
           onClick={onNavigateBack}
-          className="px-6 py-2 bg-brand-primary text-white font-bold rounded-lg hover:bg-brand-primary-dark transition-colors"
+          className="px-6 py-2 bg-brand-primary text-white font-bold rounded-lg"
         >
-          Voltar ao Cardápio
+          Voltar
         </button>
       </div>
     );
   }
 
-  const formatPrice = (price: number) => {
-    return price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  // Determine active step
+  // 1: New/Pending (Pedido pendente)
+  // 2: Confirmed (Preparo)
+  // 3: Completed (Envio)
+  const getStepStatus = () => {
+    if (order.status === 'completed' || order.status === 'archived') return 3;
+    if (order.status === 'confirmed') return 2;
+    return 1; // 'new' or 'pending_payment'
   };
-  
-  const formatDisplayDate = (dateString: string) => {
-    if (!dateString) return '';
-    const date = new Date(dateString + 'T00:00:00');
-    return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' }).format(date);
-  }
 
-  const incorrectInfoMessage = `Olá, ${storeInfo.name}! Acabei de fazer o pedido #${order.orderNumber} e notei que meu nome ou número de WhatsApp podem estar incorretos. Poderiam verificar para mim, por favor?`;
-  const whatsappUrl = `https://wa.me/${storeInfo.whatsappNumber}?text=${encodeURIComponent(incorrectInfoMessage)}`;
+  const activeStep = getStepStatus();
+
+  // Header Banner Content
+  const getBannerContent = () => {
+      if (activeStep === 1) {
+          return {
+              title: "Pedido enviado!",
+              subtitle: "Aguardando a confirmação da loja",
+              icon: <ClockIcon className="w-8 h-8 animate-pulse" />,
+              colorClass: "bg-gray-800 text-white"
+          };
+      }
+      if (activeStep === 2) {
+           return {
+              title: "Pedido em preparo!",
+              subtitle: "Estamos caprichando no seu pedido",
+              icon: <ChefHatIcon className="w-8 h-8" />,
+              colorClass: "bg-orange-500 text-white"
+          };
+      }
+      // activeStep 3
+      return {
+          title: "Saiu para entrega!",
+          subtitle: "Logo chega aí",
+          icon: <BikeIcon className="w-8 h-8" />,
+          colorClass: "bg-green-500 text-white"
+      };
+  };
+
+  const banner = getBannerContent();
+  const totalPrice = (order.total || 0) + (order.deliveryFee || 0);
+
+  const whatsappMessage = `Olá! Gostaria de falar sobre o pedido #${order.orderNumber}.`;
+  const whatsappUrl = `https://wa.me/${storeInfo.whatsappNumber}?text=${encodeURIComponent(whatsappMessage)}`;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow-sm">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 text-center">
-          <h1 className="text-xl font-bold text-brand-text">Pedido Confirmado!</h1>
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      {/* Header */}
+      <header className="bg-white shadow-sm sticky top-0 z-10">
+        <div className="container mx-auto px-4 h-16 flex items-center">
+          <button onClick={onNavigateBack} className="p-2 -ml-2 rounded-full hover:bg-gray-100 transition-colors">
+            <ArrowLeftIcon className="w-6 h-6 text-gray-700" />
+          </button>
+          <h1 className="text-lg font-bold text-gray-800 ml-2">Acompanhamento de pedidos</h1>
         </div>
       </header>
-      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="max-w-xl mx-auto bg-white p-6 sm:p-8 rounded-lg shadow text-center">
-            <svg className="w-16 h-16 text-green-500 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <h2 className="text-2xl font-bold text-brand-text mt-4">Obrigado pela sua compra!</h2>
-            <p className="text-brand-text-light mt-2">Seu pedido foi recebido com sucesso e em breve entraremos em contato.</p>
-            
-            <div className="mt-6 text-left bg-gray-50 p-4 rounded-lg border">
-                <p className="text-sm text-gray-600">Número do Pedido:</p>
-                <p className="text-2xl font-bold text-brand-primary">#{order.orderNumber}</p>
-            </div>
 
-            <div className="mt-6 text-left border-t pt-6">
-                <h3 className="font-bold text-brand-text mb-4">Resumo da Compra</h3>
-                <div className="space-y-2 text-sm text-gray-700">
-                    {order.items.map(item => (
-                        <div key={item.id} className="flex justify-between">
-                            <span>{item.quantity}x {item.name}</span>
-                            <span>{formatPrice(item.price * item.quantity)}</span>
-                        </div>
-                    ))}
-                </div>
-                <div className="flex justify-between font-bold text-brand-text mt-4 pt-4 border-t">
-                    <span>Total:</span>
-                    <span>{formatPrice(order.total)}</span>
-                </div>
+      <main className="flex-grow container mx-auto px-4 py-6 max-w-lg">
+        
+        {/* Status Banner */}
+        <div className="bg-white rounded-lg shadow-sm p-6 mb-8 flex items-center gap-4 border border-gray-100">
+            <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${banner.colorClass}`}>
+                {banner.icon}
             </div>
-
-            <div className="mt-6 text-left border-t pt-6">
-                <h3 className="font-bold text-brand-text mb-2">Próximos Passos</h3>
-                <p className="text-sm text-brand-text-light">
-                    Nossa equipe entrará em contato com você pelo WhatsApp <strong className="text-brand-text">{order.customer.whatsapp}</strong> para confirmar os detalhes do pagamento e da entrega, agendada para <strong className="text-brand-text">{formatDisplayDate(order.deliveryDate)}</strong>.
-                </p>
-                
-                <div className="mt-4 bg-yellow-50 border border-yellow-200 text-yellow-800 text-sm p-3 rounded-lg">
-                    <p>
-                        Seu nome ou número de WhatsApp estão incorretos? <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="font-bold underline hover:text-yellow-900">Clique aqui para nos avisar</a> e corrigir rapidamente.
-                    </p>
-                </div>
+            <div>
+                <h2 className="font-bold text-lg text-gray-900">{banner.title}</h2>
+                <p className="text-gray-500 text-sm">{banner.subtitle}</p>
             </div>
-
         </div>
-        <div className="text-center mt-8">
-            <button
-              onClick={onNavigateBack}
-              className="px-8 py-3 bg-brand-primary text-white font-bold rounded-lg hover:bg-brand-primary-dark transition-colors"
-            >
-              &larr; Voltar ao Cardápio
-            </button>
+
+        {/* Timeline */}
+        <div className="pl-4">
+            <TrackingStep 
+                title={activeStep === 1 ? "Pedido pendente..." : "Pedido recebido"}
+                isActive={activeStep === 1}
+                isCompleted={activeStep > 1}
+                isLast={false}
+                icon={<ClockIcon className="w-5 h-5" />}
+            />
+            <TrackingStep 
+                title="Preparo"
+                isActive={activeStep === 2}
+                isCompleted={activeStep > 2}
+                isLast={false}
+                icon={<ChefHatIcon className="w-5 h-5" />}
+            />
+            <TrackingStep 
+                title="Envio"
+                isActive={activeStep === 3}
+                isCompleted={activeStep > 3} // Never strictly completed visually past 3 in this UI
+                isLast={true}
+                icon={<BikeIcon className="w-5 h-5" />}
+            />
         </div>
+
       </main>
+
+      {/* Bottom Store Card */}
+      <div className="bg-white border-t border-gray-200 p-4 sticky bottom-0 safe-area-bottom">
+        <div className="container mx-auto max-w-lg">
+            <div className="border border-gray-100 rounded-lg shadow-sm p-4 mb-4">
+                <div className="flex items-center gap-3 mb-4">
+                    <img src={storeInfo.logoUrl} alt={storeInfo.name} className="w-10 h-10 rounded-full bg-gray-100 object-cover" />
+                    <div className="flex-grow">
+                        <h3 className="font-bold text-gray-900">{storeInfo.name}</h3>
+                        <p className="text-sm text-gray-500">#{order.orderNumber.toString().padStart(4, '0')}</p>
+                    </div>
+                    <div className="text-right">
+                        <p className="text-sm text-gray-500">Total:</p>
+                        <p className="text-sm font-bold text-gray-900">{formatPrice(totalPrice)}</p>
+                    </div>
+                </div>
+                
+                <div className="flex gap-3">
+                    <a 
+                        href={whatsappUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 flex items-center justify-center gap-2 py-3 px-4 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                        <WhatsappIcon className="w-5 h-5 text-green-600" />
+                        Iniciar conversa
+                    </a>
+                    <button 
+                        onClick={() => setIsDetailsOpen(true)}
+                        className="flex-1 flex items-center justify-center gap-2 py-3 px-4 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                        Ver pedido
+                    </button>
+                </div>
+            </div>
+        </div>
+      </div>
+
+      <OrderDetailsModal 
+        order={order} 
+        isOpen={isDetailsOpen} 
+        onClose={() => setIsDetailsOpen(false)} 
+      />
     </div>
   );
+};
+
+const formatPrice = (price: number) => {
+    return price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 };
 
 export default OrderSuccessPage;
