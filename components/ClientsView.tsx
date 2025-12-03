@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
-import type { Client } from '../types';
-import { getClients } from '../services/menuService';
+import type { Client, Order } from '../types';
+import { getOrders } from '../services/menuService';
 import { SearchIcon } from './IconComponents';
 
 const formatPrice = (price: number) => {
@@ -51,10 +52,10 @@ const ClientCard: React.FC<{ client: Client }> = ({ client }) => {
             <h3 className="text-lg font-bold text-brand-text truncate">{client.name}</h3>
             <div className="mt-3 space-y-2 text-sm text-gray-700">
                 <p><span className="font-medium text-gray-500">WhatsApp:</span> {formatWhatsapp(client.id)}</p>
-                <p><span className="font-medium text-gray-500">Total de Pedidos:</span> {client.totalOrders}</p>
+                <p><span className="font-medium text-gray-500">Total de Pedidos (Pagos):</span> {client.totalOrders}</p>
                 <p><span className="font-medium text-gray-500">Total Gasto:</span> {formatPrice(client.totalSpent)}</p>
                 <p><span className="font-medium text-gray-500">Ticket Médio:</span> {formatPrice(averageTicket)}</p>
-                <p><span className="font-medium text-gray-500">Último Pedido:</span> {lastOrderDate} {relativeTime && `(${relativeTime})`}</p>
+                <p><span className="font-medium text-gray-500">Último Pedido Pago:</span> {client.lastOrderDate ? `${lastOrderDate} (${relativeTime})` : 'Nenhum'}</p>
             </div>
         </div>
     );
@@ -71,9 +72,75 @@ const ClientsView: React.FC = () => {
         const fetchClients = async () => {
             setIsLoading(true);
             try {
-                const fetchedClients = await getClients();
+                // Fetch all orders to calculate stats dynamically
+                const allOrders = await getOrders();
+                
+                // Group orders by client
+                const clientMap = new Map<string, Client>();
+                
+                // Sort orders by date descending to easily find the last order
+                allOrders.sort((a, b) => {
+                    const dateA = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : 0;
+                    const dateB = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : 0;
+                    return dateB - dateA;
+                });
+
+                allOrders.forEach(order => {
+                    if (!order.customer || !order.customer.whatsapp) return;
+                    
+                    const whatsapp = order.customer.whatsapp.replace(/\D/g, '');
+                    if (!whatsapp) return;
+
+                    if (!clientMap.has(whatsapp)) {
+                        clientMap.set(whatsapp, {
+                            id: whatsapp,
+                            name: order.customer.name,
+                            firstOrderDate: null, 
+                            lastOrderDate: null,
+                            totalOrders: 0,
+                            totalSpent: 0,
+                            addresses: [], // Not used in view
+                            orderIds: []
+                        });
+                    }
+
+                    const client = clientMap.get(whatsapp)!;
+                    
+                    // Only consider Paid orders for stats
+                    // Paid statuses: confirmed, shipped, completed
+                    const isPaid = ['confirmed', 'shipped', 'completed'].includes(order.status);
+
+                    if (isPaid) {
+                        client.totalOrders += 1;
+                        // Include delivery fee in total spent
+                        client.totalSpent += (order.total || 0) + (order.deliveryFee || 0);
+                        client.orderIds.push(order.id);
+                        
+                        // Since we traverse descending, the first paid order we see is the last one
+                        if (!client.lastOrderDate) {
+                            client.lastOrderDate = order.createdAt;
+                        }
+                    }
+                    
+                    // Always update name to the most recent one used
+                    // Since orders are sorted desc, the first time we see the client it is their most recent order
+                    // But we might want to check if the name is not empty
+                    if (order.customer.name && client.name !== order.customer.name) {
+                         // This simple assignment will keep the name from the *first order processed* (newest) 
+                         // because we created the client entry with the first order we encountered.
+                         // So we don't need to do anything else unless we want specific logic.
+                    }
+                });
+
+                const fetchedClients = Array.from(clientMap.values());
+                
+                // Optional: Filter out clients with 0 paid orders?
+                // The request says "show only paid orders info". 
+                // If a client has 0 paid orders, showing 0 is correct.
+                
                 setClients(fetchedClients);
             } catch (err) {
+                console.error(err);
                 setError('Falha ao carregar os clientes.');
             } finally {
                 setIsLoading(false);

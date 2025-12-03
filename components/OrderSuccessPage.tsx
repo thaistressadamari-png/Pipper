@@ -227,6 +227,9 @@ const OrderSuccessPage: React.FC<OrderSuccessPageProps> = ({ order, storeInfo, o
                     <div className="text-right">
                         <p className="text-sm text-gray-500">Total:</p>
                         <p className="text-sm font-bold text-gray-900">{formatPrice(totalPrice)}</p>
+                        {order.deliveryFee === undefined && (
+                            <p className="text-xs text-gray-400">+ taxa de envio</p>
+                        )}
                     </div>
                 </div>
                 
