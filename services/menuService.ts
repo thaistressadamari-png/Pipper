@@ -264,6 +264,10 @@ export const addOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'upda
         const now = serverTimestamp();
         const fullOrderData: Omit<Order, 'id'> = {
             ...orderData,
+            customer: {
+                ...orderData.customer,
+                whatsapp: orderData.customer.whatsapp.replace(/\D/g, '') // Ensure we store only raw digits
+            },
             orderNumber: newOrderNumber,
             status: 'new',
             createdAt: now,
@@ -376,19 +380,53 @@ export const getClients = async (): Promise<Client[]> => {
 
 export const getOrdersByWhatsapp = async (whatsapp: string): Promise<Order[]> => {
     const rawWhatsapp = whatsapp.replace(/\D/g, '');
+    
+    // Generate formatted version to catch legacy/existing orders
+    // Assumes standard Brazilian mobile format (11 digits) or landline (10 digits)
+    let formattedWhatsapp = rawWhatsapp;
+    if (rawWhatsapp.length === 11) {
+        formattedWhatsapp = rawWhatsapp.replace(/^(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
+    } else if (rawWhatsapp.length === 10) {
+        formattedWhatsapp = rawWhatsapp.replace(/^(\d{2})(\d{4})(\d{4})/, '($1) $2-$3');
+    }
 
-    const q = query(
+    const statuses = ['new', 'pending_payment', 'confirmed', 'shipped', 'completed'];
+
+    // Query 1: Search for Raw Number (New Standard)
+    const q1 = query(
         ordersCollection,
         where('customer.whatsapp', '==', rawWhatsapp),
-        where('status', 'in', ['new', 'pending_payment', 'confirmed', 'shipped', 'completed'])
+        where('status', 'in', statuses)
     );
-    const querySnapshot = await getDocs(q);
-    const orders = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-    } as Order));
 
-    // Sort client-side to avoid complex index requirements
+    // Query 2: Search for Formatted Number (Legacy/Current Issue Fix)
+    let q2 = null;
+    if (formattedWhatsapp !== rawWhatsapp) {
+        q2 = query(
+            ordersCollection,
+            where('customer.whatsapp', '==', formattedWhatsapp),
+            where('status', 'in', statuses)
+        );
+    }
+    
+    // Execute queries
+    const promises = [getDocs(q1)];
+    if (q2) promises.push(getDocs(q2));
+
+    const snapshots = await Promise.all(promises);
+    
+    // Merge and Deduplicate results
+    const orderMap = new Map<string, Order>();
+    
+    snapshots.forEach(snap => {
+        snap.docs.forEach(doc => {
+            orderMap.set(doc.id, { id: doc.id, ...doc.data() } as Order);
+        });
+    });
+
+    const orders = Array.from(orderMap.values());
+
+    // Sort client-side
     orders.sort((a, b) => (b.orderNumber || 0) - (a.orderNumber || 0));
     
     return orders;
