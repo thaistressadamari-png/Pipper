@@ -500,6 +500,7 @@ const App: React.FC = () => {
             </div>
             </main>
             <Footer onNavigate={setView} />
+            {cartItems.length > 0 && <div className="h-24 sm:h-28" />}
         </div>
         <StoreInfoModal 
             isOpen={isStoreInfoModalOpen}
@@ -517,9 +518,10 @@ const App: React.FC = () => {
             onClose={handleCloseModal}
             onAddToCart={handleAddToCart}
         />
-        {/* Cart modal is removed. We use CartButton to go to checkout directly */}
+        {/* New Cart Button Bar */}
         <CartButton 
             itemCount={cartItems.reduce((sum, item) => sum + item.quantity, 0)}
+            totalPrice={cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0)}
             onClick={handleGoToCheckout}
         />
         <OrderTrackingModal

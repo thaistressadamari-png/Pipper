@@ -6,7 +6,7 @@ interface FooterProps {
 
 const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
   return (
-    <footer className="bg-white mt-12 py-8">
+    <footer className="bg-white mt-4 py-8">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center text-brand-text">
         <h2 className="text-2xl font-display">Pipper Confeitaria</h2>
         <p className="mt-2">As melhores delícias, feitas com amor para você.</p>
