@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import StoreInfo from './components/StoreInfo';
 import CategoryTabs from './components/CategoryTabs';
 import ProductCard from './components/ProductCard';
@@ -240,12 +240,24 @@ const App: React.FC = () => {
     </div>
   );
 
+  // Compute all visible categories (official + orphans)
+  const allCategories = useMemo(() => {
+    const officialCategories = categories.filter(c => c !== 'Todos');
+    const productCategories = new Set(products.map(p => p.category));
+    const orphanCategories = Array.from(productCategories).filter(cat => 
+        cat && cat !== 'Todos' && !officialCategories.includes(cat)
+    );
+    return [...officialCategories, ...orphanCategories];
+  }, [categories, products]);
+
   const renderMenu = () => {
-    const orderedCategories = categories.filter(c => c !== 'Todos');
-    const categoriesWithProducts = orderedCategories.filter(category => 
+    const displayCategories = allCategories;
+    const visibleCategoriesForTabs = ['Todos', ...displayCategories];
+    
+    // Filter for section rendering
+    const categoriesWithProducts = displayCategories.filter(category => 
         products.some(p => p.category === category)
     );
-    const visibleCategoriesForTabs = ['Todos', ...orderedCategories];
 
     return (
         <>
@@ -396,7 +408,7 @@ const App: React.FC = () => {
       }
       return <AdminPage
         products={products}
-        categories={categories.filter(c => c !== 'Todos')}
+        categories={allCategories} // Pass combined list to AdminPage to fix disappearing categories
         storeInfo={storeInfo}
         onAddProduct={handleAddProduct}
         onUpdateProduct={handleUpdateProduct}
@@ -430,3 +442,4 @@ const App: React.FC = () => {
 };
 
 export default App;
+    

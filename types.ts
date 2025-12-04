@@ -1,4 +1,5 @@
 
+
 export interface ProductOption {
   name: string;
   price: number;
@@ -15,6 +16,7 @@ export interface Product {
   imageUrls: string[];
   leadTimeDays: number;
   options?: ProductOption[];
+  createdAt?: any;
 }
 
 export interface CartItem extends Product {

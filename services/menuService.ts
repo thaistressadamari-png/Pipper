@@ -1,4 +1,6 @@
 
+
+
 import {
     collection,
     getDocs,
@@ -102,7 +104,8 @@ export const initializeFirebaseData = async () => {
 };
 
 export const getMenu = async (): Promise<{ products: Product[], categories: string[] }> => {
-    const productsQuery = query(productsCollection, orderBy('createdAt', 'desc'));
+    // Removed orderBy('createdAt', 'desc') to prevent issues if index is missing or createdAt is null on some docs
+    const productsQuery = query(productsCollection);
     
     const [productsSnapshot, categoriesSnapshot] = await Promise.all([
         getDocs(productsQuery),
@@ -113,6 +116,22 @@ export const getMenu = async (): Promise<{ products: Product[], categories: stri
         id: doc.id,
         ...doc.data()
     } as Product));
+
+    // Sort client-side to ensure robustness
+    products.sort((a, b) => {
+        const getTime = (p: Product) => {
+            const date = p.createdAt;
+            if (!date) return 0;
+            // Handle Firestore Timestamp
+            if (typeof date.toMillis === 'function') return date.toMillis();
+            // Handle JS Date
+            if (date instanceof Date) return date.getTime();
+            // Handle serialized seconds/nanoseconds if any
+            if (typeof date.seconds === 'number') return date.seconds * 1000;
+            return 0;
+        };
+        return getTime(b) - getTime(a);
+    });
 
     const categoriesData = categoriesSnapshot.data();
     const categories = categoriesData && categoriesData.names ? categoriesData.names : [];
