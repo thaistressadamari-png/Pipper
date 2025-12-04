@@ -127,19 +127,19 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ order, isOpen, onCl
 
     return (
         <>
-            {/* Modal Backdrop - Desktop Only */}
-            <div className="hidden sm:block fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity" onClick={onClose} />
+            {/* Modal Backdrop */}
+            <div className="fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity" onClick={onClose} />
             
-            {/* Modal Container - Responsive Layout */}
-            {/* Mobile: Static position (in-flow page), Full Width/Height */}
-            {/* Desktop: Fixed centered modal */}
-            <div className={`
-                z-50 
-                sm:fixed sm:inset-0 sm:flex sm:items-center sm:justify-center sm:p-6
-                w-full h-full sm:h-auto
-            `}>
-                <div className="bg-white sm:rounded-xl shadow-sm sm:shadow-xl w-full sm:max-w-lg flex flex-col sm:max-h-[90vh]">
-                    <header className="flex items-center justify-between p-4 border-b bg-gray-50 sm:rounded-t-xl sticky top-0 z-10">
+            {/* Modal Container */}
+            <div className="fixed inset-0 z-50 flex items-center justify-center sm:p-6">
+                
+                {/* Modal Card */}
+                {/* w-full h-full on mobile ensures it takes full screen, eliminating double scroll */}
+                {/* flex flex-col creates the layout for fixed header/footer and scrollable content */}
+                <div className="bg-white w-full h-full sm:h-auto sm:max-h-[90vh] sm:rounded-xl shadow-xl flex flex-col sm:max-w-lg overflow-hidden">
+                    
+                    {/* Header - Fixed (Flex Item) */}
+                    <header className="flex-shrink-0 flex items-center justify-between p-4 border-b bg-gray-50 z-10">
                         <div className="flex items-center gap-2">
                             <button onClick={onClose} className="sm:hidden p-1 -ml-2 mr-1 rounded-full text-gray-600 hover:bg-gray-200">
                                 <ArrowLeftIcon className="w-6 h-6" />
@@ -154,7 +154,8 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ order, isOpen, onCl
                         </button>
                     </header>
                     
-                    <main className="p-4 space-y-5 sm:overflow-y-auto sm:flex-1">
+                    {/* Main Content - Scrollable (Flex Item) */}
+                    <main className="flex-1 overflow-y-auto p-4 space-y-5 bg-white">
                         {/* Items Section */}
                         <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
                             <h4 className="font-bold text-sm text-gray-700 mb-2 border-b border-gray-200 pb-1">Itens do Pedido</h4>
@@ -251,7 +252,8 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ order, isOpen, onCl
                         </div>
                     </main>
                     
-                    <footer className="p-4 border-t bg-white sm:rounded-b-xl flex flex-col sm:flex-row gap-3 sm:justify-end">
+                    {/* Footer - Fixed (Flex Item) */}
+                    <footer className="flex-shrink-0 p-4 border-t bg-white flex flex-col sm:flex-row gap-3 sm:justify-end z-10 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
                         {actionButtons()}
                     </footer>
                 </div>
