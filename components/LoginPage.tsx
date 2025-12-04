@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { signInWithEmailAndPassword, setPersistence, browserLocalPersistence, browserSessionPersistence } from 'firebase/auth';
 import { auth } from '../firebase';
 
@@ -14,6 +14,16 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onNavigateBack })
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    // Check if user is already logged in when mounting this component
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+        if (user) {
+            onLoginSuccess();
+        }
+    });
+    return () => unsubscribe();
+  }, [onLoginSuccess]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();

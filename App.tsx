@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import StoreInfo from './components/StoreInfo';
 import CategoryTabs from './components/CategoryTabs';
@@ -499,7 +500,13 @@ const App: React.FC = () => {
                 )}
             </div>
             </main>
-            <Footer onNavigate={setView} />
+            <Footer onNavigate={(target) => {
+                if (target === 'login' && isAuthenticated) {
+                    setView('admin');
+                } else {
+                    setView(target);
+                }
+            }} />
             {cartItems.length > 0 && <div className="h-24 sm:h-28" />}
         </div>
         <StoreInfoModal 
