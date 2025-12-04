@@ -644,10 +644,10 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
                 {isSubmitting ? (
                     <>
                          <SpinnerIcon className="w-6 h-6 mr-2" />
-                         Enviando Pedido...
+                         Finalizando Pedido...
                     </>
                 ) : (
-                    'Enviar Pedido pelo WhatsApp'
+                    'Finalizar Pedido'
                 )}
             </button>
 
