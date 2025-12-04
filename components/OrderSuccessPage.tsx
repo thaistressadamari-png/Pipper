@@ -174,7 +174,7 @@ const OrderSuccessPage: React.FC<OrderSuccessPageProps> = ({ order, storeInfo, o
         </div>
       </header>
 
-      <main className="flex-grow container mx-auto px-4 py-6 max-w-lg">
+      <main className="flex-grow container mx-auto px-4 py-6 max-w-lg pb-40">
         
         {/* Status Banner */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-8 flex items-center gap-4 border border-gray-100">
@@ -215,7 +215,7 @@ const OrderSuccessPage: React.FC<OrderSuccessPageProps> = ({ order, storeInfo, o
       </main>
 
       {/* Bottom Store Card */}
-      <div className="bg-white border-t border-gray-200 p-4 sticky bottom-0 safe-area-bottom">
+      <div className="bg-white border-t border-gray-200 p-4 sticky bottom-0 safe-area-bottom z-40">
         <div className="container mx-auto max-w-lg">
             <div className="border border-gray-100 rounded-lg shadow-sm p-4 mb-4">
                 <div className="flex items-center gap-3 mb-4">
