@@ -1,4 +1,3 @@
-
 import * as https from "https";
 import { Buffer } from "buffer";
 
@@ -17,6 +16,15 @@ interface ApiResponse {
 }
 
 const formatPrice = (price: number) => (price || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+// Robust encoding for Telegram Markdown links
+// encodeURIComponent does not encode ! ' ( ) *
+// These characters can break Markdown links if not encoded
+function fixedEncodeURIComponent(str: string) {
+  return encodeURIComponent(str).replace(/[!'()*]/g, function(c) {
+    return '%' + c.charCodeAt(0).toString(16).toUpperCase();
+  });
+}
 
 async function sendDeliveryFeeLinkToTelegram(order: any) {
     const botToken = process.env.TELEGRAM_BOT_TOKEN;
@@ -61,10 +69,9 @@ Assim que o pagamento for confirmado, preparamos tudo com muito carinho pra voc�
 Qualquer dúvida é só responder por aqui!`;
 
     // 2. Construir o link do WhatsApp
-    // Encode parentheses specifically because encodeURIComponent leaves them, which breaks Telegram Markdown links
-    const encodedMessage = encodeURIComponent(customerMessage)
-        .replace(/\(/g, '%28')
-        .replace(/\)/g, '%29');
+    // Use fixedEncodeURIComponent to ensure parentheses and other special chars are encoded
+    // This prevents Telegram from cutting off the URL inside the Markdown link
+    const encodedMessage = fixedEncodeURIComponent(customerMessage);
 
     const customerWhatsapp = `55${order.customer.whatsapp.replace(/\D/g, '')}`; 
     const whatsappLink = `https://wa.me/${customerWhatsapp}?text=${encodedMessage}`;
