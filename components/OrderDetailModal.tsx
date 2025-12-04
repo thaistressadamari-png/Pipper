@@ -24,6 +24,18 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ order, isOpen, onCl
         }
     }, [order]);
 
+    // Bloqueia o scroll do body quando o modal está aberto
+    useEffect(() => {
+        if (isOpen) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = '';
+        }
+        return () => {
+            document.body.style.overflow = '';
+        };
+    }, [isOpen]);
+
     if (!isOpen || !order) return null;
 
     const formatPrice = (price: number) => (price || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -127,10 +139,17 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ order, isOpen, onCl
 
     return (
         <>
-            <div className="fixed inset-0 bg-black bg-opacity-60 z-40 transition-opacity" onClick={onClose} />
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto flex flex-col">
-                    <div className="p-6 space-y-6">
+            {/* Backdrop fixo cobrindo tudo */}
+            <div 
+                className="fixed inset-0 bg-black/60 z-[60] backdrop-blur-sm"
+                onClick={onClose}
+                aria-hidden="true"
+            />
+            
+            {/* Container do Modal centralizado */}
+            <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 pointer-events-none">
+                <div className="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col pointer-events-auto overflow-hidden">
+                    <div className="flex-1 overflow-y-auto p-6 space-y-6">
                         <header className="flex items-center justify-between border-b pb-4">
                             <div>
                                 <p className="text-xs font-bold text-brand-primary uppercase tracking-wide">Pedido #{order.orderNumber}</p>
