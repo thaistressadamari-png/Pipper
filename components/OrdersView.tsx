@@ -132,7 +132,7 @@ const OrdersView: React.FC = () => {
 
     return (
         <div className="space-y-6">
-            <div className="bg-white p-4 rounded-lg shadow-sm space-y-4">
+            <div className={`bg-white p-4 rounded-lg shadow-sm space-y-4 ${selectedOrder ? 'hidden sm:block' : 'block'}`}>
                  <div className="relative">
                     <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
                     <input
@@ -200,7 +200,7 @@ const OrdersView: React.FC = () => {
             ) : error ? (
                 <p className="text-center text-red-500 py-8">{error}</p>
             ) : (
-                <div className="space-y-4">
+                <div className={`space-y-4 ${selectedOrder ? 'hidden sm:block' : 'block'}`}>
                     {filteredOrders.length > 0 ? (
                         filteredOrders.map(order => (
                             <OrderCard

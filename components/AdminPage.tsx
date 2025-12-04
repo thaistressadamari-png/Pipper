@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import type { Product, StoreInfoData, Order, Client } from '../types';
 import DashboardView from './DashboardView';
 import ProductsView from './ProductsView';
@@ -28,6 +28,16 @@ const AdminPage: React.FC<AdminPageProps> = (props) => {
   const [activeView, setActiveView] = useState<'dashboard' | 'products' | 'store' | 'orders' | 'clients'>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [newOrdersCount, setNewOrdersCount] = useState(0);
+  
+  // Reference to the main scrollable container
+  const mainContentRef = useRef<HTMLDivElement>(null);
+
+  // Scroll to top when activeView changes
+  useEffect(() => {
+    if (mainContentRef.current) {
+        mainContentRef.current.scrollTop = 0;
+    }
+  }, [activeView]);
 
   useEffect(() => {
     const fetchCount = async () => {
@@ -158,7 +168,7 @@ const AdminPage: React.FC<AdminPageProps> = (props) => {
                 </button>
             </div>
         </header>
-        <main className="flex-grow overflow-y-auto p-4 sm:p-6 lg:p-8">
+        <main ref={mainContentRef} className="flex-grow overflow-y-auto p-4 sm:p-6 lg:p-8">
           {renderContent()}
         </main>
       </div>

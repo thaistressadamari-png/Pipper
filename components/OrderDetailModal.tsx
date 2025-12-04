@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import type { Order } from '../types';
-import { XIcon } from './IconComponents';
+import { XIcon, ArrowLeftIcon } from './IconComponents';
 
 interface OrderDetailModalProps {
     order: Order;
@@ -127,20 +127,34 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ order, isOpen, onCl
 
     return (
         <>
-            <div className="fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity" onClick={onClose} />
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
-                <div className="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] flex flex-col">
-                    <header className="flex items-center justify-between p-4 border-b bg-gray-50 rounded-t-xl">
-                        <div>
-                            <p className="text-xs font-bold text-brand-primary uppercase tracking-wide">Pedido #{order.orderNumber}</p>
-                            <h3 className="text-lg font-bold text-brand-text truncate max-w-[200px]">{order.customer?.name}</h3>
+            {/* Modal Backdrop - Desktop Only */}
+            <div className="hidden sm:block fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity" onClick={onClose} />
+            
+            {/* Modal Container - Responsive Layout */}
+            {/* Mobile: Static position (in-flow page), Full Width/Height */}
+            {/* Desktop: Fixed centered modal */}
+            <div className={`
+                z-50 
+                sm:fixed sm:inset-0 sm:flex sm:items-center sm:justify-center sm:p-6
+                w-full h-full sm:h-auto
+            `}>
+                <div className="bg-white sm:rounded-xl shadow-sm sm:shadow-xl w-full sm:max-w-lg flex flex-col sm:max-h-[90vh]">
+                    <header className="flex items-center justify-between p-4 border-b bg-gray-50 sm:rounded-t-xl sticky top-0 z-10">
+                        <div className="flex items-center gap-2">
+                            <button onClick={onClose} className="sm:hidden p-1 -ml-2 mr-1 rounded-full text-gray-600 hover:bg-gray-200">
+                                <ArrowLeftIcon className="w-6 h-6" />
+                            </button>
+                            <div>
+                                <p className="text-xs font-bold text-brand-primary uppercase tracking-wide">Pedido #{order.orderNumber}</p>
+                                <h3 className="text-lg font-bold text-brand-text truncate max-w-[200px]">{order.customer?.name}</h3>
+                            </div>
                         </div>
-                        <button onClick={onClose} className="p-2 rounded-full bg-white hover:bg-gray-100 shadow-sm border border-gray-100">
+                        <button onClick={onClose} className="hidden sm:block p-2 rounded-full bg-white hover:bg-gray-100 shadow-sm border border-gray-100">
                           <XIcon className="w-5 h-5 text-gray-600" />
                         </button>
                     </header>
                     
-                    <main className="overflow-y-auto p-4 space-y-5">
+                    <main className="p-4 space-y-5 sm:overflow-y-auto sm:flex-1">
                         {/* Items Section */}
                         <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
                             <h4 className="font-bold text-sm text-gray-700 mb-2 border-b border-gray-200 pb-1">Itens do Pedido</h4>
@@ -237,7 +251,7 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ order, isOpen, onCl
                         </div>
                     </main>
                     
-                    <footer className="p-4 border-t bg-white rounded-b-xl flex flex-col sm:flex-row gap-3 sm:justify-end">
+                    <footer className="p-4 border-t bg-white sm:rounded-b-xl flex flex-col sm:flex-row gap-3 sm:justify-end">
                         {actionButtons()}
                     </footer>
                 </div>
