@@ -57,38 +57,69 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ order, isOpen, onCl
 
     const totalWithFee = (order.total || 0) + parseFloat(deliveryFee || '0');
 
+    // Helper for buttons to ensure consistent styling
+    const ActionBtn = ({ onClick, colorClass, children }: { onClick: () => void, colorClass: string, children: React.ReactNode }) => (
+        <button 
+            onClick={onClick} 
+            disabled={isSubmitting} 
+            className={`w-full sm:w-auto px-4 py-3 sm:py-2 text-sm font-bold rounded-lg shadow-sm transition-all active:scale-95 disabled:opacity-50 disabled:active:scale-100 ${colorClass}`}
+        >
+            {children}
+        </button>
+    );
+
     const actionButtons = () => {
         switch (order.status) {
             case 'new':
                 return (
                     <>
-                        <button onClick={handleCheckoutClick} disabled={isSubmitting} className="px-3 py-1.5 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50">Checkout</button>
-                        <button onClick={() => handleActionClick(() => onStatusUpdate(order.id, 'archived'))} disabled={isSubmitting} className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 disabled:opacity-50">Arquivar</button>
+                        <ActionBtn onClick={handleCheckoutClick} colorClass="text-white bg-green-600 hover:bg-green-700">
+                            Checkout
+                        </ActionBtn>
+                        <ActionBtn onClick={() => handleActionClick(() => onStatusUpdate(order.id, 'archived'))} colorClass="text-gray-700 bg-gray-100 hover:bg-gray-200">
+                            Arquivar
+                        </ActionBtn>
                     </>
                 );
             case 'pending_payment':
                 return (
                     <>
-                        <button onClick={() => handleActionClick(() => onStatusUpdate(order.id, 'confirmed'))} disabled={isSubmitting} className="px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50">Confirmar Pagamento</button>
-                        <button onClick={() => handleActionClick(() => onStatusUpdate(order.id, 'archived'))} disabled={isSubmitting} className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 disabled:opacity-50">Arquivar</button>
+                        <ActionBtn onClick={() => handleActionClick(() => onStatusUpdate(order.id, 'confirmed'))} colorClass="text-white bg-blue-600 hover:bg-blue-700">
+                            Confirmar Pagamento
+                        </ActionBtn>
+                        <ActionBtn onClick={() => handleActionClick(() => onStatusUpdate(order.id, 'archived'))} colorClass="text-gray-700 bg-gray-100 hover:bg-gray-200">
+                            Arquivar
+                        </ActionBtn>
                     </>
                 );
             case 'confirmed':
                 return (
                     <>
-                        <button onClick={() => handleActionClick(() => onStatusUpdate(order.id, 'shipped'))} disabled={isSubmitting} className="px-3 py-1.5 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:opacity-50">Enviar Entrega</button>
-                        <button onClick={() => handleActionClick(() => onStatusUpdate(order.id, 'archived'))} disabled={isSubmitting} className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 disabled:opacity-50">Arquivar</button>
+                        <ActionBtn onClick={() => handleActionClick(() => onStatusUpdate(order.id, 'shipped'))} colorClass="text-white bg-indigo-600 hover:bg-indigo-700">
+                            Enviar Entrega
+                        </ActionBtn>
+                        <ActionBtn onClick={() => handleActionClick(() => onStatusUpdate(order.id, 'archived'))} colorClass="text-gray-700 bg-gray-100 hover:bg-gray-200">
+                            Arquivar
+                        </ActionBtn>
                     </>
                 );
             case 'shipped':
                 return (
                     <>
-                        <button onClick={() => handleActionClick(() => onStatusUpdate(order.id, 'completed'))} disabled={isSubmitting} className="px-3 py-1.5 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50">Finalizar Pedido</button>
-                        <button onClick={() => handleActionClick(() => onStatusUpdate(order.id, 'archived'))} disabled={isSubmitting} className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 disabled:opacity-50">Arquivar</button>
+                        <ActionBtn onClick={() => handleActionClick(() => onStatusUpdate(order.id, 'completed'))} colorClass="text-white bg-green-600 hover:bg-green-700">
+                            Finalizar Pedido
+                        </ActionBtn>
+                        <ActionBtn onClick={() => handleActionClick(() => onStatusUpdate(order.id, 'archived'))} colorClass="text-gray-700 bg-gray-100 hover:bg-gray-200">
+                            Arquivar
+                        </ActionBtn>
                     </>
                 );
             case 'completed':
-                return <button onClick={() => handleActionClick(() => onStatusUpdate(order.id, 'archived'))} disabled={isSubmitting} className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 disabled:opacity-50">Arquivar</button>;
+                return (
+                    <ActionBtn onClick={() => handleActionClick(() => onStatusUpdate(order.id, 'archived'))} colorClass="text-gray-700 bg-gray-100 hover:bg-gray-200">
+                        Arquivar
+                    </ActionBtn>
+                );
             default:
                 return null;
         }
@@ -97,92 +128,116 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ order, isOpen, onCl
     return (
         <>
             <div className="fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity" onClick={onClose} />
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] flex flex-col">
-                    <header className="flex items-center justify-between p-4 border-b">
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+                <div className="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] flex flex-col">
+                    <header className="flex items-center justify-between p-4 border-b bg-gray-50 rounded-t-xl">
                         <div>
-                            <p className="font-bold text-brand-primary">Pedido #{order.orderNumber}</p>
-                            <h3 className="text-xl font-bold text-brand-text">{order.customer?.name}</h3>
+                            <p className="text-xs font-bold text-brand-primary uppercase tracking-wide">Pedido #{order.orderNumber}</p>
+                            <h3 className="text-lg font-bold text-brand-text truncate max-w-[200px]">{order.customer?.name}</h3>
                         </div>
-                        <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100">
+                        <button onClick={onClose} className="p-2 rounded-full bg-white hover:bg-gray-100 shadow-sm border border-gray-100">
                           <XIcon className="w-5 h-5 text-gray-600" />
                         </button>
                     </header>
-                    <main className="overflow-y-auto p-4 space-y-4">
-                        <div>
-                            <h4 className="font-semibold text-brand-text">Itens</h4>
-                            <ul className="text-sm text-gray-600 list-disc list-inside mt-1">
+                    
+                    <main className="overflow-y-auto p-4 space-y-5">
+                        {/* Items Section */}
+                        <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
+                            <h4 className="font-bold text-sm text-gray-700 mb-2 border-b border-gray-200 pb-1">Itens do Pedido</h4>
+                            <ul className="text-sm text-gray-600 space-y-2">
                                 {order.items?.map((item, index) => (
-                                    <li key={index}>
-                                        {item.quantity}x {item.name} 
-                                        {item.option && <span className="text-gray-500 font-medium"> ({item.option})</span>}
-                                        {item.observations && ` - Obs: ${item.observations}`}
+                                    <li key={index} className="flex justify-between items-start">
+                                        <span>
+                                            <span className="font-bold text-gray-800">{item.quantity}x</span> {item.name}
+                                            {item.option && <span className="text-gray-500 text-xs block">{item.option}</span>}
+                                            {item.observations && <span className="text-amber-600 text-xs block italic bg-amber-50 px-1 rounded mt-0.5">Obs: {item.observations}</span>}
+                                        </span>
+                                        <span className="font-medium text-gray-900 whitespace-nowrap">
+                                            {formatPrice(item.price * item.quantity)}
+                                        </span>
                                     </li>
                                 ))}
                             </ul>
                         </div>
-                         <div>
-                            <h4 className="font-semibold text-brand-text">Cliente</h4>
-                            <p className="text-sm text-gray-600">{order.customer?.name || 'Não informado'}</p>
-                            <p className="text-sm text-gray-600">{order.customer?.whatsapp || 'Não informado'}</p>
-                        </div>
-                        <div>
-                            <h4 className="font-semibold text-brand-text">Entrega</h4>
-                            <p className="text-sm text-gray-600">
-                                {order.delivery?.address ? `${order.delivery.address.street}, ${order.delivery.address.number} - ${order.delivery.address.neighborhood}` : 'Endereço não informado'}
-                                {order.delivery?.address?.complement && `, ${order.delivery.address.complement}`}
-                            </p>
-                            <p className="text-sm text-gray-600">Data Agendada: {formatDisplayDate(order.deliveryDate)}</p>
-                        </div>
-                         <div>
-                            <h4 className="font-semibold text-brand-text">Pagamento</h4>
-                            <p className="text-sm text-gray-600 mb-2">{order.paymentMethod}</p>
-                            <div className="text-sm border-t pt-2 space-y-1">
-                                <div className="flex justify-between">
-                                    <span className="text-gray-600">Subtotal</span>
-                                    <span className="font-medium text-gray-800">{formatPrice(order.total)}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span className="text-gray-600">Frete</span>
-                                    <span className="font-medium text-gray-800">{formatPrice(parseFloat(deliveryFee || '0'))}</span>
-                                </div>
-                                <div className="flex justify-between font-bold text-lg text-brand-text mt-2 pt-2 border-t">
-                                    <span>Total</span>
-                                    <span>{formatPrice(totalWithFee)}</span>
-                                </div>
+
+                         {/* Details Grid */}
+                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <h4 className="font-bold text-xs text-gray-400 uppercase mb-1">Cliente</h4>
+                                <p className="text-sm font-medium text-gray-800">{order.customer?.name || 'Não informado'}</p>
+                                <a href={`tel:${order.customer?.whatsapp}`} className="text-sm text-brand-primary hover:underline block">{order.customer?.whatsapp || 'Não informado'}</a>
+                            </div>
+                            
+                            <div>
+                                <h4 className="font-bold text-xs text-gray-400 uppercase mb-1">Pagamento</h4>
+                                <p className="text-sm font-medium text-gray-800">{order.paymentMethod}</p>
+                            </div>
+
+                            <div className="sm:col-span-2">
+                                <h4 className="font-bold text-xs text-gray-400 uppercase mb-1">Entrega</h4>
+                                <p className="text-sm text-gray-800 leading-snug bg-blue-50 p-2 rounded border border-blue-100">
+                                    {order.delivery?.address ? `${order.delivery.address.street}, ${order.delivery.address.number}` : 'Endereço não informado'}
+                                    <br/>
+                                    {order.delivery?.address?.neighborhood}
+                                    {order.delivery?.address?.complement && ` - ${order.delivery.address.complement}`}
+                                </p>
+                                <p className="text-xs text-gray-500 mt-1">Agendado para: <span className="font-semibold text-gray-700">{formatDisplayDate(order.deliveryDate)}</span></p>
                             </div>
                         </div>
-                        <div className="border-t pt-4">
-                             <div className="flex flex-wrap items-center gap-2">
-                                <label htmlFor={`deliveryFee-${order.id}`} className="text-sm font-medium text-brand-text-light">Taxa de Entrega:</label>
-                                <input
-                                    id={`deliveryFee-${order.id}`}
-                                    type="number"
-                                    step="0.01"
-                                    value={deliveryFee}
-                                    onChange={(e) => setDeliveryFee(e.target.value)}
-                                    className="w-24 px-2 py-1 bg-white border border-gray-300 rounded-md shadow-sm text-gray-900 text-sm"
-                                    placeholder="R$"
-                                />
+
+                        {/* Financials & Inputs */}
+                        <div className="border-t pt-4 space-y-4">
+                             {/* Delivery Fee Input */}
+                             <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                                <label htmlFor={`deliveryFee-${order.id}`} className="text-sm font-bold text-gray-700 min-w-[120px]">Taxa de Entrega:</label>
+                                <div className="relative flex-grow">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">R$</span>
+                                    <input
+                                        id={`deliveryFee-${order.id}`}
+                                        type="number"
+                                        step="0.01"
+                                        value={deliveryFee}
+                                        onChange={(e) => setDeliveryFee(e.target.value)}
+                                        className="w-full pl-8 pr-3 py-2 bg-white border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-brand-primary focus:border-brand-primary text-sm font-medium"
+                                        placeholder="0,00"
+                                    />
+                                </div>
                             </div>
-                        </div>
-                        <div className="pt-2">
-                            <div className="flex flex-wrap items-center gap-2">
-                                <label htmlFor={`paymentLink-${order.id}`} className="text-sm font-medium text-brand-text-light">Link de Pagamento:</label>
+                            
+                            {/* Payment Link Input */}
+                            <div className="flex flex-col gap-1">
+                                <label htmlFor={`paymentLink-${order.id}`} className="text-sm font-bold text-gray-700">Link de Pagamento:</label>
                                 <input
                                     id={`paymentLink-${order.id}`}
                                     type="url"
                                     value={paymentLink}
                                     onChange={(e) => setPaymentLink(e.target.value)}
                                     onBlur={handleLinkBlur}
-                                    className="flex-grow px-2 py-1 bg-white border border-gray-300 rounded-md shadow-sm text-gray-900 text-sm"
-                                    placeholder="https://..."
+                                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-brand-primary focus:border-brand-primary text-sm text-gray-600"
+                                    placeholder="Cole o link aqui (Mercado Pago, etc)"
                                 />
+                                <p className="text-xs text-gray-400">Salvo automaticamente ao sair do campo.</p>
                             </div>
-                            <p className="text-xs text-gray-500 mt-1">O link será salvo automaticamente ao sair do campo e incluído na mensagem de checkout.</p>
+
+                            {/* Totals Summary */}
+                            <div className="bg-gray-50 p-3 rounded-lg space-y-1 mt-2">
+                                <div className="flex justify-between text-sm text-gray-600">
+                                    <span>Subtotal</span>
+                                    <span>{formatPrice(order.total)}</span>
+                                </div>
+                                <div className="flex justify-between text-sm text-gray-600">
+                                    <span>Frete</span>
+                                    <span>{formatPrice(parseFloat(deliveryFee || '0'))}</span>
+                                </div>
+                                <div className="flex justify-between text-lg font-bold text-brand-text border-t border-gray-200 pt-2 mt-1">
+                                    <span>Total</span>
+                                    <span>{formatPrice(totalWithFee)}</span>
+                                </div>
+                            </div>
                         </div>
                     </main>
-                    <footer className="flex flex-wrap items-center justify-end gap-2 border-t p-4 bg-gray-50">
+                    
+                    <footer className="p-4 border-t bg-white rounded-b-xl flex flex-col sm:flex-row gap-3 sm:justify-end">
                         {actionButtons()}
                     </footer>
                 </div>

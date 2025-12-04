@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import type { Product, StoreInfoData, Order, Client } from '../types';
 import DashboardView from './DashboardView';
@@ -143,7 +144,7 @@ const AdminPage: React.FC<AdminPageProps> = (props) => {
         {sidebarContent}
       </aside>
 
-      <div className="flex-grow flex flex-col">
+      <div className="flex-grow flex flex-col min-w-0">
         <header className="bg-white shadow-sm h-16 flex-shrink-0">
             <div className="container mx-auto px-4 sm:px-6 lg:px-8 h-full flex justify-between items-center gap-4">
                 <div className="flex items-center min-w-0">

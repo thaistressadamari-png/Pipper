@@ -29,6 +29,24 @@ const OrdersView: React.FC = () => {
     useEffect(() => {
         fetchOrders();
     }, [fetchOrders]);
+
+    // Calculate counts for each status
+    const statusCounts = useMemo(() => {
+        const counts = {
+            new: 0,
+            pending_payment: 0,
+            confirmed: 0,
+            shipped: 0,
+            completed: 0,
+            archived: 0
+        };
+        orders.forEach(o => {
+            if (Object.prototype.hasOwnProperty.call(counts, o.status)) {
+                counts[o.status]++;
+            }
+        });
+        return counts;
+    }, [orders]);
     
     const filteredOrders = useMemo(() => {
         return orders.filter(order => {
@@ -96,14 +114,21 @@ const OrdersView: React.FC = () => {
         }
     };
     
-    const tabs: { key: Order['status']; label: string }[] = [
-        { key: 'new', label: 'Novos' },
-        { key: 'pending_payment', label: 'Pagamento Pendente' },
-        { key: 'confirmed', label: 'Confirmados' },
-        { key: 'shipped', label: 'Enviado' },
-        { key: 'completed', label: 'Finalizados' },
-        { key: 'archived', label: 'Arquivados' },
+    const tabs: { key: Order['status']; label: string; showCount: boolean }[] = [
+        { key: 'new', label: 'Novos', showCount: true },
+        { key: 'pending_payment', label: 'Pagamento Pendente', showCount: true },
+        { key: 'confirmed', label: 'Confirmados', showCount: true },
+        { key: 'shipped', label: 'Enviado', showCount: true },
+        { key: 'completed', label: 'Finalizados', showCount: false },
+        { key: 'archived', label: 'Arquivados', showCount: false },
     ];
+
+    const getTabLabel = (tab: typeof tabs[0]) => {
+        if (tab.showCount && statusCounts[tab.key] > 0) {
+            return `${tab.label} (${statusCounts[tab.key]})`;
+        }
+        return tab.label;
+    };
 
     return (
         <div className="space-y-6">
@@ -118,19 +143,52 @@ const OrdersView: React.FC = () => {
                         className="w-full bg-gray-100 border-transparent rounded-full py-2 pl-10 pr-4 text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-primary"
                     />
                 </div>
-                <div className="border-b border-gray-200">
+                
+                {/* Mobile: Custom Styled Dropdown Select */}
+                <div className="sm:hidden">
+                    <label htmlFor="status-tabs" className="sr-only">Selecione o status</label>
+                    <div className="relative">
+                        <select
+                            id="status-tabs"
+                            className="block w-full appearance-none bg-white border border-gray-300 hover:border-brand-primary px-4 py-3 pr-8 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary text-gray-700 font-medium transition-colors cursor-pointer"
+                            value={activeTab}
+                            onChange={(e) => setActiveTab(e.target.value as Order['status'])}
+                        >
+                            {tabs.map((tab) => (
+                                <option key={tab.key} value={tab.key}>
+                                    {getTabLabel(tab)}
+                                </option>
+                            ))}
+                        </select>
+                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-500">
+                            <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Desktop: Horizontal Tabs */}
+                <div className="hidden sm:block border-b border-gray-200">
                     <nav className="-mb-px flex space-x-4 overflow-x-auto no-scrollbar">
                         {tabs.map(tab => (
                             <button
                                 key={tab.key}
                                 onClick={() => setActiveTab(tab.key)}
-                                className={`whitespace-nowrap px-1 py-3 border-b-2 font-medium text-sm transition-colors ${
+                                className={`whitespace-nowrap px-3 py-3 border-b-2 font-medium text-sm transition-colors flex items-center gap-2 ${
                                     activeTab === tab.key
                                         ? 'border-brand-primary text-brand-primary'
                                         : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                                 }`}
                             >
                                 {tab.label}
+                                {tab.showCount && statusCounts[tab.key] > 0 && (
+                                    <span className={`text-xs px-2 py-0.5 rounded-full ${
+                                        activeTab === tab.key ? 'bg-brand-primary text-white' : 'bg-gray-100 text-gray-600'
+                                    }`}>
+                                        {statusCounts[tab.key]}
+                                    </span>
+                                )}
                             </button>
                         ))}
                     </nav>
@@ -152,8 +210,8 @@ const OrdersView: React.FC = () => {
                             />
                         ))
                     ) : (
-                        <div className="text-center text-gray-500 py-8">
-                            <p>Nenhum pedido encontrado.</p>
+                        <div className="text-center text-gray-500 py-8 bg-white rounded-lg border border-dashed border-gray-300">
+                            <p>Nenhum pedido nesta categoria.</p>
                         </div>
                     )}
                 </div>
