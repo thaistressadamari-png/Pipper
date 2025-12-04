@@ -1,5 +1,6 @@
+
 import React, { useState } from 'react';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword, setPersistence, browserLocalPersistence, browserSessionPersistence } from 'firebase/auth';
 import { auth } from '../firebase';
 
 interface LoginPageProps {
@@ -10,6 +11,7 @@ interface LoginPageProps {
 const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onNavigateBack }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -19,6 +21,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onNavigateBack })
     setError('');
 
     try {
+      await setPersistence(auth, rememberMe ? browserLocalPersistence : browserSessionPersistence);
       await signInWithEmailAndPassword(auth, email, password);
       // O App.tsx detectará a mudança de estado de autenticação automaticamente
       onLoginSuccess();
@@ -40,7 +43,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onNavigateBack })
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 p-4">
       <div className="w-full max-w-sm bg-white rounded-lg shadow-md p-6 md:p-8">
         <h1 className="text-2xl font-bold text-center text-brand-text mb-2">Acesso Administrativo</h1>
-        <p className="text-center text-brand-text-light mb-6">Entre com sua conta admin do Firebase.</p>
+        <p className="text-center text-brand-text-light mb-6">Entre com sua conta admin</p>
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-brand-text-light">
@@ -68,6 +71,21 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onNavigateBack })
               required
             />
           </div>
+
+          <div className="flex items-center">
+            <input
+              id="remember-me"
+              name="remember-me"
+              type="checkbox"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+              className="h-4 w-4 text-brand-primary focus:ring-brand-primary border-gray-300 rounded"
+            />
+            <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-900">
+              Salvar login
+            </label>
+          </div>
+
           {error && <p className="text-sm text-red-500 text-center">{error}</p>}
           <button
             type="submit"
