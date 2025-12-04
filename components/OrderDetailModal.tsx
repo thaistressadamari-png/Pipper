@@ -139,9 +139,9 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ order, isOpen, onCl
 
     return (
         <>
-            {/* Backdrop fixo cobrindo tudo */}
+            {/* Backdrop fixo cobrindo tudo - usando h-screen para garantir cobertura em mobile */}
             <div 
-                className="fixed inset-0 bg-black/60 z-[60] backdrop-blur-sm"
+                className="fixed top-0 left-0 w-full h-[100dvh] bg-black/60 z-[60] backdrop-blur-sm"
                 onClick={onClose}
                 aria-hidden="true"
             />
@@ -149,7 +149,8 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ order, isOpen, onCl
             {/* Container do Modal centralizado */}
             <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 pointer-events-none">
                 <div className="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col pointer-events-auto overflow-hidden">
-                    <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                    {/* Added padding bottom (pb-12) to create scroll breathing room */}
+                    <div className="flex-1 overflow-y-auto px-6 pt-6 pb-12 space-y-6">
                         <header className="flex items-center justify-between border-b pb-4">
                             <div>
                                 <p className="text-xs font-bold text-brand-primary uppercase tracking-wide">Pedido #{order.orderNumber}</p>
