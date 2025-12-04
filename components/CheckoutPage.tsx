@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import type { CartItem, StoreInfoData, Order, DeliveryInfo } from '../types';
-import { ArrowLeftIcon, CalendarIcon, SpinnerIcon, XIcon, CheckCircleIcon, TrashIcon, MapPinIcon } from './IconComponents';
+import { ArrowLeftIcon, CalendarIcon, SpinnerIcon, XIcon, CheckCircleIcon, TrashIcon, MapPinIcon, PlusIcon, MinusIcon } from './IconComponents';
 import { addOrder, getClient, removeClientAddress } from '../services/menuService';
 import Calendar from './Calendar';
 
@@ -10,6 +9,8 @@ interface CheckoutPageProps {
   storeInfo: StoreInfoData | null;
   onNavigateBack: () => void;
   onOrderSuccess: (order: Order) => void;
+  onUpdateQuantity: (productId: string, newQuantity: number, optionName?: string) => void;
+  onRemoveItem: (productId: string, optionName?: string) => void;
 }
 
 const PhoneConfirmationModal: React.FC<{
@@ -124,7 +125,7 @@ const SavedAddressesModal: React.FC<{
 };
 
 
-const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNavigateBack, onOrderSuccess }) => {
+const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNavigateBack, onOrderSuccess, onUpdateQuantity, onRemoveItem }) => {
   // Scroll to top when component mounts
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -327,6 +328,12 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (cartItems.length === 0) {
+        alert("Seu carrinho está vazio!");
+        return;
+    }
+
     const errors: { [key: string]: string } = {};
     if (!formData.name) errors.name = 'Nome é obrigatório';
     if (!formData.whatsapp || formData.whatsapp.length < 14) errors.whatsapp = 'WhatsApp válido é obrigatório';
@@ -401,6 +408,58 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
       </header>
 
       <main className="flex-grow container mx-auto px-4 py-6 max-w-2xl">
+        
+        {/* Cart Items Section */}
+        <section className="bg-white p-6 rounded-lg shadow-sm border border-gray-100 mb-6">
+            <h2 className="text-xl font-bold text-brand-text mb-4">Seu Carrinho</h2>
+            <div className="space-y-4">
+            {cartItems.length === 0 ? (
+                <div className="text-center py-8">
+                    <p className="text-gray-500 mb-4">Seu carrinho está vazio.</p>
+                    <button onClick={onNavigateBack} className="text-brand-primary font-medium hover:underline">
+                        Voltar para o cardápio
+                    </button>
+                </div>
+            ) : (
+                cartItems.map((item, index) => (
+                    <div key={`${item.id}-${item.selectedOption?.name || index}`} className="flex items-start bg-gray-50 p-3 rounded-lg border border-gray-100">
+                        {item.imageUrls && item.imageUrls.length > 0 && (
+                            <img src={item.imageUrls[0]} alt={item.name} className="w-16 h-16 object-cover rounded-md flex-shrink-0" />
+                        )}
+                        <div className={`flex-grow ${item.imageUrls && item.imageUrls.length > 0 ? 'ml-3' : ''}`}>
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <h3 className="font-semibold text-brand-text text-sm sm:text-base">{item.name}</h3>
+                                    {item.selectedOption && (
+                                        <p className="text-xs text-gray-500">{item.selectedOption.name}</p>
+                                    )}
+                                </div>
+                                <button onClick={() => onRemoveItem(item.id, item.selectedOption?.name)} className="p-1 text-gray-400 hover:text-red-500">
+                                    <TrashIcon className="w-4 h-4" />
+                                </button>
+                            </div>
+                            <div className="flex justify-between items-end mt-2">
+                                <p className="text-brand-primary font-bold">{formatPrice(item.price)}</p>
+                                <div className="flex items-center bg-white rounded-lg border border-gray-200 shadow-sm">
+                                    <button onClick={() => onUpdateQuantity(item.id, item.quantity - 1, item.selectedOption?.name)} className="p-1 px-2 text-gray-600 hover:bg-gray-100 rounded-l-lg"><MinusIcon className="w-3 h-3" /></button>
+                                    <span className="px-2 font-medium text-sm text-gray-800">{item.quantity}</span>
+                                    <button onClick={() => onUpdateQuantity(item.id, item.quantity + 1, item.selectedOption?.name)} className="p-1 px-2 text-gray-600 hover:bg-gray-100 rounded-r-lg"><PlusIcon className="w-3 h-3" /></button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                ))
+            )}
+            </div>
+            {cartItems.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-gray-100 flex justify-between items-center">
+                    <span className="text-gray-600 font-medium">Subtotal</span>
+                    <span className="text-lg font-bold text-brand-text">{formatPrice(total)}</span>
+                </div>
+            )}
+        </section>
+
+        {cartItems.length > 0 && (
         <form onSubmit={handleSubmit} className="space-y-6">
             
             {/* 1. Identification */}
@@ -629,7 +688,7 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
                 <h2 className="text-lg font-bold text-brand-text mb-4">Resumo do Pedido</h2>
                 <div className="space-y-3 mb-4">
                     {cartItems.map((item, index) => (
-                        <div key={`${item.id}-${index}`} className="flex justify-between text-sm">
+                        <div key={`${item.id}-${item.selectedOption?.name || index}`} className="flex justify-between text-sm">
                             <span className="text-gray-600">{item.quantity}x {item.name} {item.selectedOption ? `(${item.selectedOption.name})` : ''}</span>
                             <span className="font-medium text-gray-900">{formatPrice(item.price * item.quantity)}</span>
                         </div>
@@ -660,6 +719,7 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
             </button>
 
         </form>
+        )}
       </main>
       
       <PhoneConfirmationModal

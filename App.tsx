@@ -8,7 +8,6 @@ import AdminPage from './components/AdminPage';
 import StoreInfoModal from './components/StoreInfoModal';
 import CategoryMenuModal from './components/CategoryMenuModal';
 import ProductDetailModal from './components/ProductDetailModal';
-import Cart from './components/Cart';
 import CartButton from './components/CartButton';
 import CheckoutPage from './components/CheckoutPage';
 import OrderSuccessPage from './components/OrderSuccessPage';
@@ -33,7 +32,6 @@ const App: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
-  const [isCartOpen, setIsCartOpen] = useState(false);
   const [isOrderTrackingOpen, setIsOrderTrackingOpen] = useState(false);
   
   // State for active orders banner (now an array)
@@ -122,7 +120,7 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const isModalOpen = isStoreInfoModalOpen || isCategoryMenuOpen || !!selectedProduct || isCartOpen || isOrderTrackingOpen;
+    const isModalOpen = isStoreInfoModalOpen || isCategoryMenuOpen || !!selectedProduct || isOrderTrackingOpen;
     if (isModalOpen) {
       document.body.style.overflow = 'hidden';
     } else {
@@ -131,7 +129,7 @@ const App: React.FC = () => {
     return () => {
       document.body.style.overflow = 'auto';
     };
-  }, [isStoreInfoModalOpen, isCategoryMenuOpen, selectedProduct, isCartOpen, isOrderTrackingOpen]);
+  }, [isStoreInfoModalOpen, isCategoryMenuOpen, selectedProduct, isOrderTrackingOpen]);
 
   const fetchInitialData = useCallback(async () => {
     setIsLoading(true);
@@ -251,8 +249,8 @@ const App: React.FC = () => {
             }];
         }
     });
+    // Just close the modal, stay on menu
     setSelectedProduct(null);
-    setTimeout(() => setIsCartOpen(true), 300);
   }, []);
 
   const handleUpdateCartQuantity = useCallback((productId: string, newQuantity: number, optionName?: string) => {
@@ -272,9 +270,9 @@ const App: React.FC = () => {
     setCartItems(prev => prev.filter(item => !(item.id === productId && item.selectedOption?.name === optionName)));
   }, []);
   
-  const handleCheckout = useCallback(() => {
-    setIsCartOpen(false);
-    setTimeout(() => setView('checkout'), 300);
+  // Directly go to checkout view, no intermediate cart modal
+  const handleGoToCheckout = useCallback(() => {
+    setView('checkout');
   }, []);
 
   const handleOrderSuccess = (order: Order) => {
@@ -519,17 +517,10 @@ const App: React.FC = () => {
             onClose={handleCloseModal}
             onAddToCart={handleAddToCart}
         />
-        <Cart 
-            isOpen={isCartOpen}
-            onClose={() => setIsCartOpen(false)}
-            cartItems={cartItems}
-            onUpdateQuantity={handleUpdateCartQuantity}
-            onRemoveItem={handleRemoveFromCart}
-            onCheckout={handleCheckout}
-        />
+        {/* Cart modal is removed. We use CartButton to go to checkout directly */}
         <CartButton 
             itemCount={cartItems.reduce((sum, item) => sum + item.quantity, 0)}
-            onClick={() => setIsCartOpen(true)}
+            onClick={handleGoToCheckout}
         />
         <OrderTrackingModal
             isOpen={isOrderTrackingOpen}
@@ -575,9 +566,10 @@ const App: React.FC = () => {
             storeInfo={storeInfo}
             onNavigateBack={() => {
                 setView('menu');
-                setIsCartOpen(true);
             }}
             onOrderSuccess={handleOrderSuccess}
+            onUpdateQuantity={handleUpdateCartQuantity}
+            onRemoveItem={handleRemoveFromCart}
         />;
     case 'orderSuccess':
         return <OrderSuccessPage
