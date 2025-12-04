@@ -138,7 +138,10 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
           <div className="max-w-2xl mx-auto w-full">
             {hasImages ? (
               <div className="relative group w-full bg-gray-100">
-                  <div className="aspect-square sm:aspect-video w-full relative overflow-hidden">
+                  <div 
+                    className="aspect-square sm:aspect-video w-full relative overflow-hidden cursor-pointer"
+                    onClick={() => setIsImageFullscreen(true)}
+                  >
                      <img 
                         src={product.imageUrls[currentImageIndex]} 
                         alt={product.name} 
@@ -164,14 +167,14 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
                   {product.imageUrls.length > 1 && (
                       <>
                           <button
-                              onClick={() => handleImageNavigation('prev')}
+                              onClick={(e) => { e.stopPropagation(); handleImageNavigation('prev'); }}
                               className="absolute left-2 top-1/2 -translate-y-1/2 p-2 bg-white/70 backdrop-blur-sm rounded-full text-brand-text hover:bg-white transition-transform duration-200 ease-in-out hover:scale-110 opacity-0 group-hover:opacity-100 z-20 shadow-sm"
                               aria-label="Imagem anterior"
                           >
                               <ChevronLeftIcon className="w-6 h-6"/>
                           </button>
                           <button
-                              onClick={() => handleImageNavigation('next')}
+                              onClick={(e) => { e.stopPropagation(); handleImageNavigation('next'); }}
                               className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-white/70 backdrop-blur-sm rounded-full text-brand-text hover:bg-white transition-transform duration-200 ease-in-out hover:scale-110 opacity-0 group-hover:opacity-100 z-20 shadow-sm"
                               aria-label="Próxima imagem"
                           >
@@ -181,7 +184,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
                               {product.imageUrls.map((_, index) => (
                                   <button
                                       key={index}
-                                      onClick={() => setCurrentImageIndex(index)}
+                                      onClick={(e) => { e.stopPropagation(); setCurrentImageIndex(index); }}
                                       className={`w-2 h-2 rounded-full transition-all duration-300 shadow-sm ${index === currentImageIndex ? 'bg-white scale-125' : 'bg-white/60'}`}
                                       aria-label={`Ir para imagem ${index + 1}`}
                                   />
