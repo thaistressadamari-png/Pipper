@@ -361,8 +361,8 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
                 name: item.name,
                 quantity: item.quantity,
                 price: item.price,
-                observations: item.observations,
-                option: item.selectedOption?.name
+                observations: item.observations || '', // Fix undefined
+                option: item.selectedOption?.name || '' // Fix undefined
             })),
             total: total,
             paymentMethod: formData.paymentMethod,

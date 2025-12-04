@@ -1,3 +1,5 @@
+
+
 import {
     collection,
     getDocs,
@@ -211,7 +213,8 @@ export const removeClientAddress = async (whatsapp: string, address: DeliveryInf
 };
 
 const updateClientOnOrder = async (order: Order, saveAddress: boolean) => {
-    const clientRef = doc(clientsCollection, order.customer.whatsapp);
+    const rawWhatsapp = order.customer.whatsapp.replace(/\D/g, '');
+    const clientRef = doc(clientsCollection, rawWhatsapp);
     const clientDoc = await getDoc(clientRef);
     const now = serverTimestamp();
 
@@ -230,7 +233,7 @@ const updateClientOnOrder = async (order: Order, saveAddress: boolean) => {
     } else {
         // Create new client
         const newClient: Client = {
-            id: order.customer.whatsapp,
+            id: rawWhatsapp,
             name: order.customer.name,
             firstOrderDate: now,
             lastOrderDate: now,
@@ -268,7 +271,14 @@ export const addOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'upda
         };
         
         transaction.set(orderRef, fullOrderData);
-        newOrder = { ...fullOrderData, id: orderRef.id };
+        // We return an object with real Timestamps (or client approximation) to avoid UI crashes
+        // when accessing .toDate() on a FieldValue Sentinel immediately after creation.
+        newOrder = { 
+            ...fullOrderData, 
+            id: orderRef.id, 
+            createdAt: Timestamp.now(), 
+            updatedAt: Timestamp.now() 
+        };
     });
 
     if (!newOrder) {
