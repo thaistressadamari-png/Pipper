@@ -61,7 +61,11 @@ Assim que o pagamento for confirmado, preparamos tudo com muito carinho pra voc�
 Qualquer dúvida é só responder por aqui!`;
 
     // 2. Construir o link do WhatsApp
-    const encodedMessage = encodeURIComponent(customerMessage);
+    // Encode parentheses specifically because encodeURIComponent leaves them, which breaks Telegram Markdown links
+    const encodedMessage = encodeURIComponent(customerMessage)
+        .replace(/\(/g, '%28')
+        .replace(/\)/g, '%29');
+
     const customerWhatsapp = `55${order.customer.whatsapp.replace(/\D/g, '')}`; 
     const whatsappLink = `https://wa.me/${customerWhatsapp}?text=${encodedMessage}`;
 
