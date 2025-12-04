@@ -252,12 +252,14 @@ const App: React.FC = () => {
 
   const renderMenu = () => {
     const displayCategories = allCategories;
-    const visibleCategoriesForTabs = ['Todos', ...displayCategories];
-    
+
     // Filter for section rendering
     const categoriesWithProducts = displayCategories.filter(category => 
         products.some(p => p.category === category)
     );
+
+    // Only show categories with products in tabs
+    const visibleCategoriesForTabs = ['Todos', ...categoriesWithProducts];
 
     return (
         <>
@@ -442,4 +444,3 @@ const App: React.FC = () => {
 };
 
 export default App;
-    
