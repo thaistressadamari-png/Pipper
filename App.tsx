@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import StoreInfo from './components/StoreInfo';
 import CategoryTabs from './components/CategoryTabs';
@@ -14,8 +13,9 @@ import CartButton from './components/CartButton';
 import CheckoutPage from './components/CheckoutPage';
 import OrderSuccessPage from './components/OrderSuccessPage';
 import OrderTrackingModal from './components/OrderTrackingModal';
+import { BikeIcon } from './components/IconComponents';
 import type { Product, CartItem, StoreInfoData, Order, ProductOption } from './types';
-import { getMenu, addProduct, getStoreInfo, updateStoreInfo, updateProduct, deleteProduct, addCategory, deleteCategory, initializeFirebaseData, updateCategoryOrder, incrementVisitCount } from './services/menuService';
+import { getMenu, addProduct, getStoreInfo, updateStoreInfo, updateProduct, deleteProduct, addCategory, deleteCategory, initializeFirebaseData, updateCategoryOrder, incrementVisitCount, getOrderById } from './services/menuService';
 import { auth } from './firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 
@@ -35,6 +35,9 @@ const App: React.FC = () => {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isOrderTrackingOpen, setIsOrderTrackingOpen] = useState(false);
+  
+  // State for active order banner
+  const [activeOrder, setActiveOrder] = useState<Order | null>(null);
 
   useEffect(() => {
     // Increment visit count on initial app load
@@ -52,6 +55,40 @@ const App: React.FC = () => {
     });
 
     return () => unsubscribe();
+  }, []);
+
+  // Check for active order in localStorage on mount and poll for updates
+  useEffect(() => {
+    const checkActiveOrder = async () => {
+      const storedOrderId = localStorage.getItem('activeOrderId');
+      if (storedOrderId) {
+        try {
+          const order = await getOrderById(storedOrderId);
+          if (order) {
+            if (order.status === 'archived') {
+               // Order is archived, clear it
+               localStorage.removeItem('activeOrderId');
+               setActiveOrder(null);
+            } else {
+               // Order is active, update state
+               setActiveOrder(order);
+            }
+          } else {
+             // Order not found (maybe deleted), clear it
+             localStorage.removeItem('activeOrderId');
+             setActiveOrder(null);
+          }
+        } catch (e) {
+          console.error("Error fetching active order:", e);
+        }
+      }
+    };
+
+    checkActiveOrder();
+    
+    // Poll every 30 seconds to update status in the banner
+    const interval = setInterval(checkActiveOrder, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -214,6 +251,9 @@ const App: React.FC = () => {
   const handleOrderSuccess = (order: Order) => {
     setOrderSuccessData(order);
     setCartItems([]);
+    // Persist active order ID
+    localStorage.setItem('activeOrderId', order.id);
+    setActiveOrder(order);
     setView('orderSuccess');
   };
 
@@ -222,6 +262,13 @@ const App: React.FC = () => {
     setView('orderSuccess');
     setIsOrderTrackingOpen(false);
   }, []);
+
+  const handleBannerClick = () => {
+    if (activeOrder) {
+        setOrderSuccessData(activeOrder);
+        setView('orderSuccess');
+    }
+  };
   
   const handleLogout = async () => {
     try {
@@ -260,10 +307,43 @@ const App: React.FC = () => {
 
     // Only show categories with products in tabs
     const visibleCategoriesForTabs = ['Todos', ...categoriesWithProducts];
+    
+    const getStatusText = (status: Order['status']) => {
+        const texts = {
+            new: 'Recebido',
+            pending_payment: 'Pagamento Pendente',
+            confirmed: 'Em Preparo',
+            shipped: 'Saiu para entrega',
+            completed: 'Finalizado',
+            archived: ''
+        };
+        return texts[status] || 'Em andamento';
+    };
 
     return (
         <>
         <div className="min-h-screen flex flex-col bg-gray-50">
+            {activeOrder && activeOrder.status !== 'archived' && (
+                <div 
+                    onClick={handleBannerClick}
+                    className="bg-brand-primary text-white py-3 px-4 cursor-pointer shadow-md flex items-center justify-between"
+                >
+                    <div className="flex items-center gap-3">
+                        <div className="bg-white/20 p-2 rounded-full">
+                            <BikeIcon className="w-5 h-5 text-white" />
+                        </div>
+                        <div>
+                            <p className="text-sm font-semibold">Você possui um pedido em andamento</p>
+                            <p className="text-xs text-brand-secondary opacity-90">
+                                Pedido #{activeOrder.orderNumber} • {getStatusText(activeOrder.status)}
+                            </p>
+                        </div>
+                    </div>
+                    <div className="bg-white/10 px-3 py-1 rounded text-xs font-bold hover:bg-white/20 transition-colors">
+                        Ver
+                    </div>
+                </div>
+            )}
             <main className="flex-grow">
             <StoreInfo 
                 storeInfo={storeInfo} 

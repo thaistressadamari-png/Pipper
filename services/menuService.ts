@@ -1,6 +1,3 @@
-
-
-
 import {
     collection,
     getDocs,
@@ -306,6 +303,15 @@ export const getOrders = async (): Promise<Order[]> => {
         id: doc.id,
         ...doc.data()
     } as Order));
+};
+
+export const getOrderById = async (orderId: string): Promise<Order | null> => {
+    const orderRef = doc(ordersCollection, orderId);
+    const orderDoc = await getDoc(orderRef);
+    if (orderDoc.exists()) {
+        return { id: orderDoc.id, ...orderDoc.data() } as Order;
+    }
+    return null;
 };
 
 export const getOrdersByDateRange = async (startDate: Date, endDate: Date): Promise<Order[]> => {
