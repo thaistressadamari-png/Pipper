@@ -34,6 +34,10 @@ const AdminPage: React.FC<AdminPageProps> = (props) => {
 
   // Scroll to top when activeView changes
   useEffect(() => {
+    // Reset window scroll (important when entering from another page like Login)
+    window.scrollTo(0, 0);
+    
+    // Reset internal container scroll
     if (mainContentRef.current) {
         mainContentRef.current.scrollTop = 0;
     }
@@ -145,7 +149,7 @@ const AdminPage: React.FC<AdminPageProps> = (props) => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 flex">
+    <div className="h-screen overflow-hidden bg-gray-100 flex">
       {/* Mobile backdrop */}
       {isSidebarOpen && <div onClick={() => setIsSidebarOpen(false)} className="fixed inset-0 bg-black bg-opacity-50 z-30 md:hidden"></div>}
       
