@@ -18,27 +18,20 @@ interface StepProps {
 }
 
 const TrackingStep: React.FC<StepProps> = ({ isActive, isCompleted, isLast, icon, title }) => {
-    // Determine colors based on status logic from parent (which maps to active/completed)
-    // The request was: "as etapas estão todas em 'laranja' mas para preparo e envio pode ser em verde."
-    // Here we define styles dynamically.
     
     let bubbleClass = 'bg-gray-100 text-gray-400';
     let textClass = 'text-gray-400';
     let lineClass = 'bg-gray-200';
 
     if (isActive) {
-        bubbleClass = 'bg-green-100 text-green-600'; // Active is Green
+        bubbleClass = 'bg-green-100 text-green-600';
         textClass = 'text-gray-900';
     } else if (isCompleted) {
-        bubbleClass = 'bg-green-100 text-green-600'; // Completed is Green
+        bubbleClass = 'bg-green-100 text-green-600';
         textClass = 'text-gray-800';
         lineClass = 'bg-green-200';
     }
     
-    // Override specifically for the first step (Pending) to stay orange if active, or green if done?
-    // User asked "preparo e envio pode ser em verde". Pending implies before prep.
-    // However, usually completed steps are green. Let's stick to green for active/completed for consistency with the request.
-
     return (
         <div className="flex gap-4 relative">
             <div className="flex flex-col items-center">
@@ -46,10 +39,10 @@ const TrackingStep: React.FC<StepProps> = ({ isActive, isCompleted, isLast, icon
                     {isCompleted && !isActive ? <CheckCircleIcon className="w-6 h-6" /> : icon}
                 </div>
                 {!isLast && (
-                    <div className={`w-0.5 flex-grow my-2 transition-colors duration-300 ${lineClass}`} style={{ minHeight: '40px' }}></div>
+                    <div className={`w-0.5 flex-grow my-1 transition-colors duration-300 ${lineClass}`} style={{ minHeight: '24px' }}></div>
                 )}
             </div>
-            <div className="pt-2 pb-8">
+            <div className="pt-2 pb-5">
                 <h3 className={`font-semibold text-lg transition-colors duration-300 ${textClass}`}>
                     {title}
                 </h3>
@@ -126,17 +119,17 @@ const OrderSuccessPage: React.FC<OrderSuccessPageProps> = ({ order, storeInfo, o
       if (activeStep === 1) {
           return {
               title: "Pedido enviado!",
-              subtitle: "Aguardando a confirmação da loja",
+              subtitle: "Aguardando confirmação",
               icon: <ClockIcon className="w-8 h-8 animate-pulse" />,
               colorClass: "bg-gray-800 text-white"
           };
       }
       if (activeStep === 2) {
            return {
-              title: "Pedido em preparo!",
-              subtitle: "Estamos caprichando no seu pedido",
+              title: "Em preparo!",
+              subtitle: "Estamos caprichando",
               icon: <ChefHatIcon className="w-8 h-8" />,
-              colorClass: "bg-green-500 text-white" // Changed to Green as requested ("preparo... pode ser em verde")
+              colorClass: "bg-green-500 text-white"
           };
       }
       if (activeStep === 3) {
@@ -144,13 +137,13 @@ const OrderSuccessPage: React.FC<OrderSuccessPageProps> = ({ order, storeInfo, o
               title: "Saiu para entrega!",
               subtitle: "Logo chega aí",
               icon: <BikeIcon className="w-8 h-8" />,
-              colorClass: "bg-green-600 text-white" // Green for shipped
+              colorClass: "bg-green-600 text-white"
           };
       }
       // activeStep 4 (Completed)
       return {
           title: "Pedido Entregue!",
-          subtitle: "Obrigado pela preferência",
+          subtitle: "Obrigado!",
           icon: <CheckCircleIcon className="w-8 h-8" />,
           colorClass: "bg-green-700 text-white"
       };
@@ -170,14 +163,14 @@ const OrderSuccessPage: React.FC<OrderSuccessPageProps> = ({ order, storeInfo, o
           <button onClick={onNavigateBack} className="p-2 -ml-2 rounded-full hover:bg-gray-100 transition-colors">
             <ArrowLeftIcon className="w-6 h-6 text-gray-700" />
           </button>
-          <h1 className="text-lg font-bold text-gray-800 ml-2">Acompanhamento de pedidos</h1>
+          <h1 className="text-lg font-bold text-gray-800 ml-2">Acompanhamento</h1>
         </div>
       </header>
 
-      <main className="flex-grow container mx-auto px-4 py-6 max-w-lg pb-40">
+      <main className="flex-grow container mx-auto px-4 py-4 max-w-lg pb-32">
         
         {/* Status Banner */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-8 flex items-center gap-4 border border-gray-100">
+        <div className="bg-white rounded-lg shadow-sm p-4 mb-6 flex items-center gap-4 border border-gray-100">
             <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${banner.colorClass}`}>
                 {banner.icon}
             </div>
@@ -188,9 +181,9 @@ const OrderSuccessPage: React.FC<OrderSuccessPageProps> = ({ order, storeInfo, o
         </div>
 
         {/* Timeline */}
-        <div className="pl-4">
+        <div className="pl-2">
             <TrackingStep 
-                title={activeStep === 1 ? "Pedido pendente..." : "Pedido recebido"}
+                title={activeStep === 1 ? "Pendente..." : "Recebido"}
                 isActive={activeStep === 1}
                 isCompleted={activeStep > 1}
                 isLast={false}
@@ -214,39 +207,37 @@ const OrderSuccessPage: React.FC<OrderSuccessPageProps> = ({ order, storeInfo, o
 
       </main>
 
-      {/* Bottom Store Card */}
-      <div className="bg-white border-t border-gray-200 p-4 sticky bottom-0 safe-area-bottom z-40">
+      {/* Bottom Store Card - Optimized Layout */}
+      <div className="bg-white border-t border-gray-200 p-4 sticky bottom-0 safe-area-bottom z-40 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
         <div className="container mx-auto max-w-lg">
-            <div className="border border-gray-100 rounded-lg shadow-sm p-4 mb-4">
-                <div className="flex items-center gap-3 mb-4">
-                    <img src={storeInfo.logoUrl} alt={storeInfo.name} className="w-10 h-10 rounded-full bg-gray-100 object-cover" />
-                    <div className="flex-grow">
-                        <h3 className="font-bold text-gray-900">{storeInfo.name}</h3>
-                        <p className="text-sm text-gray-500">#{order.orderNumber.toString().padStart(4, '0')}</p>
-                    </div>
-                    <div className="text-right">
-                        <p className="text-sm text-gray-500">Total:</p>
-                        <p className="text-sm font-bold text-gray-900">{formatPrice(totalPrice)}</p>
-                    </div>
+            <div className="flex items-center gap-3 mb-3">
+                <img src={storeInfo.logoUrl} alt={storeInfo.name} className="w-10 h-10 rounded-full bg-gray-100 object-cover border border-gray-100" />
+                <div className="flex-grow min-w-0">
+                    <h3 className="font-bold text-gray-900 truncate">{storeInfo.name}</h3>
+                    <p className="text-xs text-gray-500">#{order.orderNumber.toString().padStart(4, '0')}</p>
                 </div>
-                
-                <div className="flex gap-3">
-                    <a 
-                        href={whatsappUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex-1 flex items-center justify-center gap-2 py-3 px-4 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-                    >
-                        <WhatsappIcon className="w-5 h-5 text-green-600" />
-                        Iniciar conversa
-                    </a>
-                    <button 
-                        onClick={() => setIsDetailsOpen(true)}
-                        className="flex-1 flex items-center justify-center gap-2 py-3 px-4 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-                    >
-                        Ver pedido
-                    </button>
+                <div className="text-right flex-shrink-0">
+                    <p className="text-xs text-gray-500">Total</p>
+                    <p className="text-base font-bold text-brand-primary">{formatPrice(totalPrice)}</p>
                 </div>
+            </div>
+            
+            <div className="flex gap-3">
+                <a 
+                    href={whatsappUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 bg-green-50 border border-green-200 rounded-lg text-sm font-bold text-green-700 hover:bg-green-100 transition-colors"
+                >
+                    <WhatsappIcon className="w-4 h-4" />
+                    Contato
+                </a>
+                <button 
+                    onClick={() => setIsDetailsOpen(true)}
+                    className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 border border-gray-300 rounded-lg text-sm font-bold text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                    Ver detalhes
+                </button>
             </div>
         </div>
       </div>
