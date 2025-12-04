@@ -138,124 +138,121 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ order, isOpen, onCl
     };
 
     return (
-        <>
-            {/* Backdrop fixo cobrindo tudo - usando h-screen para garantir cobertura em mobile */}
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            {/* Backdrop: Fundo escuro absoluto cobrindo todo o container fixo */}
             <div 
-                className="fixed top-0 left-0 w-full h-[100dvh] bg-black/60 z-[60] backdrop-blur-sm"
+                className="absolute inset-0 bg-black/60 backdrop-blur-sm"
                 onClick={onClose}
                 aria-hidden="true"
             />
             
-            {/* Container do Modal centralizado */}
-            <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 pointer-events-none">
-                <div className="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col pointer-events-auto overflow-hidden">
-                    {/* Added padding bottom (pb-12) to create scroll breathing room */}
-                    <div className="flex-1 overflow-y-auto px-6 pt-6 pb-12 space-y-6">
-                        <header className="flex items-center justify-between border-b pb-4">
+            {/* Modal Card: Relativo para ficar acima do backdrop */}
+            <div className="relative bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden">
+                <div className="flex-1 overflow-y-auto px-6 pt-6 pb-12 space-y-6">
+                    <header className="flex items-center justify-between border-b pb-4">
+                        <div>
+                            <p className="text-xs font-bold text-brand-primary uppercase tracking-wide">Pedido #{order.orderNumber}</p>
+                            <h3 className="text-lg font-bold text-brand-text truncate max-w-[250px]">{order.customer?.name}</h3>
+                        </div>
+                        <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100">
+                            <XIcon className="w-5 h-5 text-gray-600" />
+                        </button>
+                    </header>
+
+                    <div className="space-y-4">
+                        <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
+                            <h4 className="font-bold text-sm text-gray-700 mb-2">Itens do Pedido</h4>
+                            <ul className="text-sm text-gray-600 space-y-2">
+                                {order.items?.map((item, index) => (
+                                    <li key={index} className="flex justify-between items-start">
+                                        <span>
+                                            <span className="font-bold text-gray-800">{item.quantity}x</span> {item.name}
+                                            {item.option && <span className="text-gray-500 text-xs block">{item.option}</span>}
+                                            {item.observations && <span className="text-amber-600 text-xs block italic bg-amber-50 px-1 rounded mt-0.5">Obs: {item.observations}</span>}
+                                        </span>
+                                        <span className="font-medium text-gray-900 whitespace-nowrap">
+                                            {formatPrice(item.price * item.quantity)}
+                                        </span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
-                                <p className="text-xs font-bold text-brand-primary uppercase tracking-wide">Pedido #{order.orderNumber}</p>
-                                <h3 className="text-lg font-bold text-brand-text truncate max-w-[250px]">{order.customer?.name}</h3>
+                                <h4 className="font-bold text-xs text-gray-400 uppercase mb-1">Cliente</h4>
+                                <p className="text-sm font-medium text-gray-800">{order.customer?.name}</p>
+                                <a href={`tel:${order.customer?.whatsapp}`} className="text-sm text-brand-primary hover:underline">{order.customer?.whatsapp}</a>
                             </div>
-                            <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100">
-                                <XIcon className="w-5 h-5 text-gray-600" />
-                            </button>
-                        </header>
-
-                        <div className="space-y-4">
-                            <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
-                                <h4 className="font-bold text-sm text-gray-700 mb-2">Itens do Pedido</h4>
-                                <ul className="text-sm text-gray-600 space-y-2">
-                                    {order.items?.map((item, index) => (
-                                        <li key={index} className="flex justify-between items-start">
-                                            <span>
-                                                <span className="font-bold text-gray-800">{item.quantity}x</span> {item.name}
-                                                {item.option && <span className="text-gray-500 text-xs block">{item.option}</span>}
-                                                {item.observations && <span className="text-amber-600 text-xs block italic bg-amber-50 px-1 rounded mt-0.5">Obs: {item.observations}</span>}
-                                            </span>
-                                            <span className="font-medium text-gray-900 whitespace-nowrap">
-                                                {formatPrice(item.price * item.quantity)}
-                                            </span>
-                                        </li>
-                                    ))}
-                                </ul>
+                            <div>
+                                <h4 className="font-bold text-xs text-gray-400 uppercase mb-1">Pagamento</h4>
+                                <p className="text-sm font-medium text-gray-800">{order.paymentMethod}</p>
                             </div>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div>
-                                    <h4 className="font-bold text-xs text-gray-400 uppercase mb-1">Cliente</h4>
-                                    <p className="text-sm font-medium text-gray-800">{order.customer?.name}</p>
-                                    <a href={`tel:${order.customer?.whatsapp}`} className="text-sm text-brand-primary hover:underline">{order.customer?.whatsapp}</a>
-                                </div>
-                                <div>
-                                    <h4 className="font-bold text-xs text-gray-400 uppercase mb-1">Pagamento</h4>
-                                    <p className="text-sm font-medium text-gray-800">{order.paymentMethod}</p>
-                                </div>
-                                <div className="sm:col-span-2">
-                                    <h4 className="font-bold text-xs text-gray-400 uppercase mb-1">Entrega</h4>
-                                    <p className="text-sm text-gray-800 leading-snug bg-blue-50 p-2 rounded border border-blue-100">
-                                        {order.delivery?.address ? `${order.delivery.address.street}, ${order.delivery.address.number}` : 'Endereço não informado'}
-                                        <br/>
-                                        {order.delivery?.address?.neighborhood}
-                                        {order.delivery?.address?.complement && ` - ${order.delivery.address.complement}`}
-                                    </p>
-                                    <p className="text-xs text-gray-500 mt-1">Agendado para: <span className="font-semibold text-gray-700">{formatDisplayDate(order.deliveryDate)}</span></p>
-                                </div>
+                            <div className="sm:col-span-2">
+                                <h4 className="font-bold text-xs text-gray-400 uppercase mb-1">Entrega</h4>
+                                <p className="text-sm text-gray-800 leading-snug bg-blue-50 p-2 rounded border border-blue-100">
+                                    {order.delivery?.address ? `${order.delivery.address.street}, ${order.delivery.address.number}` : 'Endereço não informado'}
+                                    <br/>
+                                    {order.delivery?.address?.neighborhood}
+                                    {order.delivery?.address?.complement && ` - ${order.delivery.address.complement}`}
+                                </p>
+                                <p className="text-xs text-gray-500 mt-1">Agendado para: <span className="font-semibold text-gray-700">{formatDisplayDate(order.deliveryDate)}</span></p>
                             </div>
+                        </div>
 
-                            <div className="border-t pt-4 space-y-4">
-                                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                                    <label htmlFor={`deliveryFee-${order.id}`} className="text-sm font-bold text-gray-700 min-w-[120px]">Taxa de Entrega:</label>
-                                    <div className="relative flex-grow">
-                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">R$</span>
-                                        <input
-                                            id={`deliveryFee-${order.id}`}
-                                            type="number"
-                                            step="0.01"
-                                            value={deliveryFee}
-                                            onChange={(e) => setDeliveryFee(e.target.value)}
-                                            className="w-full pl-8 pr-3 py-2 bg-white border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-brand-primary focus:border-brand-primary text-sm font-medium"
-                                            placeholder="0,00"
-                                        />
-                                    </div>
-                                </div>
-                                
-                                <div className="flex flex-col gap-1">
-                                    <label htmlFor={`paymentLink-${order.id}`} className="text-sm font-bold text-gray-700">Link de Pagamento:</label>
+                        <div className="border-t pt-4 space-y-4">
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                                <label htmlFor={`deliveryFee-${order.id}`} className="text-sm font-bold text-gray-700 min-w-[120px]">Taxa de Entrega:</label>
+                                <div className="relative flex-grow">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">R$</span>
                                     <input
-                                        id={`paymentLink-${order.id}`}
-                                        type="url"
-                                        value={paymentLink}
-                                        onChange={(e) => setPaymentLink(e.target.value)}
-                                        onBlur={handleLinkBlur}
-                                        className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-brand-primary focus:border-brand-primary text-sm text-gray-600"
-                                        placeholder="Cole o link aqui"
+                                        id={`deliveryFee-${order.id}`}
+                                        type="number"
+                                        step="0.01"
+                                        value={deliveryFee}
+                                        onChange={(e) => setDeliveryFee(e.target.value)}
+                                        className="w-full pl-8 pr-3 py-2 bg-white border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-brand-primary focus:border-brand-primary text-sm font-medium"
+                                        placeholder="0,00"
                                     />
                                 </div>
+                            </div>
+                            
+                            <div className="flex flex-col gap-1">
+                                <label htmlFor={`paymentLink-${order.id}`} className="text-sm font-bold text-gray-700">Link de Pagamento:</label>
+                                <input
+                                    id={`paymentLink-${order.id}`}
+                                    type="url"
+                                    value={paymentLink}
+                                    onChange={(e) => setPaymentLink(e.target.value)}
+                                    onBlur={handleLinkBlur}
+                                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-brand-primary focus:border-brand-primary text-sm text-gray-600"
+                                    placeholder="Cole o link aqui"
+                                />
+                            </div>
 
-                                <div className="bg-gray-50 p-3 rounded-lg space-y-1 mt-2">
-                                    <div className="flex justify-between text-sm text-gray-600">
-                                        <span>Subtotal</span>
-                                        <span>{formatPrice(order.total)}</span>
-                                    </div>
-                                    <div className="flex justify-between text-sm text-gray-600">
-                                        <span>Frete</span>
-                                        <span>{formatPrice(parseFloat(deliveryFee || '0'))}</span>
-                                    </div>
-                                    <div className="flex justify-between text-lg font-bold text-brand-text border-t border-gray-200 pt-2 mt-1">
-                                        <span>Total</span>
-                                        <span>{formatPrice(totalWithFee)}</span>
-                                    </div>
+                            <div className="bg-gray-50 p-3 rounded-lg space-y-1 mt-2">
+                                <div className="flex justify-between text-sm text-gray-600">
+                                    <span>Subtotal</span>
+                                    <span>{formatPrice(order.total)}</span>
+                                </div>
+                                <div className="flex justify-between text-sm text-gray-600">
+                                    <span>Frete</span>
+                                    <span>{formatPrice(parseFloat(deliveryFee || '0'))}</span>
+                                </div>
+                                <div className="flex justify-between text-lg font-bold text-brand-text border-t border-gray-200 pt-2 mt-1">
+                                    <span>Total</span>
+                                    <span>{formatPrice(totalWithFee)}</span>
                                 </div>
                             </div>
                         </div>
+                    </div>
 
-                        <div className="flex flex-col sm:flex-row gap-3 sm:justify-end pt-2">
-                            {actionButtons()}
-                        </div>
+                    <div className="flex flex-col sm:flex-row gap-3 sm:justify-end pt-2">
+                        {actionButtons()}
                     </div>
                 </div>
             </div>
-        </>
+        </div>
     );
 };
 
