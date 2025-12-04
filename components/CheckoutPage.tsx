@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import type { CartItem, StoreInfoData, Order, DeliveryInfo } from '../types';
 import { ArrowLeftIcon, CalendarIcon, SpinnerIcon, XIcon, CheckCircleIcon, TrashIcon, MapPinIcon } from './IconComponents';
@@ -280,7 +279,16 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
   const checkClient = async (whatsapp: string) => {
       const client = await getClient(whatsapp);
       if (client) {
-          setFormData(prev => ({ ...prev, name: client.name }));
+          // IMPORTANT: Only auto-fill name if the field is empty.
+          // This prevents overwriting a name the user might have already typed 
+          // while the fetch was happening or via browser autofill.
+          setFormData(prev => {
+              if (!prev.name) {
+                  return { ...prev, name: client.name };
+              }
+              return prev;
+          });
+
           if (client.addresses && client.addresses.length > 0) {
               setFoundAddresses(client.addresses);
               setIsAddressModalOpen(true);
