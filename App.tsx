@@ -13,7 +13,7 @@ import CartButton from './components/CartButton';
 import CheckoutPage from './components/CheckoutPage';
 import OrderSuccessPage from './components/OrderSuccessPage';
 import OrderTrackingModal from './components/OrderTrackingModal';
-import { BikeIcon } from './components/IconComponents';
+import { BikeIcon, ShoppingBagIcon } from './components/IconComponents';
 import type { Product, CartItem, StoreInfoData, Order, ProductOption } from './types';
 import { getMenu, addProduct, getStoreInfo, updateStoreInfo, updateProduct, deleteProduct, addCategory, deleteCategory, initializeFirebaseData, updateCategoryOrder, incrementVisitCount, getOrderById } from './services/menuService';
 import { auth } from './firebase';
@@ -36,8 +36,8 @@ const App: React.FC = () => {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isOrderTrackingOpen, setIsOrderTrackingOpen] = useState(false);
   
-  // State for active order banner
-  const [activeOrder, setActiveOrder] = useState<Order | null>(null);
+  // State for active orders banner (now an array)
+  const [activeOrders, setActiveOrders] = useState<Order[]>([]);
 
   useEffect(() => {
     // Increment visit count on initial app load
@@ -57,37 +57,67 @@ const App: React.FC = () => {
     return () => unsubscribe();
   }, []);
 
-  // Check for active order in localStorage on mount and poll for updates
+  // Check for active orders in localStorage on mount and poll for updates
   useEffect(() => {
-    const checkActiveOrder = async () => {
-      const storedOrderId = localStorage.getItem('activeOrderId');
-      if (storedOrderId) {
+    const checkActiveOrders = async () => {
+      let ids: string[] = [];
+      
+      // Check legacy single ID
+      const legacyId = localStorage.getItem('activeOrderId');
+      if (legacyId) ids.push(legacyId);
+
+      // Check new array of IDs
+      const storedIds = localStorage.getItem('activeOrderIds');
+      if (storedIds) {
         try {
-          const order = await getOrderById(storedOrderId);
-          if (order) {
-            if (order.status === 'archived') {
-               // Order is archived, clear it
-               localStorage.removeItem('activeOrderId');
-               setActiveOrder(null);
-            } else {
-               // Order is active, update state
-               setActiveOrder(order);
-            }
-          } else {
-             // Order not found (maybe deleted), clear it
-             localStorage.removeItem('activeOrderId');
-             setActiveOrder(null);
+          const parsed = JSON.parse(storedIds);
+          if (Array.isArray(parsed)) {
+            ids = [...ids, ...parsed];
           }
         } catch (e) {
-          console.error("Error fetching active order:", e);
+          console.error("Error parsing activeOrderIds", e);
         }
+      }
+
+      // Deduplicate IDs
+      ids = [...new Set(ids)];
+
+      if (ids.length === 0) {
+        setActiveOrders([]);
+        return;
+      }
+
+      // Fetch all orders
+      const promises = ids.map(id => getOrderById(id));
+      const results = await Promise.all(promises);
+      
+      const validOrders: Order[] = [];
+      const validIds: string[] = [];
+
+      results.forEach(order => {
+        // Keep order if it exists and is not archived
+        if (order && order.status !== 'archived') {
+            validOrders.push(order);
+            validIds.push(order.id);
+        }
+      });
+      
+      // Sort: Newest first (by orderNumber descending)
+      validOrders.sort((a, b) => b.orderNumber - a.orderNumber);
+
+      setActiveOrders(validOrders);
+      
+      // Update localStorage with clean list
+      if (validIds.length !== ids.length || legacyId) {
+          localStorage.setItem('activeOrderIds', JSON.stringify(validIds));
+          localStorage.removeItem('activeOrderId'); // Cleanup legacy
       }
     };
 
-    checkActiveOrder();
+    checkActiveOrders();
     
     // Poll every 30 seconds to update status in the banner
-    const interval = setInterval(checkActiveOrder, 30000);
+    const interval = setInterval(checkActiveOrders, 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -205,12 +235,11 @@ const App: React.FC = () => {
             newItems[existingItemIndex] = {
                 ...newItems[existingItemIndex],
                 quantity: newItems[existingItemIndex].quantity + quantity,
-                observations: observations // Update obs or concatenate? Usually replacing is clearer for user edit intent, or we could handle it differently. Let's replace.
+                observations: observations 
             };
             return newItems;
         } else {
             // Add new item. 
-            // IMPORTANT: If an option is selected, override the price of the product for the cart item.
             const itemPrice = selectedOption ? selectedOption.price : productToAdd.price;
             
             return [...prevItems, { 
@@ -251,9 +280,23 @@ const App: React.FC = () => {
   const handleOrderSuccess = (order: Order) => {
     setOrderSuccessData(order);
     setCartItems([]);
-    // Persist active order ID
-    localStorage.setItem('activeOrderId', order.id);
-    setActiveOrder(order);
+    
+    // Add to active orders and persist
+    setActiveOrders(prev => {
+        // Prevent duplicates
+        const exists = prev.some(o => o.id === order.id);
+        const newOrders = exists 
+            ? prev.map(o => o.id === order.id ? order : o) 
+            : [order, ...prev];
+        
+        // Update storage
+        const ids = newOrders.map(o => o.id);
+        localStorage.setItem('activeOrderIds', JSON.stringify(ids));
+        localStorage.removeItem('activeOrderId'); // ensure legacy is gone
+        
+        return newOrders;
+    });
+
     setView('orderSuccess');
   };
 
@@ -264,9 +307,11 @@ const App: React.FC = () => {
   }, []);
 
   const handleBannerClick = () => {
-    if (activeOrder) {
-        setOrderSuccessData(activeOrder);
+    if (activeOrders.length === 1) {
+        setOrderSuccessData(activeOrders[0]);
         setView('orderSuccess');
+    } else if (activeOrders.length > 1) {
+        setIsOrderTrackingOpen(true);
     }
   };
   
@@ -323,25 +368,46 @@ const App: React.FC = () => {
     return (
         <>
         <div className="min-h-screen flex flex-col bg-gray-50">
-            {activeOrder && activeOrder.status !== 'archived' && (
+            {activeOrders.length > 0 && (
                 <div 
                     onClick={handleBannerClick}
                     className="bg-brand-primary text-white py-3 px-4 cursor-pointer shadow-md flex items-center justify-between"
                 >
-                    <div className="flex items-center gap-3">
-                        <div className="bg-white/20 p-2 rounded-full">
-                            <BikeIcon className="w-5 h-5 text-white" />
-                        </div>
-                        <div>
-                            <p className="text-sm font-semibold">Você possui um pedido em andamento</p>
-                            <p className="text-xs text-brand-secondary opacity-90">
-                                Pedido #{activeOrder.orderNumber} • {getStatusText(activeOrder.status)}
-                            </p>
-                        </div>
-                    </div>
-                    <div className="bg-white/10 px-3 py-1 rounded text-xs font-bold hover:bg-white/20 transition-colors">
-                        Ver
-                    </div>
+                    {activeOrders.length === 1 ? (
+                        <>
+                            <div className="flex items-center gap-3">
+                                <div className="bg-white/20 p-2 rounded-full">
+                                    <BikeIcon className="w-5 h-5 text-white" />
+                                </div>
+                                <div>
+                                    <p className="text-sm font-semibold">Você possui um pedido em andamento</p>
+                                    <p className="text-xs text-brand-secondary opacity-90">
+                                        Pedido #{activeOrders[0].orderNumber} • {getStatusText(activeOrders[0].status)}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="bg-white/10 px-3 py-1 rounded text-xs font-bold hover:bg-white/20 transition-colors">
+                                Ver
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            <div className="flex items-center gap-3">
+                                <div className="bg-white/20 p-2 rounded-full">
+                                    <ShoppingBagIcon className="w-5 h-5 text-white" />
+                                </div>
+                                <div>
+                                    <p className="text-sm font-semibold">Você tem {activeOrders.length} pedidos em andamento</p>
+                                    <p className="text-xs text-brand-secondary opacity-90">
+                                        Toque para acompanhar
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="bg-white/10 px-3 py-1 rounded text-xs font-bold hover:bg-white/20 transition-colors">
+                                Ver todos
+                            </div>
+                        </>
+                    )}
                 </div>
             )}
             <main className="flex-grow">
@@ -469,6 +535,7 @@ const App: React.FC = () => {
             isOpen={isOrderTrackingOpen}
             onClose={() => setIsOrderTrackingOpen(false)}
             onTrackOrder={handleTrackOrder}
+            initialOrders={activeOrders}
         />
         </>
     );

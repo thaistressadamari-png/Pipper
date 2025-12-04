@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { XIcon, ArrowLeftIcon } from './IconComponents';
 import { getOrdersByWhatsapp } from '../services/menuService';
 import type { Order } from '../types';
@@ -8,14 +7,28 @@ interface OrderTrackingModalProps {
   isOpen: boolean;
   onClose: () => void;
   onTrackOrder: (order: Order) => void;
+  initialOrders?: Order[];
 }
 
-const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ isOpen, onClose, onTrackOrder }) => {
+const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ isOpen, onClose, onTrackOrder, initialOrders }) => {
   const [step, setStep] = useState<'input' | 'results'>('input');
   const [whatsapp, setWhatsapp] = useState('');
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (isOpen) {
+        if (initialOrders && initialOrders.length > 0) {
+            setOrders(initialOrders);
+            setStep('results');
+        } else {
+            setStep('input');
+            setOrders([]);
+            setWhatsapp('');
+        }
+    }
+  }, [isOpen, initialOrders]);
 
   const handleClose = () => {
     onClose();
