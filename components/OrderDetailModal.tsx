@@ -212,7 +212,7 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ order, isOpen, onCl
                                         step="0.01"
                                         value={deliveryFee}
                                         onChange={(e) => setDeliveryFee(e.target.value)}
-                                        className="w-full pl-8 pr-3 py-2 bg-white border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-brand-primary focus:border-brand-primary text-sm font-medium"
+                                        className="w-full pl-8 pr-3 py-2 bg-white border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-brand-primary focus:border-brand-primary text-base sm:text-sm font-medium"
                                         placeholder="0,00"
                                     />
                                 </div>
@@ -227,7 +227,7 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ order, isOpen, onCl
                                     value={paymentLink}
                                     onChange={(e) => setPaymentLink(e.target.value)}
                                     onBlur={handleLinkBlur}
-                                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-brand-primary focus:border-brand-primary text-sm text-gray-600"
+                                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-brand-primary focus:border-brand-primary text-base sm:text-sm text-gray-600"
                                     placeholder="Cole o link aqui (Mercado Pago, etc)"
                                 />
                                 <p className="text-xs text-gray-400">Salvo automaticamente ao sair do campo.</p>
