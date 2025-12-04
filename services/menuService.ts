@@ -1,3 +1,6 @@
+
+
+
 import {
     collection,
     getDocs,
@@ -18,7 +21,6 @@ import {
     increment,
     runTransaction,
     documentId,
-    onSnapshot,
 } from "firebase/firestore";
 import { db } from '../firebase';
 import type { Product, StoreInfoData, Order, Client, DeliveryInfo } from '../types';
@@ -399,19 +401,4 @@ export const getVisitCountByDateRange = async (startDate: Date, endDate: Date): 
         totalVisits += doc.data().count || 0;
     });
     return totalVisits;
-};
-
-// Real-time listener for a specific order
-export const subscribeToOrder = (orderId: string, callback: (order: Order | null) => void) => {
-    const orderRef = doc(db, 'orders', orderId);
-    return onSnapshot(orderRef, (docSnap) => {
-        if (docSnap.exists()) {
-            callback({ id: docSnap.id, ...docSnap.data() } as Order);
-        } else {
-            callback(null);
-        }
-    }, (error) => {
-        console.error("Error subscribing to order:", error);
-        callback(null);
-    });
 };

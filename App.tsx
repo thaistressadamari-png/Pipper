@@ -14,7 +14,6 @@ import CartButton from './components/CartButton';
 import CheckoutPage from './components/CheckoutPage';
 import OrderSuccessPage from './components/OrderSuccessPage';
 import OrderTrackingModal from './components/OrderTrackingModal';
-import ActiveOrderBanner from './components/ActiveOrderBanner';
 import type { Product, CartItem, StoreInfoData, Order, ProductOption } from './types';
 import { getMenu, addProduct, getStoreInfo, updateStoreInfo, updateProduct, deleteProduct, addCategory, deleteCategory, initializeFirebaseData, updateCategoryOrder, incrementVisitCount } from './services/menuService';
 import { auth } from './firebase';
@@ -36,17 +35,10 @@ const App: React.FC = () => {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isOrderTrackingOpen, setIsOrderTrackingOpen] = useState(false);
-  const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
 
   useEffect(() => {
     // Increment visit count on initial app load
     incrementVisitCount();
-
-    // Load active order from local storage
-    const storedOrderId = localStorage.getItem('activeOrderId');
-    if (storedOrderId) {
-        setActiveOrderId(storedOrderId);
-    }
 
     // Listen to Firebase Auth state
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -222,11 +214,6 @@ const App: React.FC = () => {
   const handleOrderSuccess = (order: Order) => {
     setOrderSuccessData(order);
     setCartItems([]);
-    
-    // Save active order
-    localStorage.setItem('activeOrderId', order.id);
-    setActiveOrderId(order.id);
-    
     setView('orderSuccess');
   };
 
@@ -276,12 +263,6 @@ const App: React.FC = () => {
         <>
         <div className="min-h-screen flex flex-col bg-gray-50">
             <main className="flex-grow">
-            {activeOrderId && view === 'menu' && (
-                <ActiveOrderBanner 
-                    orderId={activeOrderId} 
-                    onViewOrder={handleTrackOrder} 
-                />
-            )}
             <StoreInfo 
                 storeInfo={storeInfo} 
                 isLoading={!storeInfo}
@@ -461,3 +442,4 @@ const App: React.FC = () => {
 };
 
 export default App;
+    
