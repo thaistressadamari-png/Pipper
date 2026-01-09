@@ -160,7 +160,6 @@ const ManualOrderView: React.FC<ManualOrderViewProps> = ({ products, storeInfo, 
     return Array.from(new Set(products.map(p => p.category))).sort();
   }, [products]);
 
-  // Fix: defined paymentOptions based on storeInfo or default fallback
   const paymentOptions = useMemo(() => {
     if (storeInfo?.paymentMethods?.online && storeInfo.paymentMethods.online.length > 0) {
       return storeInfo.paymentMethods.online;
@@ -272,13 +271,17 @@ const ManualOrderView: React.FC<ManualOrderViewProps> = ({ products, storeInfo, 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!customerData.name.trim() || !customerData.whatsapp.trim()) {
+        return alert("Nome e WhatsApp são obrigatórios!");
+    }
     if (selectedItems.length === 0) return alert("Adicione pelo menos um item");
+    
     setIsSubmitting(true);
     try {
       const orderData: any = {
         customer: {
-          name: customerData.name.trim() || "Cliente Balcão",
-          whatsapp: customerData.whatsapp.replace(/\D/g, '') || "00000000000",
+          name: customerData.name.trim(),
+          whatsapp: customerData.whatsapp.replace(/\D/g, ''),
         },
         delivery: {
           type: 'delivery',
@@ -320,12 +323,12 @@ const ManualOrderView: React.FC<ManualOrderViewProps> = ({ products, storeInfo, 
         <section className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
           <h3 className="text-lg font-bold text-brand-text mb-4 flex items-center gap-2">
             <span className="w-2 h-6 bg-brand-primary rounded-full"></span>
-            Cliente e Endereço (Opcional)
+            Dados do Cliente
           </h3>
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">WhatsApp</label>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">WhatsApp <span className="text-red-500">*</span></label>
                 <div className="relative">
                   <input
                     type="tel"
@@ -334,25 +337,28 @@ const ManualOrderView: React.FC<ManualOrderViewProps> = ({ products, storeInfo, 
                     onBlur={handleWhatsappBlur}
                     placeholder="(00) 00000-0000"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary outline-none"
+                    required
                   />
                   {isSearchingClient && <SpinnerIcon className="absolute right-3 top-2.5 w-4 h-4 text-brand-primary" />}
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nome Completo</label>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nome Completo <span className="text-red-500">*</span></label>
                 <input
                   type="text"
                   value={customerData.name}
                   onChange={e => setCustomerData({ ...customerData, name: e.target.value })}
                   placeholder="Ex: João Silva"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary outline-none"
+                  required
                 />
               </div>
             </div>
+
             {foundClient && foundClient.addresses.length > 0 && (
               <div className="bg-brand-secondary/20 p-3 rounded-lg border border-brand-secondary/30">
                 <p className="text-xs font-bold text-brand-primary mb-2 flex items-center gap-1">
-                  <MapPinIcon className="w-3 h-3" /> Endereços do Cliente
+                  <MapPinIcon className="w-3 h-3" /> Usar endereço salvo
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {foundClient.addresses.map((addr, i) => (
@@ -363,14 +369,34 @@ const ManualOrderView: React.FC<ManualOrderViewProps> = ({ products, storeInfo, 
                 </div>
               </div>
             )}
-            <div className="grid grid-cols-3 gap-2 pt-2 border-t border-gray-50">
-              <div className="col-span-1">
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">CEP</label>
-                <input type="text" value={customerData.cep} onChange={e => setCustomerData({ ...customerData, cep: e.target.value })} className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm" />
-              </div>
-              <div className="col-span-2">
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Rua / Bairro</label>
-                <input type="text" value={customerData.street} onChange={e => setCustomerData({ ...customerData, street: e.target.value })} className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm" />
+
+            <div className="pt-4 border-t border-gray-100">
+              <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Endereço de Entrega (Opcional)</h4>
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="sm:col-span-1">
+                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">CEP</label>
+                        <input type="text" value={customerData.cep} onChange={e => setCustomerData({ ...customerData, cep: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-brand-primary" placeholder="00000-000" />
+                    </div>
+                    <div className="sm:col-span-2">
+                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Logradouro / Rua</label>
+                        <input type="text" value={customerData.street} onChange={e => setCustomerData({ ...customerData, street: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-brand-primary" placeholder="Ex: Av. Paulista" />
+                    </div>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                    <div>
+                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Número</label>
+                        <input type="text" value={customerData.number} onChange={e => setCustomerData({ ...customerData, number: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-brand-primary" placeholder="Ex: 123" />
+                    </div>
+                    <div className="sm:col-span-2">
+                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Bairro</label>
+                        <input type="text" value={customerData.neighborhood} onChange={e => setCustomerData({ ...customerData, neighborhood: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-brand-primary" placeholder="Ex: Centro" />
+                    </div>
+                </div>
+                <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Complemento</label>
+                    <input type="text" value={customerData.complement} onChange={e => setCustomerData({ ...customerData, complement: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-brand-primary" placeholder="Ex: Apto 101, Bloco A" />
+                </div>
               </div>
             </div>
           </div>
