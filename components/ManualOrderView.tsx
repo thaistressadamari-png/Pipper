@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import type { Product, StoreInfoData, Order, Client, ProductOption, DeliveryInfo, OrderItem } from '../types';
 import { getClient, addOrder, addProduct, addCategory } from '../services/menuService';
-import { SearchIcon, PlusIcon, MinusIcon, TrashIcon, SpinnerIcon, MapPinIcon, CheckCircleIcon, ChevronRightIcon, XIcon } from './IconComponents';
+import { SearchIcon, PlusIcon, MinusIcon, TrashIcon, SpinnerIcon, MapPinIcon, CheckCircleIcon, ChevronRightIcon, XIcon, UsersIcon } from './IconComponents';
 
 interface ManualOrderViewProps {
   products: Product[];
@@ -154,6 +154,8 @@ const ManualOrderView: React.FC<ManualOrderViewProps> = ({ products, storeInfo, 
   const [customItem, setCustomItem] = useState({ name: '', price: '', category: 'Diversos', saveToMenu: false });
   const [priceEditingIdx, setPriceEditingIdx] = useState<number | null>(null);
 
+  const nameInputRef = useRef<HTMLInputElement>(null);
+
   const formatPrice = (price: number) => price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
   const existingCategories = useMemo(() => {
@@ -167,8 +169,19 @@ const ManualOrderView: React.FC<ManualOrderViewProps> = ({ products, storeInfo, 
     return ['Pix', 'Cartão de crédito', 'Dinheiro'];
   }, [storeInfo]);
 
+  const handleNoWhatsapp = () => {
+    setCustomerData(prev => ({ ...prev, whatsapp: '(00) 00000-0000' }));
+    // Focar no nome após preencher o número padrão
+    setTimeout(() => {
+        nameInputRef.current?.focus();
+    }, 100);
+  };
+
   const handleWhatsappBlur = async () => {
     const raw = customerData.whatsapp.replace(/\D/g, '');
+    // Ignorar busca se for o número padrão
+    if (raw === '00000000000') return;
+
     if (raw.length >= 10) {
       setIsSearchingClient(true);
       try {
@@ -328,7 +341,16 @@ const ManualOrderView: React.FC<ManualOrderViewProps> = ({ products, storeInfo, 
           <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">WhatsApp <span className="text-red-500">*</span></label>
+                <div className="flex justify-between items-center mb-1">
+                    <label className="block text-xs font-bold text-gray-500 uppercase">WhatsApp <span className="text-red-500">*</span></label>
+                    <button 
+                        type="button" 
+                        onClick={handleNoWhatsapp}
+                        className="text-[10px] font-bold text-brand-primary hover:underline bg-brand-secondary/40 px-2 py-0.5 rounded"
+                    >
+                        Sem número
+                    </button>
+                </div>
                 <div className="relative">
                   <input
                     type="tel"
@@ -345,6 +367,7 @@ const ManualOrderView: React.FC<ManualOrderViewProps> = ({ products, storeInfo, 
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nome Completo <span className="text-red-500">*</span></label>
                 <input
+                  ref={nameInputRef}
                   type="text"
                   value={customerData.name}
                   onChange={e => setCustomerData({ ...customerData, name: e.target.value })}
