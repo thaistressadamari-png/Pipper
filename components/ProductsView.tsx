@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import type { Product, ProductOption, CategoryMetadata } from '../types';
-import { TrashIcon, SearchIcon, DragHandleIcon, CopyIcon, PlusIcon } from './IconComponents';
+import { TrashIcon, SearchIcon, DragHandleIcon, CopyIcon, PlusIcon, ChevronRightIcon, XIcon as CloseIcon } from './IconComponents';
 
 interface ProductsViewProps {
   products: Product[];
@@ -14,6 +14,112 @@ interface ProductsViewProps {
   onUpdateCategoryOrder: (newOrder: CategoryMetadata[]) => Promise<void>;
   onToggleCategoriesArchive: (categoryNames: string[], archive: boolean) => Promise<void>;
 }
+
+// Sub-componente para o Select com Busca
+const SearchableSelect: React.FC<{
+    options: CategoryMetadata[];
+    value: string;
+    onChange: (value: string) => void;
+    placeholder: string;
+}> = ({ options, value, onChange, placeholder }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [search, setSearch] = useState('');
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    const filteredOptions = useMemo(() => {
+        return options.filter(opt => 
+            opt.name.toLowerCase().includes(search.toLowerCase())
+        );
+    }, [options, search]);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const selectedCategory = options.find(o => o.name === value);
+
+    return (
+        <div className="relative mt-1" ref={containerRef}>
+            <button
+                type="button"
+                onClick={() => setIsOpen(!isOpen)}
+                className="relative w-full bg-white border border-gray-300 rounded-md shadow-sm pl-3 pr-10 py-2 text-left cursor-default focus:outline-none focus:ring-1 focus:ring-brand-primary focus:border-brand-primary sm:text-sm"
+            >
+                <span className="block truncate text-gray-900">
+                    {selectedCategory ? (
+                        <span className="flex items-center gap-2">
+                            {selectedCategory.isArchived ? '📦' : '📂'} {selectedCategory.name}
+                        </span>
+                    ) : (
+                        <span className="text-gray-400">{placeholder}</span>
+                    )}
+                </span>
+                <span className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                    <svg className="h-5 w-5 text-gray-400 transform transition-transform duration-200" style={{ transform: isOpen ? 'rotate(-90deg)' : 'rotate(90deg)' }} viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                    </svg>
+                </span>
+            </button>
+
+            {isOpen && (
+                <div className="absolute z-50 mt-1 w-full bg-white shadow-lg max-h-60 rounded-md py-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none sm:text-sm">
+                    <div className="sticky top-0 z-10 bg-white px-2 py-2 border-b border-gray-100">
+                        <div className="relative">
+                            <SearchIcon className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                            <input
+                                type="text"
+                                className="block w-full pl-8 pr-3 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-brand-primary focus:border-brand-primary"
+                                placeholder="Pesquisar categoria..."
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                                onClick={(e) => e.stopPropagation()}
+                                autoFocus
+                            />
+                        </div>
+                    </div>
+                    <ul className="max-h-48 overflow-y-auto">
+                        {filteredOptions.length > 0 ? (
+                            filteredOptions.map((opt) => (
+                                <li
+                                    key={opt.name}
+                                    onClick={() => {
+                                        onChange(opt.name);
+                                        setIsOpen(false);
+                                        setSearch('');
+                                    }}
+                                    className={`cursor-pointer select-none relative py-2 pl-3 pr-9 hover:bg-brand-secondary/30 transition-colors ${
+                                        value === opt.name ? 'bg-brand-secondary/50 text-brand-primary font-semibold' : 'text-gray-900'
+                                    }`}
+                                >
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-xs">{opt.isArchived ? '📦' : '📂'}</span>
+                                        <span className="block truncate">{opt.name}</span>
+                                        {opt.isArchived && <span className="text-[10px] text-gray-400 uppercase font-bold">(Arquivada)</span>}
+                                    </div>
+                                    {value === opt.name && (
+                                        <span className="absolute inset-y-0 right-0 flex items-center pr-4 text-brand-primary">
+                                            <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                            </svg>
+                                        </span>
+                                    )}
+                                </li>
+                            ))
+                        ) : (
+                            <li className="py-4 text-center text-gray-500 text-sm">Nenhuma categoria encontrada</li>
+                        )}
+                    </ul>
+                </div>
+            )}
+        </div>
+    );
+};
 
 const DeleteConfirmationModal: React.FC<{
     product: Product;
@@ -80,13 +186,17 @@ const ProductsView: React.FC<ProductsViewProps> = ({
   const activeCategoriesOnly = useMemo(() => categories.filter(c => !c.isArchived), [categories]);
   const archivedCategoriesOnly = useMemo(() => categories.filter(c => c.isArchived), [categories]);
 
+  const sortedCategoriesForSelect = useMemo(() => {
+    return [...activeCategoriesOnly, ...archivedCategoriesOnly];
+  }, [activeCategoriesOnly, archivedCategoriesOnly]);
+
   const initialFormState = {
     name: '',
     description: '',
     price: '',
     originalPrice: '',
     promotionalTag: '',
-    category: activeCategoriesOnly.length > 0 ? activeCategoriesOnly[0].name : '',
+    category: '',
     imageUrls: '',
     leadTimeDays: '0',
   };
@@ -494,15 +604,13 @@ const ProductsView: React.FC<ProductsViewProps> = ({
                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
                                 <label htmlFor="category" className="block text-sm font-medium text-brand-text-light">Categoria</label>
-                                <select name="category" id="category" value={productForm.category} onChange={handleProductFormChange} className={inputStyles} required>
-                                    <option value="">Selecione...</option>
-                                    {/* Show all categories in dropdown to allow moving products out of archived categories */}
-                                    {categories.map(cat => (
-                                        <option key={cat.name} value={cat.name}>
-                                            {cat.name} {cat.isArchived ? '(Arquivada)' : ''}
-                                        </option>
-                                    ))}
-                                </select>
+                                <SearchableSelect 
+                                    options={sortedCategoriesForSelect}
+                                    value={productForm.category}
+                                    onChange={(val) => setProductForm(prev => ({ ...prev, category: val }))}
+                                    placeholder="Selecione ou busque..."
+                                />
+                                <p className="text-[10px] text-gray-400 mt-1">Para criar uma nova, use a seção "Gerenciar Categorias" abaixo.</p>
                             </div>
                             <div>
                                 <label htmlFor="promotionalTag" className="block text-sm font-medium text-brand-text-light">Tag Promocional (Opcional)</label>

@@ -6,7 +6,8 @@ import ProductsView from './ProductsView';
 import StoreInfoView from './StoreInfoView';
 import OrdersView from './OrdersView';
 import ClientsView from './ClientsView';
-import { DashboardIcon, BoxIcon, StoreIcon, MenuIcon, XIcon, ClipboardListIcon, UsersIcon } from './IconComponents';
+import ManualOrderView from './ManualOrderView';
+import { DashboardIcon, BoxIcon, StoreIcon, MenuIcon, XIcon, ClipboardListIcon, UsersIcon, PlusIcon } from './IconComponents';
 import { getNewOrdersCount } from '../services/menuService';
 
 interface AdminPageProps {
@@ -26,7 +27,7 @@ interface AdminPageProps {
 }
 
 const AdminPage: React.FC<AdminPageProps> = (props) => {
-  const [activeView, setActiveView] = useState<'dashboard' | 'products' | 'store' | 'orders' | 'clients'>('dashboard');
+  const [activeView, setActiveView] = useState<'dashboard' | 'products' | 'store' | 'orders' | 'clients' | 'manual_order'>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [newOrdersCount, setNewOrdersCount] = useState(0);
   
@@ -53,7 +54,7 @@ const AdminPage: React.FC<AdminPageProps> = (props) => {
     return () => clearInterval(intervalId);
   }, []);
 
-  const handleNavClick = (view: 'dashboard' | 'products' | 'store' | 'orders' | 'clients') => {
+  const handleNavClick = (view: 'dashboard' | 'products' | 'store' | 'orders' | 'clients' | 'manual_order') => {
     setActiveView(view);
     setIsSidebarOpen(false);
   };
@@ -80,6 +81,8 @@ const AdminPage: React.FC<AdminPageProps> = (props) => {
         return <OrdersView />;
       case 'clients':
         return <ClientsView />;
+      case 'manual_order':
+        return <ManualOrderView products={props.products} storeInfo={props.storeInfo} onOrderCreated={() => setActiveView('orders')} />;
       default:
         return <DashboardView products={props.products} />;
     }
@@ -98,6 +101,12 @@ const AdminPage: React.FC<AdminPageProps> = (props) => {
             <DashboardIcon className={navIconClasses('dashboard')} />
             Dashboard
           </button>
+          
+          <button onClick={() => handleNavClick('manual_order')} className={`${navItemClasses('manual_order')} bg-brand-accent/10 text-brand-accent border border-brand-accent/20`}>
+            <PlusIcon className={`${navIconClasses('manual_order')} !text-brand-accent`} />
+            Novo Pedido
+          </button>
+
           <button onClick={() => handleNavClick('orders')} className={navItemClasses('orders')}>
             <ClipboardListIcon className={navIconClasses('orders')} />
             Pedidos
@@ -138,6 +147,7 @@ const AdminPage: React.FC<AdminPageProps> = (props) => {
         case 'store': return 'Informações da Loja';
         case 'orders': return 'Gerenciar Pedidos';
         case 'clients': return 'Clientes';
+        case 'manual_order': return 'Novo Pedido';
         default: return 'Admin';
     }
   }
