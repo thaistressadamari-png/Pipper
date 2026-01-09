@@ -15,7 +15,6 @@ interface ProductsViewProps {
   onToggleCategoriesArchive: (categoryNames: string[], archive: boolean) => Promise<void>;
 }
 
-// Sub-componente para o Select com Busca
 const SearchableSelect: React.FC<{
     options: CategoryMetadata[];
     value: string;
@@ -127,8 +126,8 @@ const DeleteConfirmationModal: React.FC<{
     onConfirm: () => void;
 }> = ({ product, onCancel, onConfirm }) => {
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-sm w-full p-6 text-center">
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-[100] flex items-center justify-center p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-sm w-full p-6 text-center animate-fade-in-up">
                 <h3 className="text-lg font-bold text-brand-text">Confirmar Exclusão</h3>
                 <p className="text-sm text-gray-500 mt-2">
                     Você tem certeza que deseja apagar o produto <span className="font-semibold">"{product.name}"</span>? Esta ação não pode ser desfeita.
@@ -152,8 +151,8 @@ const DeleteCategoryConfirmationModal: React.FC<{
     onConfirm: () => void;
 }> = ({ categoryName, onCancel, onConfirm }) => {
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-sm w-full p-6 text-center">
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-[100] flex items-center justify-center p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-sm w-full p-6 text-center animate-fade-in-up">
                 <h3 className="text-lg font-bold text-brand-text">Confirmar Exclusão</h3>
                 <p className="text-sm text-gray-500 mt-2">
                     Você tem certeza que deseja apagar a categoria <span className="font-semibold">"{categoryName}"</span>? Esta ação não pode ser desfeita.
@@ -170,7 +169,6 @@ const DeleteCategoryConfirmationModal: React.FC<{
         </div>
     );
 };
-
 
 const ProductsView: React.FC<ProductsViewProps> = ({ 
     products, 
@@ -205,6 +203,7 @@ const ProductsView: React.FC<ProductsViewProps> = ({
   const [productOptions, setProductOptions] = useState<ProductOption[]>([]);
   const [newOption, setNewOption] = useState({ name: '', price: '' });
   
+  const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -222,24 +221,31 @@ const ProductsView: React.FC<ProductsViewProps> = ({
   const dragOverItem = useRef<number | null>(null);
 
   useEffect(() => {
-    if (productToDelete || categoryToDelete) {
+    if (productToDelete || categoryToDelete || isProductModalOpen) {
         document.body.style.overflow = 'hidden';
         return () => {
             document.body.style.overflow = 'auto';
         };
     }
-  }, [productToDelete, categoryToDelete]);
+  }, [productToDelete, categoryToDelete, isProductModalOpen]);
 
   useEffect(() => {
-    if (productOptions.length > 0) {
+    if (productOptions.length > 0 && isProductModalOpen) {
         const minPrice = Math.min(...productOptions.map(o => o.price));
         setProductForm(prev => ({ ...prev, price: String(minPrice) }));
     }
-  }, [productOptions]);
+  }, [productOptions, isProductModalOpen]);
   
   const handleProductFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setProductForm(prev => ({ ...prev, [name]: value }));
+  };
+
+  const openAddProductModal = () => {
+    setEditingProduct(null);
+    setProductForm(initialFormState);
+    setProductOptions([]);
+    setIsProductModalOpen(true);
   };
 
   const handleEditClick = (product: Product) => {
@@ -255,7 +261,7 @@ const ProductsView: React.FC<ProductsViewProps> = ({
         leadTimeDays: String(product.leadTimeDays || 0),
     });
     setProductOptions(product.options || []);
-    window.scrollTo(0, 0); 
+    setIsProductModalOpen(true);
   };
   
   const handleDuplicateClick = (product: Product) => {
@@ -271,9 +277,7 @@ const ProductsView: React.FC<ProductsViewProps> = ({
     });
     setProductOptions(product.options || []);
     setEditingProduct(null); 
-    window.scrollTo(0, 0);
-    setMessage({ type: 'success', text: 'Dados copiados para o formulário. Ajuste e salve como novo produto.' });
-    setTimeout(() => setMessage(null), 4000);
+    setIsProductModalOpen(true);
   };
 
   const confirmDelete = async () => {
@@ -290,11 +294,13 @@ const ProductsView: React.FC<ProductsViewProps> = ({
     }
   };
 
-  const cancelEdit = () => {
+  const closeProductModal = () => {
+    setIsProductModalOpen(false);
     setEditingProduct(null);
     setProductForm(initialFormState);
     setProductOptions([]);
-  }
+    setMessage(null);
+  };
 
   const handleAddOption = () => {
       if (!newOption.name || !newOption.price) return;
@@ -330,8 +336,9 @@ const ProductsView: React.FC<ProductsViewProps> = ({
           effectivePrice = Math.min(...productOptions.map(o => o.price));
       }
 
-      const productData: Product = {
-        id: editingProduct?.id || '',
+      // IMPORTANTE: Começar com um objeto limpo e adicionar apenas o que for preenchido
+      // Isso garante que se o campo for limpo no formulário, a propriedade será removida no Firebase
+      const productData: any = {
         name: productForm.name,
         description: productForm.description,
         price: effectivePrice,
@@ -339,41 +346,45 @@ const ProductsView: React.FC<ProductsViewProps> = ({
         imageUrls: imageUrlsArray,
         leadTimeDays: parseInt(productForm.leadTimeDays, 10) || 0,
         options: productOptions,
-        originalPrice: 0,
-        promotionalTag: '',
       };
+
+      if (editingProduct) {
+          productData.id = editingProduct.id;
+      }
 
       const origPrice = parseFloat(productForm.originalPrice);
       if (!isNaN(origPrice) && origPrice > 0) {
         productData.originalPrice = origPrice;
       } else {
-        delete productData.originalPrice;
+        // Se o campo estiver em branco, passamos null ou 0 para limpar ou deixamos de fora
+        // Mas o updateDoc do Firebase precisa saber que deve remover se não enviarmos.
+        // No nosso service, estamos enviando o objeto completo, então se não existir a chave, o Firebase mantém.
+        // Para remover, definimos como null.
+        productData.originalPrice = null;
       }
 
       if (productForm.promotionalTag && productForm.promotionalTag.trim()) {
-        productData.promotionalTag = productForm.promotionalTag;
+        productData.promotionalTag = productForm.promotionalTag.trim();
       } else {
-        delete productData.promotionalTag;
+        productData.promotionalTag = null;
       }
 
       if (editingProduct) {
         await onUpdateProduct(productData);
         setMessage({ type: 'success', text: 'Produto atualizado com sucesso!' });
       } else {
-        const { id, ...newProductData } = productData;
-        await onAddProduct(newProductData);
+        await onAddProduct(productData);
         setMessage({ type: 'success', text: 'Produto cadastrado com sucesso!' });
       }
       
-      setProductForm(initialFormState);
-      setProductOptions([]);
-      setEditingProduct(null);
+      setTimeout(() => {
+          closeProductModal();
+      }, 1000);
     } catch (error) {
         setMessage({ type: 'error', text: 'Ocorreu um erro.' });
         console.error(error);
     } finally {
         setIsSubmitting(false);
-        setTimeout(() => setMessage(null), 5000);
     }
   };
   
@@ -437,11 +448,8 @@ const ProductsView: React.FC<ProductsViewProps> = ({
 
   const filteredProducts = products.filter(p => {
     const matchesSearch = p.name.toLowerCase().includes(productSearchQuery.toLowerCase());
-    
-    // Check if the product's category is archived
     const isCategoryArchived = categories.some(c => c.name === p.category && c.isArchived);
     
-    // Tab filtering
     if (productViewTab === 'active' && isCategoryArchived) return false;
     if (productViewTab === 'inactive' && !isCategoryArchived) return false;
 
@@ -479,7 +487,6 @@ const ProductsView: React.FC<ProductsViewProps> = ({
     }
   };
 
-  // Helper to count products in each view
   const productCounts = useMemo(() => {
     const active = products.filter(p => !categories.find(c => c.name === p.category && c.isArchived)).length;
     const inactive = products.length - active;
@@ -502,140 +509,121 @@ const ProductsView: React.FC<ProductsViewProps> = ({
                 onConfirm={confirmDeleteCategory}
             />
         )}
-        <div className="space-y-8 overflow-x-hidden">
-            <div className="max-w-3xl mx-auto bg-white rounded-lg shadow-md p-6 md:p-8">
-                <h2 className="text-2xl font-bold text-brand-text mb-6">{editingProduct ? 'Editar Produto' : 'Cadastrar Novo Produto'}</h2>
-                <form onSubmit={handleProductSubmit} className="space-y-6">
-                    <div className="space-y-4">
-                        <div>
-                            <label htmlFor="name" className="block text-sm font-medium text-brand-text-light">Nome do Produto</label>
-                            <input type="text" name="name" id="name" value={productForm.name} onChange={handleProductFormChange} className={inputStyles} required />
-                        </div>
-                        <div>
-                            <label htmlFor="description" className="block text-sm font-medium text-brand-text-light">Descrição</label>
-                            <textarea name="description" id="description" value={productForm.description} onChange={handleProductFormChange} rows={3} className={inputStyles} required></textarea>
-                        </div>
-                        <div>
-                            <label htmlFor="imageUrls" className="block text-sm font-medium text-brand-text-light">URLs da Imagem (uma por linha) - Opcional</label>
-                            <textarea name="imageUrls" id="imageUrls" value={productForm.imageUrls} onChange={handleProductFormChange} rows={4} className={inputStyles} placeholder="https://exemplo.com/imagem1.jpg&#10;https://exemplo.com/imagem2.jpg"></textarea>
-                        </div>
-                        
-                        <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                            <label className="block text-sm font-bold text-brand-text mb-2">Opções / Variações (Tamanho, Peso, Qtd)</label>
-                            <p className="text-xs text-gray-500 mb-4">Adicione variações aqui. O preço base será definido automaticamente pelo menor valor das opções.</p>
-                            
-                            <div className="space-y-2 mb-4">
-                                {productOptions.map((opt, index) => (
-                                    <div key={index} className="flex items-center justify-between p-3 bg-white rounded-md border border-gray-200 shadow-sm">
-                                        <div className="min-w-0 pr-4">
-                                            <span className="font-medium text-brand-text truncate block sm:inline">{opt.name}</span>
-                                            <span className="hidden sm:inline mx-2 text-gray-300">|</span>
-                                            <span className="text-brand-primary font-bold block sm:inline">{opt.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+
+        {/* Modal de Produto (Cadastro/Edição) */}
+        {isProductModalOpen && (
+            <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm">
+                <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-slide-in-up">
+                    <header className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                        <h2 className="text-xl font-bold text-brand-text">{editingProduct ? 'Editar Produto' : 'Novo Produto'}</h2>
+                        <button onClick={closeProductModal} className="p-2 hover:bg-gray-200 rounded-full transition-colors text-gray-500">
+                            <CloseIcon className="w-6 h-6" />
+                        </button>
+                    </header>
+                    <div className="flex-1 overflow-y-auto p-6">
+                        <form onSubmit={handleProductSubmit} className="space-y-6">
+                            <div className="space-y-4">
+                                <div>
+                                    <label htmlFor="name" className="block text-sm font-medium text-brand-text-light">Nome do Produto</label>
+                                    <input type="text" name="name" id="name" value={productForm.name} onChange={handleProductFormChange} className={inputStyles} required />
+                                </div>
+                                <div>
+                                    <label htmlFor="description" className="block text-sm font-medium text-brand-text-light">Descrição</label>
+                                    <textarea name="description" id="description" value={productForm.description} onChange={handleProductFormChange} rows={3} className={inputStyles} required></textarea>
+                                </div>
+                                <div>
+                                    <label htmlFor="imageUrls" className="block text-sm font-medium text-brand-text-light">URLs da Imagem (uma por linha)</label>
+                                    <textarea name="imageUrls" id="imageUrls" value={productForm.imageUrls} onChange={handleProductFormChange} rows={4} className={inputStyles} placeholder="https://exemplo.com/imagem.jpg"></textarea>
+                                </div>
+                                
+                                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                                    <label className="block text-sm font-bold text-brand-text mb-2">Variações (Tamanho/Peso)</label>
+                                    <div className="space-y-2 mb-4">
+                                        {productOptions.map((opt, index) => (
+                                            <div key={index} className="flex items-center justify-between p-3 bg-white rounded-md border border-gray-200 shadow-sm">
+                                                <div className="min-w-0 pr-4">
+                                                    <span className="font-medium text-brand-text">{opt.name}</span>
+                                                    <span className="mx-2 text-gray-300">|</span>
+                                                    <span className="text-brand-primary font-bold">{opt.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                                                </div>
+                                                <button type="button" onClick={() => handleRemoveOption(index)} className="p-1 text-gray-400 hover:text-red-600">
+                                                    <TrashIcon className="w-5 h-5" />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <div className="flex flex-col sm:flex-row gap-2 items-end">
+                                        <div className="flex-grow">
+                                            <input type="text" placeholder="Nome (Ex: 500g)" value={newOption.name} onChange={(e) => setNewOption({ ...newOption, name: e.target.value })} className="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md sm:text-sm" />
                                         </div>
-                                        <button type="button" onClick={() => handleRemoveOption(index)} className="p-1 text-gray-400 hover:text-red-600 transition-colors flex-shrink-0">
-                                            <TrashIcon className="w-5 h-5" />
+                                        <div className="w-full sm:w-1/3">
+                                            <input type="number" placeholder="Preço" value={newOption.price} onChange={(e) => setNewOption({ ...newOption, price: e.target.value })} className="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md sm:text-sm" />
+                                        </div>
+                                        <button type="button" onClick={handleAddOption} className="px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-primary-dark">
+                                            Add
                                         </button>
                                     </div>
-                                ))}
-                                {productOptions.length === 0 && (
-                                    <p className="text-sm text-gray-400 italic">Nenhuma opção adicionada. O produto terá um preço único.</p>
-                                )}
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <label htmlFor="price" className="block text-sm font-medium text-brand-text-light">Preço de Venda (R$)</label>
+                                        <input type="number" name="price" id="price" value={productForm.price} onChange={handleProductFormChange} className={`${inputStyles} ${productOptions.length > 0 ? 'bg-gray-100' : ''}`} step="0.01" min="0" required={productOptions.length === 0} readOnly={productOptions.length > 0} />
+                                    </div>
+                                    <div>
+                                        <label htmlFor="originalPrice" className="block text-sm font-medium text-brand-text-light">Preço Original (R$ - Opcional)</label>
+                                        <input type="number" name="originalPrice" id="originalPrice" value={productForm.originalPrice} onChange={handleProductFormChange} className={inputStyles} step="0.01" min="0" placeholder="Sem promoção" />
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <label htmlFor="category" className="block text-sm font-medium text-brand-text-light">Categoria</label>
+                                        <SearchableSelect options={sortedCategoriesForSelect} value={productForm.category} onChange={(val) => setProductForm(prev => ({ ...prev, category: val }))} placeholder="Selecione..." />
+                                    </div>
+                                    <div>
+                                        <label htmlFor="promotionalTag" className="block text-sm font-medium text-brand-text-light">Tag Promocional (Opcional)</label>
+                                        <input type="text" name="promotionalTag" id="promotionalTag" value={productForm.promotionalTag} onChange={handleProductFormChange} className={inputStyles} placeholder="Ex: PROMO" />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label htmlFor="leadTimeDays" className="block text-sm font-medium text-brand-text-light">Prazo de Produção (dias)</label>
+                                    <input type="number" name="leadTimeDays" id="leadTimeDays" value={productForm.leadTimeDays} onChange={handleProductFormChange} className={inputStyles} min="0" required />
+                                </div>
                             </div>
 
-                            <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-end">
-                                <div className="flex-grow">
-                                    <label htmlFor="optName" className="block text-xs text-gray-500 mb-1">Nome (ex: Grande, 500g)</label>
-                                    <input 
-                                        type="text" 
-                                        id="optName"
-                                        value={newOption.name}
-                                        onChange={(e) => setNewOption({ ...newOption, name: e.target.value })}
-                                        className="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm sm:text-sm focus:outline-none focus:ring-brand-primary focus:border-brand-primary"
-                                        placeholder="Ex: 500g"
-                                    />
+                            {message && (
+                                <div className={`p-3 rounded-md text-sm ${message.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                    {message.text}
                                 </div>
-                                <div className="w-full sm:w-1/3">
-                                    <label htmlFor="optPrice" className="block text-xs text-gray-500 mb-1">Preço (R$)</label>
-                                    <input 
-                                        type="number" 
-                                        id="optPrice"
-                                        value={newOption.price}
-                                        onChange={(e) => setNewOption({ ...newOption, price: e.target.value })}
-                                        className="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm sm:text-sm focus:outline-none focus:ring-brand-primary focus:border-brand-primary"
-                                        placeholder="0.00"
-                                        step="0.01"
-                                    />
-                                </div>
-                                <button 
-                                    type="button" 
-                                    onClick={handleAddOption}
-                                    disabled={!newOption.name || !newOption.price}
-                                    className="px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-primary-dark disabled:opacity-50 transition-colors flex items-center justify-center shadow-sm h-10 sm:h-9"
-                                >
-                                    <PlusIcon className="w-5 h-5 mr-1" />
-                                    <span className="sm:hidden">Adicionar Opção</span>
+                            )}
+
+                            <div className="pt-4 flex gap-3">
+                                <button type="submit" disabled={isSubmitting} className="flex-grow py-3 px-4 rounded-md text-white bg-brand-primary hover:bg-brand-primary-dark font-bold disabled:opacity-50">
+                                    {isSubmitting ? 'Salvando...' : (editingProduct ? 'Salvar Alterações' : 'Cadastrar Produto')}
+                                </button>
+                                <button type="button" onClick={closeProductModal} className="px-6 py-3 border border-gray-300 rounded-md font-medium text-gray-700 bg-white hover:bg-gray-50">
+                                    Cancelar
                                 </button>
                             </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div>
-                                <label htmlFor="price" className="block text-sm font-medium text-brand-text-light">Preço de Venda (R$)</label>
-                                <input 
-                                    type="number" 
-                                    name="price" 
-                                    id="price" 
-                                    value={productForm.price} 
-                                    onChange={handleProductFormChange} 
-                                    className={`${inputStyles} ${productOptions.length > 0 ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}
-                                    step="0.01" 
-                                    min="0" 
-                                    required={productOptions.length === 0} 
-                                    placeholder="25.50"
-                                    readOnly={productOptions.length > 0}
-                                />
-                                {productOptions.length > 0 && <p className="text-xs text-gray-500 mt-1">Definido pela menor opção.</p>}
-                            </div>
-                            <div>
-                                <label htmlFor="originalPrice" className="block text-sm font-medium text-brand-text-light">Preço "De" (R$ - Opcional)</label>
-                                <input type="number" name="originalPrice" id="originalPrice" value={productForm.originalPrice} onChange={handleProductFormChange} className={inputStyles} step="0.01" min="0" placeholder="30.00" />
-                                <p className="text-xs text-gray-400 mt-1">Deixe vazio para preço sem promoção.</p>
-                            </div>
-                        </div>
-                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div>
-                                <label htmlFor="category" className="block text-sm font-medium text-brand-text-light">Categoria</label>
-                                <SearchableSelect 
-                                    options={sortedCategoriesForSelect}
-                                    value={productForm.category}
-                                    onChange={(val) => setProductForm(prev => ({ ...prev, category: val }))}
-                                    placeholder="Selecione ou busque..."
-                                />
-                                <p className="text-[10px] text-gray-400 mt-1">Para criar uma nova, use a seção "Gerenciar Categorias" abaixo.</p>
-                            </div>
-                            <div>
-                                <label htmlFor="promotionalTag" className="block text-sm font-medium text-brand-text-light">Tag Promocional (Opcional)</label>
-                                <input type="text" name="promotionalTag" id="promotionalTag" value={productForm.promotionalTag} onChange={handleProductFormChange} className={inputStyles} placeholder="Ex: PROMOÇÃO" />
-                            </div>
-                        </div>
-                        <div>
-                            <label htmlFor="leadTimeDays" className="block text-sm font-medium text-brand-text-light">Prazo Mínimo (dias)</label>
-                            <input type="number" name="leadTimeDays" id="leadTimeDays" value={productForm.leadTimeDays} onChange={handleProductFormChange} className={inputStyles} min="0" required placeholder="Ex: 0 para pronta-entrega" />
-                        </div>
+                        </form>
                     </div>
+                </div>
+            </div>
+        )}
 
-                    {message && (
-                        <div className={`p-3 rounded-md text-sm ${message.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                            {message.text}
-                        </div>
-                    )}
-                    <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
-                        <button type="submit" disabled={isSubmitting} className="flex-grow justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-brand-primary hover:bg-brand-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-                            {isSubmitting ? 'Salvando...' : (editingProduct ? 'Atualizar Produto' : 'Cadastrar Produto')}
-                        </button>
-                        {editingProduct && <button type="button" onClick={cancelEdit} className="py-3 px-4 border border-gray-300 rounded-md shadow-sm text-base font-medium text-gray-700 bg-white hover:bg-gray-50">Cancelar</button>}
-                    </div>
-                </form>
+        <div className="space-y-8 overflow-x-hidden">
+            <div className="max-w-3xl mx-auto flex justify-between items-center bg-white rounded-lg shadow-sm p-4 border border-gray-100">
+                <div className="flex flex-col">
+                    <h2 className="text-xl font-bold text-brand-text">Gestão de Produtos</h2>
+                    <p className="text-xs text-gray-500">Gerencie seu cardápio e categorias</p>
+                </div>
+                <button 
+                    onClick={openAddProductModal}
+                    className="bg-brand-primary text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 hover:bg-brand-primary-dark transition-all shadow-md active:scale-95"
+                >
+                    <PlusIcon className="w-5 h-5" />
+                    Novo Produto
+                </button>
             </div>
 
             <div className="max-w-3xl mx-auto bg-white rounded-lg shadow-md p-6 md:p-8">
@@ -802,7 +790,6 @@ const ProductsView: React.FC<ProductsViewProps> = ({
                             }}
                         >
                             <option value="Todas">Todas as Categorias</option>
-                            {/* Filter category options in select based on view tab */}
                             {(productViewTab === 'active' ? activeCategoriesOnly : archivedCategories).map(cat => (
                                 <option key={cat.name} value={cat.name}>{cat.name}</option>
                             ))}
@@ -827,6 +814,9 @@ const ProductsView: React.FC<ProductsViewProps> = ({
                                         <p className="text-[10px] sm:text-xs text-gray-500 truncate max-w-[150px]">{p.category}</p>
                                         {isArchived && (
                                             <span className="text-[9px] font-bold bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded uppercase flex-shrink-0">Arquivada</span>
+                                        )}
+                                        {p.promotionalTag && (
+                                            <span className="text-[9px] font-bold bg-brand-primary text-white px-1.5 py-0.5 rounded uppercase flex-shrink-0">{p.promotionalTag}</span>
                                         )}
                                     </div>
                                     {p.options && p.options.length > 0 && (
