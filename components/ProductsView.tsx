@@ -77,8 +77,8 @@ const ProductsView: React.FC<ProductsViewProps> = ({
     onUpdateCategoryOrder,
     onToggleCategoriesArchive
 }) => {
-  // Memoize active categories names for easy use
   const activeCategoriesOnly = useMemo(() => categories.filter(c => !c.isArchived), [categories]);
+  const archivedCategoriesOnly = useMemo(() => categories.filter(c => c.isArchived), [categories]);
 
   const initialFormState = {
     name: '',
@@ -105,6 +105,7 @@ const ProductsView: React.FC<ProductsViewProps> = ({
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('Todas');
   
   const [categoryTab, setCategoryTab] = useState<'active' | 'archived'>('active');
+  const [productViewTab, setProductViewTab] = useState<'active' | 'inactive'>('active');
   const [selectedCategoryNames, setSelectedCategoryNames] = useState<string[]>([]);
   
   const dragItem = useRef<number | null>(null);
@@ -326,6 +327,14 @@ const ProductsView: React.FC<ProductsViewProps> = ({
 
   const filteredProducts = products.filter(p => {
     const matchesSearch = p.name.toLowerCase().includes(productSearchQuery.toLowerCase());
+    
+    // Check if the product's category is archived
+    const isCategoryArchived = categories.some(c => c.name === p.category && c.isArchived);
+    
+    // Tab filtering
+    if (productViewTab === 'active' && isCategoryArchived) return false;
+    if (productViewTab === 'inactive' && !isCategoryArchived) return false;
+
     const matchesCategory = selectedCategoryFilter === 'Todas' || p.category === selectedCategoryFilter;
     return matchesSearch && matchesCategory;
   });
@@ -359,6 +368,13 @@ const ProductsView: React.FC<ProductsViewProps> = ({
       setTimeout(() => setMessage(null), 3000);
     }
   };
+
+  // Helper to count products in each view
+  const productCounts = useMemo(() => {
+    const active = products.filter(p => !categories.find(c => c.name === p.category && c.isArchived)).length;
+    const inactive = products.length - active;
+    return { active, inactive };
+  }, [products, categories]);
 
   return (
     <>
@@ -480,7 +496,12 @@ const ProductsView: React.FC<ProductsViewProps> = ({
                                 <label htmlFor="category" className="block text-sm font-medium text-brand-text-light">Categoria</label>
                                 <select name="category" id="category" value={productForm.category} onChange={handleProductFormChange} className={inputStyles} required>
                                     <option value="">Selecione...</option>
-                                    {activeCategoriesOnly.map(cat => <option key={cat.name} value={cat.name}>{cat.name}</option>)}
+                                    {/* Show all categories in dropdown to allow moving products out of archived categories */}
+                                    {categories.map(cat => (
+                                        <option key={cat.name} value={cat.name}>
+                                            {cat.name} {cat.isArchived ? '(Arquivada)' : ''}
+                                        </option>
+                                    ))}
                                 </select>
                             </div>
                             <div>
@@ -621,7 +642,34 @@ const ProductsView: React.FC<ProductsViewProps> = ({
             <div className="max-w-3xl mx-auto bg-white rounded-lg shadow-md p-6 md:p-8">
                 <h2 className="text-2xl font-bold text-brand-text mb-6">Produtos Cadastrados</h2>
                 
-                <div className="flex flex-col sm:flex-row gap-4 mb-4">
+                <div className="border-b border-gray-200 mb-6">
+                  <nav className="-mb-px flex space-x-8" aria-label="Tabs">
+                    <button
+                      onClick={() => setProductViewTab('active')}
+                      className={`${
+                        productViewTab === 'active'
+                          ? 'border-brand-primary text-brand-primary'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-2`}
+                    >
+                      Ativos ({productCounts.active})
+                      <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                    </button>
+                    <button
+                      onClick={() => setProductViewTab('inactive')}
+                      className={`${
+                        productViewTab === 'inactive'
+                          ? 'border-brand-primary text-brand-primary'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-2`}
+                    >
+                      Arquivados ({productCounts.inactive})
+                      <span className="w-2 h-2 bg-gray-400 rounded-full"></span>
+                    </button>
+                  </nav>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-4 mb-6">
                     <div className="relative flex-grow">
                         <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
                         <input
@@ -645,7 +693,8 @@ const ProductsView: React.FC<ProductsViewProps> = ({
                             }}
                         >
                             <option value="Todas">Todas as Categorias</option>
-                            {activeCategoriesOnly.map(cat => (
+                            {/* Filter category options in select based on view tab */}
+                            {(productViewTab === 'active' ? activeCategoriesOnly : archivedCategories).map(cat => (
                                 <option key={cat.name} value={cat.name}>{cat.name}</option>
                             ))}
                         </select>
@@ -653,34 +702,43 @@ const ProductsView: React.FC<ProductsViewProps> = ({
                 </div>
 
                 <div className="space-y-3">
-                    {filteredProducts.map(p => (
-                        <div key={p.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-md">
+                    {filteredProducts.map(p => {
+                        const isArchived = categories.find(c => c.name === p.category && c.isArchived);
+                        return (
+                        <div key={p.id} className={`flex items-center justify-between p-3 rounded-md border transition-all ${isArchived ? 'bg-gray-50 border-gray-200' : 'bg-white border-gray-100'}`}>
                             <div className="flex items-center gap-4">
                                 {p.imageUrls && p.imageUrls.length > 0 ? (
                                     <img src={p.imageUrls[0]} alt={p.name} className="w-12 h-12 object-cover rounded"/>
                                 ) : (
                                     <div className="w-12 h-12 bg-gray-200 rounded flex items-center justify-center text-gray-400 text-xs">Sem img</div>
                                 )}
-                                <div>
-                                    <p className="font-semibold text-brand-text">{p.name}</p>
-                                    <p className="text-sm text-gray-500">{p.category}</p>
+                                <div className="min-w-0">
+                                    <p className="font-semibold text-brand-text truncate">{p.name}</p>
+                                    <div className="flex items-center gap-2">
+                                        <p className="text-xs text-gray-500">{p.category}</p>
+                                        {isArchived && (
+                                            <span className="text-[10px] font-bold bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded uppercase">Categoria Arquivada</span>
+                                        )}
+                                    </div>
                                     {p.options && p.options.length > 0 && (
-                                        <p className="text-xs text-brand-primary mt-1">{p.options.length} opções disponíveis</p>
+                                        <p className="text-[10px] text-brand-primary font-medium mt-1">{p.options.length} opções disponíveis</p>
                                     )}
                                 </div>
                             </div>
-                            <div className="flex items-center gap-4">
-                                <button onClick={() => handleDuplicateClick(p)} className="flex items-center gap-1 text-sm font-medium text-gray-500 hover:text-brand-primary hover:underline" title="Duplicar">
-                                    <CopyIcon className="w-5 h-5" />
+                            <div className="flex items-center gap-4 ml-4">
+                                <button onClick={() => handleDuplicateClick(p)} className="flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-brand-primary hover:underline transition-colors" title="Duplicar">
+                                    <CopyIcon className="w-4 h-4" />
                                     <span className="hidden sm:inline">Duplicar</span>
                                 </button>
-                                <button onClick={() => handleEditClick(p)} className="text-sm font-medium text-brand-primary hover:underline">Editar</button>
-                                <button onClick={() => setProductToDelete(p)} className="text-sm font-medium text-red-600 hover:underline">Apagar</button>
+                                <button onClick={() => handleEditClick(p)} className="text-xs font-medium text-brand-primary hover:underline transition-colors">Editar</button>
+                                <button onClick={() => setProductToDelete(p)} className="text-xs font-medium text-red-600 hover:underline transition-colors">Apagar</button>
                             </div>
                         </div>
-                    ))}
+                    )})}
                     {filteredProducts.length === 0 && (
-                        <p className="text-center text-gray-500 py-4">Nenhum produto encontrado.</p>
+                        <p className="text-center text-gray-500 py-10 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+                            Nenhum produto {productViewTab === 'active' ? 'ativo' : 'arquivado'} encontrado.
+                        </p>
                     )}
                 </div>
             </div>

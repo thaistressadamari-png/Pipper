@@ -84,7 +84,7 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ order, isOpen, onCl
             case 'new':
                 return (
                     <>
-                        {/* Fix: Wrapped children correctly within the component */}
+                        {/* Fix: Pass children as content between tags */}
                         <ActionBtn onClick={() => handleCheckoutClick()} colorClass="text-white bg-green-600 hover:bg-green-700">
                             Checkout
                         </ActionBtn>
@@ -96,7 +96,7 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ order, isOpen, onCl
             case 'pending_payment':
                 return (
                     <>
-                        {/* Fix: Wrapped children correctly within the component */}
+                        {/* Fix: Pass children as content between tags */}
                         <ActionBtn onClick={() => handleActionClick(() => onStatusUpdate(order.id, 'confirmed'))} colorClass="text-white bg-blue-600 hover:bg-blue-700">
                             Confirmar Pagamento
                         </ActionBtn>
@@ -108,7 +108,7 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ order, isOpen, onCl
             case 'confirmed':
                 return (
                     <>
-                        {/* Fix: Wrapped children correctly within the component */}
+                        {/* Fix: Pass children as content between tags */}
                         <ActionBtn onClick={() => handleActionClick(() => onStatusUpdate(order.id, 'shipped'))} colorClass="text-white bg-indigo-600 hover:bg-indigo-700">
                             Enviar Entrega
                         </ActionBtn>
@@ -120,7 +120,7 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ order, isOpen, onCl
             case 'shipped':
                 return (
                     <>
-                        {/* Fix: Wrapped children correctly within the component */}
+                        {/* Fix: Pass children as content between tags */}
                         <ActionBtn onClick={() => handleActionClick(() => onStatusUpdate(order.id, 'completed'))} colorClass="text-white bg-green-600 hover:bg-green-700">
                             Finalizar Pedido
                         </ActionBtn>
@@ -131,7 +131,7 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ order, isOpen, onCl
                 );
             case 'completed':
                 return (
-                    /* Fix: Wrapped children correctly within the component */
+                    /* Fix: Pass children as content between tags */
                     <ActionBtn onClick={() => handleActionClick(() => onStatusUpdate(order.id, 'archived'))} colorClass="text-gray-700 bg-gray-100 hover:bg-gray-200">
                         Arquivar
                     </ActionBtn>
