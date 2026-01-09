@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import type { Product, StoreInfoData, Order, Client } from '../types';
+import type { Product, StoreInfoData, Order, Client, CategoryMetadata } from '../types';
 import DashboardView from './DashboardView';
 import ProductsView from './ProductsView';
 import StoreInfoView from './StoreInfoView';
@@ -11,7 +11,7 @@ import { getNewOrdersCount } from '../services/menuService';
 
 interface AdminPageProps {
   products: Product[];
-  categories: string[];
+  categories: CategoryMetadata[];
   storeInfo: StoreInfoData | null;
   onAddProduct: (productData: Omit<Product, 'id'>) => Promise<void>;
   onUpdateProduct: (productData: Product) => Promise<void>;
@@ -19,7 +19,8 @@ interface AdminPageProps {
   onUpdateStoreInfo: (storeInfoData: StoreInfoData) => Promise<void>;
   onAddCategory: (categoryName: string) => Promise<void>;
   onDeleteCategory: (categoryName: string) => Promise<void>;
-  onUpdateCategoryOrder: (newOrder: string[]) => Promise<void>;
+  onUpdateCategoryOrder: (newOrder: CategoryMetadata[]) => Promise<void>;
+  onToggleCategoriesArchive: (categoryNames: string[], archive: boolean) => Promise<void>;
   onNavigateBack: () => void;
   onLogout: () => void;
 }
@@ -29,15 +30,10 @@ const AdminPage: React.FC<AdminPageProps> = (props) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [newOrdersCount, setNewOrdersCount] = useState(0);
   
-  // Reference to the main scrollable container
   const mainContentRef = useRef<HTMLDivElement>(null);
 
-  // Scroll to top when activeView changes
   useEffect(() => {
-    // Reset window scroll (important when entering from another page like Login)
     window.scrollTo(0, 0);
-    
-    // Reset internal container scroll
     if (mainContentRef.current) {
         mainContentRef.current.scrollTop = 0;
     }
@@ -52,16 +48,14 @@ const AdminPage: React.FC<AdminPageProps> = (props) => {
             console.error("Failed to fetch new orders count:", error);
         }
     };
-
     fetchCount();
-    const intervalId = setInterval(fetchCount, 30000); // Poll every 30 seconds
-
-    return () => clearInterval(intervalId); // Cleanup on unmount
+    const intervalId = setInterval(fetchCount, 30000);
+    return () => clearInterval(intervalId);
   }, []);
 
   const handleNavClick = (view: 'dashboard' | 'products' | 'store' | 'orders' | 'clients') => {
     setActiveView(view);
-    setIsSidebarOpen(false); // Close sidebar on mobile after navigation
+    setIsSidebarOpen(false);
   };
   
   const navItemClasses = (viewName: typeof activeView) => 
@@ -150,14 +144,10 @@ const AdminPage: React.FC<AdminPageProps> = (props) => {
 
   return (
     <div className="h-screen overflow-hidden bg-gray-100 flex">
-      {/* Mobile backdrop */}
       {isSidebarOpen && <div onClick={() => setIsSidebarOpen(false)} className="fixed inset-0 bg-black bg-opacity-50 z-30 md:hidden"></div>}
-      
-      {/* Sidebar */}
       <aside className={`fixed inset-y-0 left-0 w-64 bg-white border-r border-gray-200 flex-shrink-0 flex flex-col z-40 transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         {sidebarContent}
       </aside>
-
       <div className="flex-grow flex flex-col min-w-0">
         <header className="bg-white shadow-sm h-16 flex-shrink-0">
             <div className="container mx-auto px-4 sm:px-6 lg:px-8 h-full flex justify-between items-center gap-4">

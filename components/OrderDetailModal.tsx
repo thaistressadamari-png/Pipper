@@ -85,7 +85,7 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ order, isOpen, onCl
             case 'new':
                 return (
                     <>
-                        <ActionBtn onClick={handleCheckoutClick} colorClass="text-white bg-green-600 hover:bg-green-700">
+                        <ActionBtn onClick={() => handleCheckoutClick()} colorClass="text-white bg-green-600 hover:bg-green-700">
                             Checkout
                         </ActionBtn>
                         <ActionBtn onClick={() => handleActionClick(() => onStatusUpdate(order.id, 'archived'))} colorClass="text-gray-700 bg-gray-100 hover:bg-gray-200">

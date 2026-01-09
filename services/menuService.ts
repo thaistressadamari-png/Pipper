@@ -1,5 +1,4 @@
 
-
 import {
     collection,
     getDocs,
@@ -22,7 +21,7 @@ import {
     documentId,
 } from "firebase/firestore";
 import { db } from '../firebase';
-import type { Product, StoreInfoData, Order, Client, DeliveryInfo } from '../types';
+import type { Product, StoreInfoData, Order, Client, DeliveryInfo, CategoryMetadata } from '../types';
 
 // Collection references
 const productsCollection = collection(db, 'products');
@@ -78,7 +77,10 @@ const initialStoreInfo: StoreInfoData = {
     whatsappNumber: '5511943591371',
 };
 
-const initialCategories = ['Bolos - Sob Encomenda', 'Pronta entrega'];
+const initialCategories: CategoryMetadata[] = [
+    { name: 'Bolos - Sob Encomenda', isArchived: false },
+    { name: 'Pronta entrega', isArchived: false }
+];
 
 export const initializeFirebaseData = async () => {
     const productsSnapshot = await getDocs(productsCollection);
@@ -102,8 +104,7 @@ export const initializeFirebaseData = async () => {
     }
 };
 
-export const getMenu = async (): Promise<{ products: Product[], categories: string[] }> => {
-    // Removed orderBy('createdAt', 'desc') to prevent issues if index is missing or createdAt is null on some docs
+export const getMenu = async (): Promise<{ products: Product[], categories: CategoryMetadata[] }> => {
     const productsQuery = query(productsCollection);
     
     const [productsSnapshot, categoriesSnapshot] = await Promise.all([
@@ -116,16 +117,12 @@ export const getMenu = async (): Promise<{ products: Product[], categories: stri
         ...doc.data()
     } as Product));
 
-    // Sort client-side to ensure robustness
     products.sort((a, b) => {
         const getTime = (p: Product) => {
             const date = p.createdAt;
             if (!date) return 0;
-            // Handle Firestore Timestamp
             if (typeof date.toMillis === 'function') return date.toMillis();
-            // Handle JS Date
             if (date instanceof Date) return date.getTime();
-            // Handle serialized seconds/nanoseconds if any
             if (typeof date.seconds === 'number') return date.seconds * 1000;
             return 0;
         };
@@ -133,7 +130,13 @@ export const getMenu = async (): Promise<{ products: Product[], categories: stri
     });
 
     const categoriesData = categoriesSnapshot.data();
-    const categories = categoriesData && categoriesData.names ? categoriesData.names : [];
+    let categories: CategoryMetadata[] = [];
+    if (categoriesData && categoriesData.names) {
+        // Migração simples caso os dados antigos ainda sejam strings
+        categories = categoriesData.names.map((cat: any) => 
+            typeof cat === 'string' ? { name: cat, isArchived: false } : cat
+        );
+    }
 
     return { products, categories };
 };
@@ -172,26 +175,47 @@ export const updateStoreInfo = (newStoreInfo: StoreInfoData): Promise<StoreInfoD
     return setDoc(storeInfoDoc, newStoreInfo, { merge: true }).then(() => newStoreInfo);
 };
 
-export const addCategory = async (categoryName: string): Promise<string[]> => {
+export const addCategory = async (categoryName: string): Promise<CategoryMetadata[]> => {
     if (categoryName && categoryName.trim()) {
+        const newCat: CategoryMetadata = { name: categoryName.trim(), isArchived: false };
         await updateDoc(categoriesDoc, {
-            names: arrayUnion(categoryName.trim())
+            names: arrayUnion(newCat)
         });
     }
     const updatedCategoriesDoc = await getDoc(categoriesDoc);
     return updatedCategoriesDoc.exists() ? updatedCategoriesDoc.data().names : [];
 };
 
-export const deleteCategory = async (categoryName: string): Promise<string[]> => {
-    await updateDoc(categoriesDoc, {
-        names: arrayRemove(categoryName)
-    });
-    const updatedCategoriesDoc = await getDoc(categoriesDoc);
-    return updatedCategoriesDoc.exists() ? updatedCategoriesDoc.data().names : [];
+export const deleteCategory = async (categoryName: string): Promise<CategoryMetadata[]> => {
+    const docSnap = await getDoc(categoriesDoc);
+    if (docSnap.exists()) {
+        const names = docSnap.data().names as CategoryMetadata[];
+        const filtered = names.filter(c => c.name !== categoryName);
+        await updateDoc(categoriesDoc, { names: filtered });
+        return filtered;
+    }
+    return [];
 };
 
-export const updateCategoryOrder = async (newOrder: string[]): Promise<void> => {
+export const updateCategoryOrder = async (newOrder: CategoryMetadata[]): Promise<void> => {
     await updateDoc(categoriesDoc, { names: newOrder });
+};
+
+// Nova função para arquivar/desarquivar categorias
+export const toggleCategoriesArchive = async (categoryNames: string[], archive: boolean): Promise<CategoryMetadata[]> => {
+    const docSnap = await getDoc(categoriesDoc);
+    if (docSnap.exists()) {
+        const names = docSnap.data().names as CategoryMetadata[];
+        const updated = names.map(cat => {
+            if (categoryNames.includes(cat.name)) {
+                return { ...cat, isArchived: archive };
+            }
+            return cat;
+        });
+        await updateDoc(categoriesDoc, { names: updated });
+        return updated;
+    }
+    return [];
 };
 
 export const getClient = async (whatsapp: string): Promise<Client | null> => {
@@ -221,9 +245,8 @@ const updateClientOnOrder = async (order: Order, saveAddress: boolean) => {
     const addressUpdate = saveAddress ? { addresses: arrayUnion(order.delivery.address) } : {};
 
     if (clientDoc.exists()) {
-        // Update existing client
         await updateDoc(clientRef, {
-            name: order.customer.name, // update name in case it changes
+            name: order.customer.name,
             lastOrderDate: now,
             totalOrders: increment(1),
             totalSpent: increment(order.total),
@@ -231,7 +254,6 @@ const updateClientOnOrder = async (order: Order, saveAddress: boolean) => {
             ...addressUpdate
         });
     } else {
-        // Create new client
         const newClient: Client = {
             id: rawWhatsapp,
             name: order.customer.name,
@@ -254,9 +276,8 @@ export const addOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'upda
 
         const newOrderNumber = counterDoc.exists()
             ? counterDoc.data().orderNumber + 1
-            : 1001; // Start from 1001 if doc doesn't exist
+            : 1001;
 
-        // Use set with merge to create or update the counter document.
         transaction.set(counterRef, { orderNumber: newOrderNumber }, { merge: true });
         
         const orderRef = doc(collection(db, 'orders'));
@@ -266,7 +287,7 @@ export const addOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'upda
             ...orderData,
             customer: {
                 ...orderData.customer,
-                whatsapp: orderData.customer.whatsapp.replace(/\D/g, '') // Ensure we store only raw digits
+                whatsapp: orderData.customer.whatsapp.replace(/\D/g, '')
             },
             orderNumber: newOrderNumber,
             status: 'new',
@@ -275,8 +296,6 @@ export const addOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'upda
         };
         
         transaction.set(orderRef, fullOrderData);
-        // We return an object with real Timestamps (or client approximation) to avoid UI crashes
-        // when accessing .toDate() on a FieldValue Sentinel immediately after creation.
         newOrder = { 
             ...fullOrderData, 
             id: orderRef.id, 
@@ -289,21 +308,17 @@ export const addOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'upda
         throw new Error("Failed to create order.");
     }
 
-    // This runs outside the transaction to avoid contention
     await updateClientOnOrder(newOrder, saveAddress);
     
-    // Send notification, but don't wait for it and don't block the UI
     try {
         fetch('/api/notify-telegram', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ order: newOrder }),
         }).catch(error => {
-            // Log error but don't re-throw, as the order was successful.
             console.error("Failed to send new order notification:", error);
         });
     } catch (e) {
-        // Catch synchronous errors from fetch setup, just in case.
         console.error("Error setting up new order notification fetch:", e);
     }
     
@@ -380,9 +395,6 @@ export const getClients = async (): Promise<Client[]> => {
 
 export const getOrdersByWhatsapp = async (whatsapp: string): Promise<Order[]> => {
     const rawWhatsapp = whatsapp.replace(/\D/g, '');
-    
-    // Generate formatted version to catch legacy/existing orders
-    // Assumes standard Brazilian mobile format (11 digits) or landline (10 digits)
     let formattedWhatsapp = rawWhatsapp;
     if (rawWhatsapp.length === 11) {
         formattedWhatsapp = rawWhatsapp.replace(/^(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
@@ -392,14 +404,12 @@ export const getOrdersByWhatsapp = async (whatsapp: string): Promise<Order[]> =>
 
     const statuses = ['new', 'pending_payment', 'confirmed', 'shipped', 'completed'];
 
-    // Query 1: Search for Raw Number (New Standard)
     const q1 = query(
         ordersCollection,
         where('customer.whatsapp', '==', rawWhatsapp),
         where('status', 'in', statuses)
     );
 
-    // Query 2: Search for Formatted Number (Legacy/Current Issue Fix)
     let q2 = null;
     if (formattedWhatsapp !== rawWhatsapp) {
         q2 = query(
@@ -409,13 +419,10 @@ export const getOrdersByWhatsapp = async (whatsapp: string): Promise<Order[]> =>
         );
     }
     
-    // Execute queries
     const promises = [getDocs(q1)];
     if (q2) promises.push(getDocs(q2));
 
     const snapshots = await Promise.all(promises);
-    
-    // Merge and Deduplicate results
     const orderMap = new Map<string, Order>();
     
     snapshots.forEach(snap => {
@@ -425,16 +432,13 @@ export const getOrdersByWhatsapp = async (whatsapp: string): Promise<Order[]> =>
     });
 
     const orders = Array.from(orderMap.values());
-
-    // Sort client-side
     orders.sort((a, b) => (b.orderNumber || 0) - (a.orderNumber || 0));
-    
     return orders;
 };
 
 
 export const incrementVisitCount = async (): Promise<void> => {
-    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+    const today = new Date().toISOString().split('T')[0];
     const dailyVisitRef = doc(dailyVisitsCollection, today);
     await setDoc(dailyVisitRef, { count: increment(1) }, { merge: true });
 };

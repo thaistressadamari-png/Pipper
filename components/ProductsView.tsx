@@ -1,17 +1,18 @@
 
-import React, { useState, useEffect, useRef } from 'react';
-import type { Product, ProductOption } from '../types';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import type { Product, ProductOption, CategoryMetadata } from '../types';
 import { TrashIcon, SearchIcon, DragHandleIcon, CopyIcon, PlusIcon } from './IconComponents';
 
 interface ProductsViewProps {
   products: Product[];
-  categories: string[];
+  categories: CategoryMetadata[];
   onAddProduct: (productData: Omit<Product, 'id'>) => Promise<void>;
   onUpdateProduct: (productData: Product) => Promise<void>;
   onDeleteProduct: (productId: string) => Promise<void>;
   onAddCategory: (categoryName: string) => Promise<void>;
   onDeleteCategory: (categoryName: string) => Promise<void>;
-  onUpdateCategoryOrder: (newOrder: string[]) => Promise<void>;
+  onUpdateCategoryOrder: (newOrder: CategoryMetadata[]) => Promise<void>;
+  onToggleCategoriesArchive: (categoryNames: string[], archive: boolean) => Promise<void>;
 }
 
 const DeleteConfirmationModal: React.FC<{
@@ -65,14 +66,24 @@ const DeleteCategoryConfirmationModal: React.FC<{
 };
 
 
-const ProductsView: React.FC<ProductsViewProps> = ({ products, categories, onAddProduct, onUpdateProduct, onDeleteProduct, onAddCategory, onDeleteCategory, onUpdateCategoryOrder }) => {
+const ProductsView: React.FC<ProductsViewProps> = ({ 
+    products, 
+    categories, 
+    onAddProduct, 
+    onUpdateProduct, 
+    onDeleteProduct, 
+    onAddCategory, 
+    onDeleteCategory, 
+    onUpdateCategoryOrder,
+    onToggleCategoriesArchive
+}) => {
   const initialFormState = {
     name: '',
     description: '',
     price: '',
     originalPrice: '',
     promotionalTag: '',
-    category: categories[0] || '',
+    category: categories.find(c => !c.isArchived)?.name || '',
     imageUrls: '',
     leadTimeDays: '0',
   };
@@ -89,6 +100,10 @@ const ProductsView: React.FC<ProductsViewProps> = ({ products, categories, onAdd
   const [productSearchQuery, setProductSearchQuery] = useState('');
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('Todas');
   
+  // Categorias: Abas e seleção em massa
+  const [categoryTab, setCategoryTab] = useState<'active' | 'archived'>('active');
+  const [selectedCategoryNames, setSelectedCategoryNames] = useState<string[]>([]);
+  
   const dragItem = useRef<number | null>(null);
   const dragOverItem = useRef<number | null>(null);
 
@@ -101,7 +116,6 @@ const ProductsView: React.FC<ProductsViewProps> = ({ products, categories, onAdd
     }
   }, [productToDelete, categoryToDelete]);
 
-  // Effect to update base price if options exist
   useEffect(() => {
     if (productOptions.length > 0) {
         const minPrice = Math.min(...productOptions.map(o => o.price));
@@ -120,7 +134,7 @@ const ProductsView: React.FC<ProductsViewProps> = ({ products, categories, onAdd
         name: product.name,
         description: product.description,
         price: String(product.price),
-        originalPrice: product.originalPrice ? String(product.originalPrice) : '',
+        originalPrice: (product.originalPrice && product.originalPrice > 0) ? String(product.originalPrice) : '',
         promotionalTag: product.promotionalTag || '',
         category: product.category,
         imageUrls: product.imageUrls ? product.imageUrls.join('\n') : '',
@@ -135,14 +149,14 @@ const ProductsView: React.FC<ProductsViewProps> = ({ products, categories, onAdd
         name: `${product.name} (Cópia)`,
         description: product.description,
         price: String(product.price),
-        originalPrice: product.originalPrice ? String(product.originalPrice) : '',
+        originalPrice: (product.originalPrice && product.originalPrice > 0) ? String(product.originalPrice) : '',
         promotionalTag: product.promotionalTag || '',
         category: product.category,
         imageUrls: product.imageUrls ? product.imageUrls.join('\n') : '',
         leadTimeDays: String(product.leadTimeDays || 0),
     });
     setProductOptions(product.options || []);
-    setEditingProduct(null); // Ensure we are NOT in edit mode (we want a new ID)
+    setEditingProduct(null); 
     window.scrollTo(0, 0);
     setMessage({ type: 'success', text: 'Dados copiados para o formulário. Ajuste e salve como novo produto.' });
     setTimeout(() => setMessage(null), 4000);
@@ -190,7 +204,6 @@ const ProductsView: React.FC<ProductsViewProps> = ({ products, categories, onAdd
         return;
     }
     
-    // If no options, price is required. If options exist, we calculate from options.
     if (productOptions.length === 0 && !productForm.price) {
          setMessage({ type: 'error', text: 'Por favor, informe o preço base ou adicione opções.' });
          setIsSubmitting(false);
@@ -198,13 +211,13 @@ const ProductsView: React.FC<ProductsViewProps> = ({ products, categories, onAdd
     }
 
     try {
-      // Determine effective price: if options exist, use the lowest option price
       let effectivePrice = parseFloat(productForm.price);
       if (productOptions.length > 0) {
           effectivePrice = Math.min(...productOptions.map(o => o.price));
       }
 
-      const productData: Omit<Product, 'id'> = {
+      const productData: Product = {
+        id: editingProduct?.id || '',
         name: productForm.name,
         description: productForm.description,
         price: effectivePrice,
@@ -212,20 +225,29 @@ const ProductsView: React.FC<ProductsViewProps> = ({ products, categories, onAdd
         imageUrls: imageUrlsArray,
         leadTimeDays: parseInt(productForm.leadTimeDays, 10) || 0,
         options: productOptions,
+        originalPrice: 0,
+        promotionalTag: '',
       };
 
-      if (productForm.originalPrice) {
-        productData.originalPrice = parseFloat(productForm.originalPrice);
+      const origPrice = parseFloat(productForm.originalPrice);
+      if (!isNaN(origPrice) && origPrice > 0) {
+        productData.originalPrice = origPrice;
+      } else {
+        delete productData.originalPrice;
       }
-      if (productForm.promotionalTag) {
+
+      if (productForm.promotionalTag && productForm.promotionalTag.trim()) {
         productData.promotionalTag = productForm.promotionalTag;
+      } else {
+        delete productData.promotionalTag;
       }
 
       if (editingProduct) {
-        await onUpdateProduct({ ...productData, id: editingProduct.id });
+        await onUpdateProduct(productData);
         setMessage({ type: 'success', text: 'Produto atualizado com sucesso!' });
       } else {
-        await onAddProduct(productData);
+        const { id, ...newProductData } = productData;
+        await onAddProduct(newProductData);
         setMessage({ type: 'success', text: 'Produto cadastrado com sucesso!' });
       }
       
@@ -283,8 +305,18 @@ const ProductsView: React.FC<ProductsViewProps> = ({ products, categories, onAdd
   const handleSort = () => {
       if (dragItem.current === null || dragOverItem.current === null) return;
       const categoriesCopy = [...categories];
-      const draggedItemContent = categoriesCopy.splice(dragItem.current, 1)[0];
-      categoriesCopy.splice(dragOverItem.current, 0, draggedItemContent);
+      
+      // Filtrar apenas ativas para saber a posição real no array total
+      const activeCats = categories.filter(c => !c.isArchived);
+      const draggedCat = activeCats[dragItem.current];
+      const targetCat = activeCats[dragOverItem.current];
+      
+      const realDragIdx = categories.findIndex(c => c.name === draggedCat.name);
+      const realTargetIdx = categories.findIndex(c => c.name === targetCat.name);
+
+      const item = categoriesCopy.splice(realDragIdx, 1)[0];
+      categoriesCopy.splice(realTargetIdx, 0, item);
+
       dragItem.current = null;
       dragOverItem.current = null;
       onUpdateCategoryOrder(categoriesCopy);
@@ -297,6 +329,32 @@ const ProductsView: React.FC<ProductsViewProps> = ({ products, categories, onAdd
   });
 
   const inputStyles = "mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-brand-primary focus:border-brand-primary sm:text-sm text-gray-900";
+
+  // Categoria Tabs Logic
+  const activeCategories = useMemo(() => categories.filter(c => !c.isArchived), [categories]);
+  const archivedCategories = useMemo(() => categories.filter(c => c.isArchived), [categories]);
+  const currentCategoryList = categoryTab === 'active' ? activeCategories : archivedCategories;
+
+  const toggleCategorySelection = (name: string) => {
+    setSelectedCategoryNames(prev => 
+      prev.includes(name) ? prev.filter(n => n !== name) : [...prev, name]
+    );
+  };
+
+  const handleArchiveSelected = async () => {
+    if (selectedCategoryNames.length === 0) return;
+    setIsSubmitting(true);
+    try {
+      await onToggleCategoriesArchive(selectedCategoryNames, categoryTab === 'active');
+      setSelectedCategoryNames([]);
+      setMessage({ type: 'success', text: `Categorias ${categoryTab === 'active' ? 'arquivadas' : 'restauradas'} com sucesso!` });
+    } catch (e) {
+      setMessage({ type: 'error', text: 'Erro ao atualizar categorias.' });
+    } finally {
+      setIsSubmitting(false);
+      setTimeout(() => setMessage(null), 3000);
+    }
+  };
 
   return (
     <>
@@ -318,7 +376,6 @@ const ProductsView: React.FC<ProductsViewProps> = ({ products, categories, onAdd
             <div className="max-w-3xl mx-auto bg-white rounded-lg shadow-md p-6 md:p-8">
                 <h2 className="text-2xl font-bold text-brand-text mb-6">{editingProduct ? 'Editar Produto' : 'Cadastrar Novo Produto'}</h2>
                 <form onSubmit={handleProductSubmit} className="space-y-6">
-                    {/* Basic Fields */}
                     <div className="space-y-4">
                         <div>
                             <label htmlFor="name" className="block text-sm font-medium text-brand-text-light">Nome do Produto</label>
@@ -333,7 +390,6 @@ const ProductsView: React.FC<ProductsViewProps> = ({ products, categories, onAdd
                             <textarea name="imageUrls" id="imageUrls" value={productForm.imageUrls} onChange={handleProductFormChange} rows={4} className={inputStyles} placeholder="https://exemplo.com/imagem1.jpg&#10;https://exemplo.com/imagem2.jpg"></textarea>
                         </div>
                         
-                        {/* Options Section */}
                         <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
                             <label className="block text-sm font-bold text-brand-text mb-2">Opções / Variações (Tamanho, Peso, Qtd)</label>
                             <p className="text-xs text-gray-500 mb-4">Adicione variações aqui. O preço base será definido automaticamente pelo menor valor das opções.</p>
@@ -393,7 +449,7 @@ const ProductsView: React.FC<ProductsViewProps> = ({ products, categories, onAdd
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
-                                <label htmlFor="price" className="block text-sm font-medium text-brand-text-light">Preço Base (R$)</label>
+                                <label htmlFor="price" className="block text-sm font-medium text-brand-text-light">Preço de Venda (R$)</label>
                                 <input 
                                     type="number" 
                                     name="price" 
@@ -406,20 +462,21 @@ const ProductsView: React.FC<ProductsViewProps> = ({ products, categories, onAdd
                                     required={productOptions.length === 0} 
                                     placeholder="25.50"
                                     readOnly={productOptions.length > 0}
-                                    title={productOptions.length > 0 ? "O preço é calculado automaticamente baseado na opção mais barata." : ""}
                                 />
-                                {productOptions.length > 0 && <p className="text-xs text-gray-500 mt-1">Definido automaticamente pela menor opção.</p>}
+                                {productOptions.length > 0 && <p className="text-xs text-gray-500 mt-1">Definido pela menor opção.</p>}
                             </div>
                             <div>
-                                <label htmlFor="originalPrice" className="block text-sm font-medium text-brand-text-light">Preço Original (Opcional)</label>
+                                <label htmlFor="originalPrice" className="block text-sm font-medium text-brand-text-light">Preço "De" (R$ - Opcional)</label>
                                 <input type="number" name="originalPrice" id="originalPrice" value={productForm.originalPrice} onChange={handleProductFormChange} className={inputStyles} step="0.01" min="0" placeholder="30.00" />
+                                <p className="text-xs text-gray-400 mt-1">Deixe vazio para preço sem promoção.</p>
                             </div>
                         </div>
                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
                                 <label htmlFor="category" className="block text-sm font-medium text-brand-text-light">Categoria</label>
                                 <select name="category" id="category" value={productForm.category} onChange={handleProductFormChange} className={inputStyles} required>
-                                    {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                                    <option value="">Selecione...</option>
+                                    {categories.filter(c => !c.isArchived).map(cat => <option key={cat.name} value={cat.name}>{cat.name}</option>)}
                                 </select>
                             </div>
                             <div>
@@ -460,25 +517,101 @@ const ProductsView: React.FC<ProductsViewProps> = ({ products, categories, onAdd
                         />
                         <button type="button" onClick={handleAddCategory} disabled={isSubmitting} className="px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-brand-primary hover:bg-brand-primary-dark disabled:opacity-50">Adicionar</button>
                     </div>
-                    <div className="space-y-2 mt-1">
-                        {categories.map((cat, index) => (
-                            <div key={cat}
-                                draggable
-                                onDragStart={() => dragItem.current = index}
-                                onDragEnter={() => dragOverItem.current = index}
+
+                    {/* Tabs de Categoria */}
+                    <div className="border-b border-gray-200 mt-6">
+                      <nav className="-mb-px flex space-x-8" aria-label="Tabs">
+                        <button
+                          onClick={() => { setCategoryTab('active'); setSelectedCategoryNames([]); }}
+                          className={`${
+                            categoryTab === 'active'
+                              ? 'border-brand-primary text-brand-primary'
+                              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                          } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors`}
+                        >
+                          Ativas ({activeCategories.length})
+                        </button>
+                        <button
+                          onClick={() => { setCategoryTab('archived'); setSelectedCategoryNames([]); }}
+                          className={`${
+                            categoryTab === 'archived'
+                              ? 'border-brand-primary text-brand-primary'
+                              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                          } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors`}
+                        >
+                          Arquivadas ({archivedCategories.length})
+                        </button>
+                      </nav>
+                    </div>
+
+                    {/* Ações em Massa */}
+                    {selectedCategoryNames.length > 0 && (
+                      <div className="flex items-center justify-between bg-brand-secondary/30 p-3 rounded-lg animate-fade-in">
+                        <span className="text-sm font-medium text-brand-primary">
+                          {selectedCategoryNames.length} {selectedCategoryNames.length === 1 ? 'selecionada' : 'selecionadas'}
+                        </span>
+                        <button
+                          onClick={handleArchiveSelected}
+                          disabled={isSubmitting}
+                          className={`px-4 py-2 text-sm font-bold rounded-md text-white transition-colors ${
+                            categoryTab === 'active' ? 'bg-orange-500 hover:bg-orange-600' : 'bg-green-600 hover:bg-green-700'
+                          }`}
+                        >
+                          {categoryTab === 'active' ? 'Arquivar Selecionadas' : 'Restaurar Selecionadas'}
+                        </button>
+                      </div>
+                    )}
+
+                    <div className="space-y-2 mt-2">
+                        {currentCategoryList.map((cat, index) => (
+                            <div key={cat.name}
+                                draggable={categoryTab === 'active'}
+                                onDragStart={() => categoryTab === 'active' && (dragItem.current = index)}
+                                onDragEnter={() => categoryTab === 'active' && (dragOverItem.current = index)}
                                 onDragEnd={handleSort}
                                 onDragOver={(e) => e.preventDefault()}
-                                className="flex items-center justify-between p-2 bg-gray-50 rounded-md cursor-grab active:cursor-grabbing"
+                                className={`flex items-center justify-between p-2 rounded-md border border-gray-100 ${
+                                  categoryTab === 'active' ? 'bg-gray-50 cursor-grab active:cursor-grabbing' : 'bg-gray-100/50'
+                                }`}
                             >
-                                <div className="flex items-center gap-2">
-                                    <DragHandleIcon className="w-5 h-5 text-gray-400" />
-                                    <span className="text-sm text-gray-800">{cat}</span>
+                                <div className="flex items-center gap-3">
+                                    <input 
+                                      type="checkbox"
+                                      checked={selectedCategoryNames.includes(cat.name)}
+                                      onChange={() => toggleCategorySelection(cat.name)}
+                                      className="w-4 h-4 text-brand-primary border-gray-300 rounded focus:ring-brand-primary"
+                                    />
+                                    {categoryTab === 'active' && <DragHandleIcon className="w-5 h-5 text-gray-400" />}
+                                    <span className={`text-sm ${cat.isArchived ? 'text-gray-400 line-through' : 'text-gray-800'}`}>
+                                      {cat.name}
+                                    </span>
                                 </div>
-                                <button type="button" onClick={() => handleDeleteCategory(cat)} className="p-1 text-gray-400 hover:text-red-600 disabled:opacity-50" disabled={isSubmitting}>
-                                    <TrashIcon className="w-4 h-4" />
-                                </button>
+                                <div className="flex items-center gap-2">
+                                  <button 
+                                    type="button" 
+                                    onClick={() => onToggleCategoriesArchive([cat.name], !cat.isArchived)}
+                                    title={cat.isArchived ? "Restaurar" : "Arquivar"}
+                                    className="p-1 text-gray-400 hover:text-brand-primary transition-colors"
+                                  >
+                                    {cat.isArchived ? (
+                                      <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                      </svg>
+                                    ) : (
+                                      <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                                      </svg>
+                                    )}
+                                  </button>
+                                  <button type="button" onClick={() => handleDeleteCategory(cat.name)} className="p-1 text-gray-400 hover:text-red-600 disabled:opacity-50" disabled={isSubmitting}>
+                                      <TrashIcon className="w-4 h-4" />
+                                  </button>
+                                </div>
                             </div>
                         ))}
+                        {currentCategoryList.length === 0 && (
+                          <p className="text-center text-gray-400 text-sm py-8">Nenhuma categoria {categoryTab === 'active' ? 'ativa' : 'arquivada'}.</p>
+                        )}
                     </div>
                 </div>
             </div>
@@ -510,8 +643,8 @@ const ProductsView: React.FC<ProductsViewProps> = ({ products, categories, onAdd
                             }}
                         >
                             <option value="Todas">Todas as Categorias</option>
-                            {categories.map(cat => (
-                                <option key={cat} value={cat}>{cat}</option>
+                            {categories.filter(c => !c.isArchived).map(cat => (
+                                <option key={cat.name} value={cat.name}>{cat.name}</option>
                             ))}
                         </select>
                     </div>

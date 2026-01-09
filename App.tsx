@@ -14,14 +14,14 @@ import CheckoutPage from './components/CheckoutPage';
 import OrderSuccessPage from './components/OrderSuccessPage';
 import OrderTrackingModal from './components/OrderTrackingModal';
 import { BikeIcon, ShoppingBagIcon } from './components/IconComponents';
-import type { Product, CartItem, StoreInfoData, Order, ProductOption } from './types';
-import { getMenu, addProduct, getStoreInfo, updateStoreInfo, updateProduct, deleteProduct, addCategory, deleteCategory, initializeFirebaseData, updateCategoryOrder, incrementVisitCount, getOrderById } from './services/menuService';
+import type { Product, CartItem, StoreInfoData, Order, ProductOption, CategoryMetadata } from './types';
+import { getMenu, addProduct, getStoreInfo, updateStoreInfo, updateProduct, deleteProduct, addCategory, deleteCategory, initializeFirebaseData, updateCategoryOrder, incrementVisitCount, getOrderById, toggleCategoriesArchive } from './services/menuService';
 import { auth } from './firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 
 const App: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<string[]>([]);
+  const [categories, setCategories] = useState<CategoryMetadata[]>([]);
   const [storeInfo, setStoreInfo] = useState<StoreInfoData | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>('Todos');
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -35,37 +35,26 @@ const App: React.FC = () => {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isOrderTrackingOpen, setIsOrderTrackingOpen] = useState(false);
   
-  // State for active orders banner (now an array)
   const [activeOrders, setActiveOrders] = useState<Order[]>([]);
 
   useEffect(() => {
-    // Increment visit count on initial app load
     incrementVisitCount();
-
-    // Listen to Firebase Auth state
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
         setIsAuthenticated(true);
       } else {
         setIsAuthenticated(false);
-        // If we are on admin page but logged out, go to login
         setView(currentView => currentView === 'admin' ? 'login' : currentView);
       }
     });
-
     return () => unsubscribe();
   }, []);
 
-  // Check for active orders in localStorage on mount and poll for updates
   useEffect(() => {
     const checkActiveOrders = async () => {
       let ids: string[] = [];
-      
-      // Check legacy single ID
       const legacyId = localStorage.getItem('activeOrderId');
       if (legacyId) ids.push(legacyId);
-
-      // Check new array of IDs
       const storedIds = localStorage.getItem('activeOrderIds');
       if (storedIds) {
         try {
@@ -77,45 +66,29 @@ const App: React.FC = () => {
           console.error("Error parsing activeOrderIds", e);
         }
       }
-
-      // Deduplicate IDs
       ids = [...new Set(ids)];
-
       if (ids.length === 0) {
         setActiveOrders([]);
         return;
       }
-
-      // Fetch all orders
       const promises = ids.map(id => getOrderById(id));
       const results = await Promise.all(promises);
-      
       const validOrders: Order[] = [];
       const validIds: string[] = [];
-
       results.forEach(order => {
-        // Keep order if it exists and is not archived
         if (order && order.status !== 'archived') {
             validOrders.push(order);
             validIds.push(order.id);
         }
       });
-      
-      // Sort: Newest first (by orderNumber descending)
       validOrders.sort((a, b) => b.orderNumber - a.orderNumber);
-
       setActiveOrders(validOrders);
-      
-      // Update localStorage with clean list
       if (validIds.length !== ids.length || legacyId) {
           localStorage.setItem('activeOrderIds', JSON.stringify(validIds));
-          localStorage.removeItem('activeOrderId'); // Cleanup legacy
+          localStorage.removeItem('activeOrderId');
       }
     };
-
     checkActiveOrders();
-    
-    // Poll every 30 seconds to update status in the banner
     const interval = setInterval(checkActiveOrders, 30000);
     return () => clearInterval(interval);
   }, []);
@@ -135,13 +108,11 @@ const App: React.FC = () => {
   const fetchInitialData = useCallback(async () => {
     setIsLoading(true);
     try {
-        await initializeFirebaseData(); // Initialize data if needed
+        await initializeFirebaseData();
         const [menuResult, storeInfoResult] = await Promise.all([getMenu(), getStoreInfo()]);
-        
         setProducts(menuResult.products);
-        setCategories(['Todos', ...menuResult.categories]);
+        setCategories(menuResult.categories);
         setStoreInfo(storeInfoResult);
-
     } catch (error) {
         console.error("Failed to fetch initial data", error);
     } finally {
@@ -191,26 +162,38 @@ const App: React.FC = () => {
 
   const handleAddCategory = useCallback(async (categoryName: string) => {
     const updatedCategories = await addCategory(categoryName);
-    setCategories(['Todos', ...updatedCategories]);
+    setCategories(updatedCategories);
   }, []);
 
   const handleDeleteCategory = useCallback(async (categoryName: string) => {
       const updatedCategories = await deleteCategory(categoryName);
-      setCategories(['Todos', ...updatedCategories]);
+      setCategories(updatedCategories);
       if (selectedCategory === categoryName) {
         setSelectedCategory('Todos');
       }
   }, [selectedCategory]);
   
-  const handleUpdateCategoryOrder = useCallback(async (newOrder: string[]) => {
+  const handleUpdateCategoryOrder = useCallback(async (newOrder: CategoryMetadata[]) => {
       try {
           await updateCategoryOrder(newOrder);
-          setCategories(['Todos', ...newOrder]);
+          setCategories(newOrder);
       } catch (error) {
           console.error("Failed to update category order", error);
           await fetchInitialData();
       }
   }, [fetchInitialData]);
+
+  const handleToggleCategoriesArchive = useCallback(async (categoryNames: string[], archive: boolean) => {
+      try {
+          const updated = await toggleCategoriesArchive(categoryNames, archive);
+          setCategories(updated);
+          if (archive && categoryNames.includes(selectedCategory)) {
+              setSelectedCategory('Todos');
+          }
+      } catch (error) {
+          console.error("Failed to archive categories", error);
+      }
+  }, [selectedCategory]);
 
   const handleProductClick = useCallback((product: Product) => {
     setSelectedProduct(product);
@@ -222,14 +205,11 @@ const App: React.FC = () => {
   
   const handleAddToCart = useCallback((productToAdd: Product, quantity: number, observations?: string, selectedOption?: ProductOption) => {
     setCartItems(prevItems => {
-        // Find if item exists with same ID AND same option
         const existingItemIndex = prevItems.findIndex(item => 
             item.id === productToAdd.id && 
             item.selectedOption?.name === selectedOption?.name
         );
-
         if (existingItemIndex !== -1) {
-            // Update existing item
             const newItems = [...prevItems];
             newItems[existingItemIndex] = {
                 ...newItems[existingItemIndex],
@@ -238,19 +218,16 @@ const App: React.FC = () => {
             };
             return newItems;
         } else {
-            // Add new item. 
             const itemPrice = selectedOption ? selectedOption.price : productToAdd.price;
-            
             return [...prevItems, { 
                 ...productToAdd, 
-                price: itemPrice, // Override price
+                price: itemPrice,
                 quantity, 
                 observations, 
                 selectedOption 
             }];
         }
     });
-    // Just close the modal, stay on menu
     setSelectedProduct(null);
   }, []);
 
@@ -271,7 +248,6 @@ const App: React.FC = () => {
     setCartItems(prev => prev.filter(item => !(item.id === productId && item.selectedOption?.name === optionName)));
   }, []);
   
-  // Directly go to checkout view, no intermediate cart modal
   const handleGoToCheckout = useCallback(() => {
     setView('checkout');
   }, []);
@@ -279,23 +255,16 @@ const App: React.FC = () => {
   const handleOrderSuccess = (order: Order) => {
     setOrderSuccessData(order);
     setCartItems([]);
-    
-    // Add to active orders and persist
     setActiveOrders(prev => {
-        // Prevent duplicates
         const exists = prev.some(o => o.id === order.id);
         const newOrders = exists 
             ? prev.map(o => o.id === order.id ? order : o) 
             : [order, ...prev];
-        
-        // Update storage
         const ids = newOrders.map(o => o.id);
         localStorage.setItem('activeOrderIds', JSON.stringify(ids));
-        localStorage.removeItem('activeOrderId'); // ensure legacy is gone
-        
+        localStorage.removeItem('activeOrderId');
         return newOrders;
     });
-
     setView('orderSuccess');
   };
 
@@ -331,25 +300,24 @@ const App: React.FC = () => {
     </div>
   );
 
-  // Compute all visible categories (official + orphans)
-  const allCategories = useMemo(() => {
-    const officialCategories = categories.filter(c => c !== 'Todos');
+  const activeCategoriesList = useMemo(() => {
+      return categories.filter(c => !c.isArchived).map(c => c.name);
+  }, [categories]);
+
+  const allVisibleCategoriesForTabs = useMemo(() => {
     const productCategories = new Set(products.map(p => p.category));
+    const activeOfficial = activeCategoriesList;
     const orphanCategories = Array.from(productCategories).filter(cat => 
-        cat && cat !== 'Todos' && !officialCategories.includes(cat)
+        cat && cat !== 'Todos' && !activeOfficial.includes(cat) && 
+        !categories.some(c => c.name === cat && c.isArchived)
     );
-    return [...officialCategories, ...orphanCategories];
-  }, [categories, products]);
+    return [...activeOfficial, ...orphanCategories];
+  }, [activeCategoriesList, products, categories]);
 
   const renderMenu = () => {
-    const displayCategories = allCategories;
-
-    // Filter for section rendering
-    const categoriesWithProducts = displayCategories.filter(category => 
+    const categoriesWithProducts = allVisibleCategoriesForTabs.filter(category => 
         products.some(p => p.category === category)
     );
-
-    // Only show categories with products in tabs
     const visibleCategoriesForTabs = ['Todos', ...categoriesWithProducts];
     
     const getStatusText = (status: Order['status']) => {
@@ -525,7 +493,6 @@ const App: React.FC = () => {
             onClose={handleCloseModal}
             onAddToCart={handleAddToCart}
         />
-        {/* New Cart Button Bar */}
         <CartButton 
             itemCount={cartItems.reduce((sum, item) => sum + item.quantity, 0)}
             totalPrice={cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0)}
@@ -552,12 +519,11 @@ const App: React.FC = () => {
       />;
     case 'admin':
       if (!isAuthenticated) {
-        // Just a safe guard, useEffect handles the redirect
         return <div className="min-h-screen flex items-center justify-center">Verificando acesso...</div>;
       }
       return <AdminPage
         products={products}
-        categories={allCategories} // Pass combined list to AdminPage to fix disappearing categories
+        categories={categories}
         storeInfo={storeInfo}
         onAddProduct={handleAddProduct}
         onUpdateProduct={handleUpdateProduct}
@@ -566,6 +532,7 @@ const App: React.FC = () => {
         onAddCategory={handleAddCategory}
         onDeleteCategory={handleDeleteCategory}
         onUpdateCategoryOrder={handleUpdateCategoryOrder}
+        onToggleCategoriesArchive={handleToggleCategoriesArchive}
         onNavigateBack={() => setView('menu')}
         onLogout={handleLogout}
       />;

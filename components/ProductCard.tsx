@@ -14,9 +14,8 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onProductClick }) =>
   
   const hasOptions = product.options && product.options.length > 0;
   
-  // Logic: if has options, 'product.price' is technically the minimum price due to ProductsView logic,
-  // but let's re-calculate safely or rely on the prop.
-  // The 'price' field in DB should be the min option price.
+  // Apenas considera promoção se originalPrice for um número maior que o preço atual
+  const isOnPromotion = product.originalPrice && product.originalPrice > product.price;
   
   return (
     <button onClick={() => onProductClick(product)} className="w-full text-left flex items-center bg-white p-2 rounded-lg gap-4 hover:shadow-md transition-shadow duration-200 focus:outline-none focus:ring-2 focus:ring-brand-primary focus:ring-offset-2">
@@ -30,7 +29,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onProductClick }) =>
           </div>
       )}
       <div className="flex flex-col flex-grow py-2">
-        {product.promotionalTag && (
+        {product.promotionalTag && isOnPromotion && (
             <div className="mb-1">
                 <span className="bg-brand-primary text-white text-xs font-bold px-2 py-1 rounded">
                     {product.promotionalTag}
@@ -40,14 +39,14 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onProductClick }) =>
         <h3 className="text-base sm:text-lg font-bold text-brand-text">{product.name}</h3>
         <p className="text-gray-500 text-sm mt-1 flex-grow line-clamp-2 sm:block">{product.description}</p>
         <div className="flex items-baseline space-x-2 mt-2">
-          {product.originalPrice && (
+          {isOnPromotion && (
             <span className="text-gray-400 line-through text-sm">
-              {formatPrice(product.originalPrice)}
+              {formatPrice(product.originalPrice!)}
             </span>
           )}
           <div className="flex flex-col sm:flex-row sm:items-baseline">
               {hasOptions && <span className="text-xs text-gray-500 mr-1">A partir de</span>}
-              <span className={`text-base sm:text-lg font-bold ${product.originalPrice ? 'text-brand-accent' : 'text-brand-text'}`}>
+              <span className={`text-base sm:text-lg font-bold ${isOnPromotion ? 'text-brand-accent' : 'text-brand-text'}`}>
                 {formatPrice(product.price)}
               </span>
           </div>

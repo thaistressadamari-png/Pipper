@@ -1,5 +1,4 @@
 
-
 export interface ProductOption {
   name: string;
   price: number;
@@ -17,6 +16,11 @@ export interface Product {
   leadTimeDays: number;
   options?: ProductOption[];
   createdAt?: any;
+}
+
+export interface CategoryMetadata {
+  name: string;
+  isArchived: boolean;
 }
 
 export interface CartItem extends Product {
@@ -42,7 +46,17 @@ export interface StoreInfoData {
     whatsappNumber?: string;
 }
 
-// Order related types for Dashboard
+export interface DeliveryInfo {
+  type: 'delivery';
+  address: {
+    cep: string;
+    street: string;
+    number: string;
+    neighborhood: string;
+    complement?: string;
+  };
+}
+
 export interface OrderItem {
   id: string;
   name: string;
@@ -52,45 +66,32 @@ export interface OrderItem {
   option?: string;
 }
 
-export interface CustomerInfo {
+export interface Order {
+  id: string;
+  orderNumber: number;
+  customer: {
     name: string;
     whatsapp: string;
-}
-
-export interface DeliveryInfo {
-    type: 'delivery';
-    address: {
-        cep: string;
-        street: string;
-        number: string;
-        neighborhood: string;
-        complement?: string;
-    };
-}
-
-export interface Order {
-    id: string;
-    orderNumber: number;
-    status: 'new' | 'pending_payment' | 'confirmed' | 'shipped' | 'completed' | 'archived';
-    createdAt: any; // Firestore Timestamp
-    updatedAt: any; // Firestore Timestamp
-    customer: CustomerInfo;
-    delivery: DeliveryInfo;
-    items: OrderItem[];
-    total: number;
-    deliveryFee?: number;
-    paymentLink?: string;
-    paymentMethod: string;
-    deliveryDate: string; // YYYY-MM-DD
+  };
+  delivery: DeliveryInfo;
+  items: OrderItem[];
+  total: number;
+  deliveryFee?: number;
+  paymentMethod: string;
+  paymentLink?: string;
+  deliveryDate: string;
+  status: 'new' | 'pending_payment' | 'confirmed' | 'shipped' | 'completed' | 'archived';
+  createdAt: any;
+  updatedAt: any;
 }
 
 export interface Client {
-    id: string; // WhatsApp number, used as document ID
-    name: string;
-    firstOrderDate: any;
-    lastOrderDate: any;
-    totalOrders: number;
-    totalSpent: number;
-    addresses: DeliveryInfo['address'][];
-    orderIds: string[];
+  id: string;
+  name: string;
+  firstOrderDate: any;
+  lastOrderDate: any;
+  totalOrders: number;
+  totalSpent: number;
+  addresses: DeliveryInfo['address'][];
+  orderIds: string[];
 }
