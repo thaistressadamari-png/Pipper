@@ -1,10 +1,11 @@
+
 import React, { useState, useEffect } from 'react';
-import type { StoreInfoData, OperatingHours } from '../types';
+import type { StoreInfoData, OperatingHours, CategoryMetadata } from '../types';
 import { TrashIcon } from './IconComponents';
 
 interface StoreInfoViewProps {
   storeInfo: StoreInfoData | null;
-  categories: string[];
+  categories: CategoryMetadata[];
   onUpdateStoreInfo: (storeInfoData: StoreInfoData) => Promise<void>;
 }
 

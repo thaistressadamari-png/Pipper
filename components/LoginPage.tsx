@@ -37,7 +37,13 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onNavigateBack })
       onLoginSuccess();
     } catch (err: any) {
       console.error("Login error:", err);
-      if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
+      // Firebase auth error codes check
+      if (
+        err.code === 'auth/invalid-credential' || 
+        err.code === 'auth/user-not-found' || 
+        err.code === 'auth/wrong-password' ||
+        err.code === 'auth/invalid-login-credentials'
+      ) {
         setError('E-mail ou senha incorretos.');
       } else if (err.code === 'auth/too-many-requests') {
         setError('Muitas tentativas. Tente novamente mais tarde.');

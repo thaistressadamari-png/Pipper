@@ -82,6 +82,62 @@ const initialCategories: CategoryMetadata[] = [
     { name: 'Pronta entrega', isArchived: false }
 ];
 
+// Helper to normalize category data correctly
+// Enhanced to handle fragmented strings (0: "B", 1: "e"...) and unified fields
+const normalizeCategories = (rawData: any): CategoryMetadata[] => {
+    if (!rawData) return [];
+    
+    // Combine names and items if both exist to avoid missing data
+    const listToProcess = [
+        ...(Array.isArray(rawData.names) ? rawData.names : []),
+        ...(Array.isArray(rawData.items) ? rawData.items : [])
+    ];
+
+    if (listToProcess.length === 0 && typeof rawData === 'object') {
+        // If rawData itself is an array of objects
+        if (Array.isArray(rawData)) return normalizeArray(rawData);
+    }
+
+    return normalizeArray(listToProcess);
+};
+
+const normalizeArray = (arr: any[]): CategoryMetadata[] => {
+    const result: CategoryMetadata[] = [];
+    const seenNames = new Set<string>();
+
+    arr.forEach((cat: any) => {
+        let name = '';
+        let isArchived = false;
+
+        if (typeof cat === 'string') {
+            name = cat;
+        } else if (cat && typeof cat === 'object') {
+            // Check for fragmented string (0: "B", 1: "e"...)
+            if (cat[0] !== undefined && cat[1] !== undefined) {
+                let reconstructed = '';
+                let i = 0;
+                while (cat[i] !== undefined) {
+                    reconstructed += cat[i];
+                    i++;
+                }
+                name = reconstructed;
+                isArchived = !!cat.isArchived;
+            } else {
+                name = cat.name || '';
+                isArchived = !!cat.isArchived;
+            }
+        }
+
+        const trimmedName = name.trim();
+        if (trimmedName && !seenNames.has(trimmedName)) {
+            result.push({ name: trimmedName, isArchived });
+            seenNames.add(trimmedName);
+        }
+    });
+
+    return result;
+};
+
 export const initializeFirebaseData = async () => {
     const productsSnapshot = await getDocs(productsCollection);
     if (productsSnapshot.empty) {
@@ -92,21 +148,19 @@ export const initializeFirebaseData = async () => {
             const productRef = doc(productsCollection);
             batch.set(productRef, { 
                 ...product, 
-                createdAt: new Date(Date.now() - index * 1000) // Ensure original order is kept
+                createdAt: new Date(Date.now() - index * 1000) 
             });
         });
         batch.set(storeInfoDoc, initialStoreInfo);
         batch.set(categoriesDoc, { names: initialCategories });
-        batch.set(countersDoc, { orderNumber: 1000 }); // Start order numbers from 1000
+        batch.set(countersDoc, { orderNumber: 1000 }); 
         
         await batch.commit();
-        console.log("Default data has been written to Firebase.");
     }
 };
 
 export const getMenu = async (): Promise<{ products: Product[], categories: CategoryMetadata[] }> => {
     const productsQuery = query(productsCollection);
-    
     const [productsSnapshot, categoriesSnapshot] = await Promise.all([
         getDocs(productsQuery),
         getDoc(categoriesDoc)
@@ -130,13 +184,8 @@ export const getMenu = async (): Promise<{ products: Product[], categories: Cate
     });
 
     const categoriesData = categoriesSnapshot.data();
-    let categories: CategoryMetadata[] = [];
-    if (categoriesData && categoriesData.names) {
-        // Migração simples caso os dados antigos ainda sejam strings
-        categories = categoriesData.names.map((cat: any) => 
-            typeof cat === 'string' ? { name: cat, isArchived: false } : cat
-        );
-    }
+    // Normalize using the enhanced function that unifies names/items and fixes fragments
+    const categories = normalizeCategories(categoriesData);
 
     return { products, categories };
 };
@@ -176,43 +225,45 @@ export const updateStoreInfo = (newStoreInfo: StoreInfoData): Promise<StoreInfoD
 };
 
 export const addCategory = async (categoryName: string): Promise<CategoryMetadata[]> => {
-    if (categoryName && categoryName.trim()) {
-        const newCat: CategoryMetadata = { name: categoryName.trim(), isArchived: false };
-        await updateDoc(categoriesDoc, {
-            names: arrayUnion(newCat)
-        });
+    const docSnap = await getDoc(categoriesDoc);
+    const current = normalizeCategories(docSnap.data());
+    const newCat: CategoryMetadata = { name: categoryName.trim(), isArchived: false };
+    
+    if (!current.some(c => c.name === newCat.name)) {
+        const updated = [...current, newCat];
+        // Save in a single standardized field 'names' and clear the messy 'items'
+        await setDoc(categoriesDoc, { names: updated, items: [] });
+        return updated;
     }
-    const updatedCategoriesDoc = await getDoc(categoriesDoc);
-    return updatedCategoriesDoc.exists() ? updatedCategoriesDoc.data().names : [];
+    return current;
 };
 
 export const deleteCategory = async (categoryName: string): Promise<CategoryMetadata[]> => {
     const docSnap = await getDoc(categoriesDoc);
     if (docSnap.exists()) {
-        const names = docSnap.data().names as CategoryMetadata[];
-        const filtered = names.filter(c => c.name !== categoryName);
-        await updateDoc(categoriesDoc, { names: filtered });
+        const current = normalizeCategories(docSnap.data());
+        const filtered = current.filter(c => c.name !== categoryName);
+        await setDoc(categoriesDoc, { names: filtered, items: [] });
         return filtered;
     }
     return [];
 };
 
 export const updateCategoryOrder = async (newOrder: CategoryMetadata[]): Promise<void> => {
-    await updateDoc(categoriesDoc, { names: newOrder });
+    await setDoc(categoriesDoc, { names: newOrder, items: [] });
 };
 
-// Nova função para arquivar/desarquivar categorias
 export const toggleCategoriesArchive = async (categoryNames: string[], archive: boolean): Promise<CategoryMetadata[]> => {
     const docSnap = await getDoc(categoriesDoc);
     if (docSnap.exists()) {
-        const names = docSnap.data().names as CategoryMetadata[];
-        const updated = names.map(cat => {
+        const current = normalizeCategories(docSnap.data());
+        const updated = current.map(cat => {
             if (categoryNames.includes(cat.name)) {
                 return { ...cat, isArchived: archive };
             }
             return cat;
         });
-        await updateDoc(categoriesDoc, { names: updated });
+        await setDoc(categoriesDoc, { names: updated, items: [] });
         return updated;
     }
     return [];
@@ -358,9 +409,14 @@ export const getOrdersByDateRange = async (startDate: Date, endDate: Date): Prom
 };
 
 export const getNewOrdersCount = async (): Promise<number> => {
-    const q = query(ordersCollection, where('status', '==', 'new'));
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.size;
+    try {
+        const q = query(ordersCollection, where('status', '==', 'new'));
+        const querySnapshot = await getDocs(q);
+        return querySnapshot.size;
+    } catch (error) {
+        console.error("Error fetching new orders count:", error);
+        return 0;
+    }
 };
 
 export const updateOrderStatus = (orderId: string, status: Order['status']): Promise<void> => {

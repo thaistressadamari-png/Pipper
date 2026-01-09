@@ -77,16 +77,20 @@ const ProductsView: React.FC<ProductsViewProps> = ({
     onUpdateCategoryOrder,
     onToggleCategoriesArchive
 }) => {
+  // Memoize active categories names for easy use
+  const activeCategoriesOnly = useMemo(() => categories.filter(c => !c.isArchived), [categories]);
+
   const initialFormState = {
     name: '',
     description: '',
     price: '',
     originalPrice: '',
     promotionalTag: '',
-    category: categories.find(c => !c.isArchived)?.name || '',
+    category: activeCategoriesOnly.length > 0 ? activeCategoriesOnly[0].name : '',
     imageUrls: '',
     leadTimeDays: '0',
   };
+
   const [productForm, setProductForm] = useState(initialFormState);
   const [productOptions, setProductOptions] = useState<ProductOption[]>([]);
   const [newOption, setNewOption] = useState({ name: '', price: '' });
@@ -100,7 +104,6 @@ const ProductsView: React.FC<ProductsViewProps> = ({
   const [productSearchQuery, setProductSearchQuery] = useState('');
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('Todas');
   
-  // Categorias: Abas e seleção em massa
   const [categoryTab, setCategoryTab] = useState<'active' | 'archived'>('active');
   const [selectedCategoryNames, setSelectedCategoryNames] = useState<string[]>([]);
   
@@ -306,7 +309,6 @@ const ProductsView: React.FC<ProductsViewProps> = ({
       if (dragItem.current === null || dragOverItem.current === null) return;
       const categoriesCopy = [...categories];
       
-      // Filtrar apenas ativas para saber a posição real no array total
       const activeCats = categories.filter(c => !c.isArchived);
       const draggedCat = activeCats[dragItem.current];
       const targetCat = activeCats[dragOverItem.current];
@@ -330,15 +332,17 @@ const ProductsView: React.FC<ProductsViewProps> = ({
 
   const inputStyles = "mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-brand-primary focus:border-brand-primary sm:text-sm text-gray-900";
 
-  // Categoria Tabs Logic
-  const activeCategories = useMemo(() => categories.filter(c => !c.isArchived), [categories]);
   const archivedCategories = useMemo(() => categories.filter(c => c.isArchived), [categories]);
-  const currentCategoryList = categoryTab === 'active' ? activeCategories : archivedCategories;
+  const currentCategoryList = categoryTab === 'active' ? activeCategoriesOnly : archivedCategories;
 
   const toggleCategorySelection = (name: string) => {
-    setSelectedCategoryNames(prev => 
-      prev.includes(name) ? prev.filter(n => n !== name) : [...prev, name]
-    );
+    setSelectedCategoryNames(prev => {
+      if (prev.includes(name)) {
+        return prev.filter(n => n !== name);
+      } else {
+        return [...prev, name];
+      }
+    });
   };
 
   const handleArchiveSelected = async () => {
@@ -476,7 +480,7 @@ const ProductsView: React.FC<ProductsViewProps> = ({
                                 <label htmlFor="category" className="block text-sm font-medium text-brand-text-light">Categoria</label>
                                 <select name="category" id="category" value={productForm.category} onChange={handleProductFormChange} className={inputStyles} required>
                                     <option value="">Selecione...</option>
-                                    {categories.filter(c => !c.isArchived).map(cat => <option key={cat.name} value={cat.name}>{cat.name}</option>)}
+                                    {activeCategoriesOnly.map(cat => <option key={cat.name} value={cat.name}>{cat.name}</option>)}
                                 </select>
                             </div>
                             <div>
@@ -518,7 +522,6 @@ const ProductsView: React.FC<ProductsViewProps> = ({
                         <button type="button" onClick={handleAddCategory} disabled={isSubmitting} className="px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-brand-primary hover:bg-brand-primary-dark disabled:opacity-50">Adicionar</button>
                     </div>
 
-                    {/* Tabs de Categoria */}
                     <div className="border-b border-gray-200 mt-6">
                       <nav className="-mb-px flex space-x-8" aria-label="Tabs">
                         <button
@@ -529,7 +532,7 @@ const ProductsView: React.FC<ProductsViewProps> = ({
                               : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                           } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors`}
                         >
-                          Ativas ({activeCategories.length})
+                          Ativas ({activeCategoriesOnly.length})
                         </button>
                         <button
                           onClick={() => { setCategoryTab('archived'); setSelectedCategoryNames([]); }}
@@ -544,7 +547,6 @@ const ProductsView: React.FC<ProductsViewProps> = ({
                       </nav>
                     </div>
 
-                    {/* Ações em Massa */}
                     {selectedCategoryNames.length > 0 && (
                       <div className="flex items-center justify-between bg-brand-secondary/30 p-3 rounded-lg animate-fade-in">
                         <span className="text-sm font-medium text-brand-primary">
@@ -570,7 +572,7 @@ const ProductsView: React.FC<ProductsViewProps> = ({
                                 onDragEnter={() => categoryTab === 'active' && (dragOverItem.current = index)}
                                 onDragEnd={handleSort}
                                 onDragOver={(e) => e.preventDefault()}
-                                className={`flex items-center justify-between p-2 rounded-md border border-gray-100 ${
+                                className={`flex items-center justify-between p-3 rounded-md border border-gray-100 ${
                                   categoryTab === 'active' ? 'bg-gray-50 cursor-grab active:cursor-grabbing' : 'bg-gray-100/50'
                                 }`}
                             >
@@ -579,10 +581,10 @@ const ProductsView: React.FC<ProductsViewProps> = ({
                                       type="checkbox"
                                       checked={selectedCategoryNames.includes(cat.name)}
                                       onChange={() => toggleCategorySelection(cat.name)}
-                                      className="w-4 h-4 text-brand-primary border-gray-300 rounded focus:ring-brand-primary"
+                                      className="w-5 h-5 text-brand-primary border-gray-300 rounded focus:ring-brand-primary cursor-pointer"
                                     />
                                     {categoryTab === 'active' && <DragHandleIcon className="w-5 h-5 text-gray-400" />}
-                                    <span className={`text-sm ${cat.isArchived ? 'text-gray-400 line-through' : 'text-gray-800'}`}>
+                                    <span className={`text-sm font-medium ${cat.isArchived ? 'text-gray-400 line-through' : 'text-gray-800'}`}>
                                       {cat.name}
                                     </span>
                                 </div>
@@ -594,23 +596,23 @@ const ProductsView: React.FC<ProductsViewProps> = ({
                                     className="p-1 text-gray-400 hover:text-brand-primary transition-colors"
                                   >
                                     {cat.isArchived ? (
-                                      <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                                       </svg>
                                     ) : (
-                                      <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
                                       </svg>
                                     )}
                                   </button>
                                   <button type="button" onClick={() => handleDeleteCategory(cat.name)} className="p-1 text-gray-400 hover:text-red-600 disabled:opacity-50" disabled={isSubmitting}>
-                                      <TrashIcon className="w-4 h-4" />
+                                      <TrashIcon className="w-5 h-5" />
                                   </button>
                                 </div>
                             </div>
                         ))}
                         {currentCategoryList.length === 0 && (
-                          <p className="text-center text-gray-400 text-sm py-8">Nenhuma categoria {categoryTab === 'active' ? 'ativa' : 'arquivada'}.</p>
+                          <p className="text-center text-gray-400 text-sm py-8 italic">Nenhuma categoria {categoryTab === 'active' ? 'ativa' : 'arquivada'}.</p>
                         )}
                     </div>
                 </div>
@@ -643,7 +645,7 @@ const ProductsView: React.FC<ProductsViewProps> = ({
                             }}
                         >
                             <option value="Todas">Todas as Categorias</option>
-                            {categories.filter(c => !c.isArchived).map(cat => (
+                            {activeCategoriesOnly.map(cat => (
                                 <option key={cat.name} value={cat.name}>{cat.name}</option>
                             ))}
                         </select>
