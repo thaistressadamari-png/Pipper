@@ -502,7 +502,7 @@ const ProductsView: React.FC<ProductsViewProps> = ({
                 onConfirm={confirmDeleteCategory}
             />
         )}
-        <div className="space-y-8">
+        <div className="space-y-8 overflow-x-hidden">
             <div className="max-w-3xl mx-auto bg-white rounded-lg shadow-md p-6 md:p-8">
                 <h2 className="text-2xl font-bold text-brand-text mb-6">{editingProduct ? 'Editar Produto' : 'Cadastrar Novo Produto'}</h2>
                 <form onSubmit={handleProductSubmit} className="space-y-6">
@@ -527,12 +527,12 @@ const ProductsView: React.FC<ProductsViewProps> = ({
                             <div className="space-y-2 mb-4">
                                 {productOptions.map((opt, index) => (
                                     <div key={index} className="flex items-center justify-between p-3 bg-white rounded-md border border-gray-200 shadow-sm">
-                                        <div>
-                                            <span className="font-medium text-brand-text">{opt.name}</span>
-                                            <span className="mx-2 text-gray-300">|</span>
-                                            <span className="text-brand-primary font-bold">{opt.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                                        <div className="min-w-0 pr-4">
+                                            <span className="font-medium text-brand-text truncate block sm:inline">{opt.name}</span>
+                                            <span className="hidden sm:inline mx-2 text-gray-300">|</span>
+                                            <span className="text-brand-primary font-bold block sm:inline">{opt.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
                                         </div>
-                                        <button type="button" onClick={() => handleRemoveOption(index)} className="p-1 text-gray-400 hover:text-red-600 transition-colors">
+                                        <button type="button" onClick={() => handleRemoveOption(index)} className="p-1 text-gray-400 hover:text-red-600 transition-colors flex-shrink-0">
                                             <TrashIcon className="w-5 h-5" />
                                         </button>
                                     </div>
@@ -542,7 +542,7 @@ const ProductsView: React.FC<ProductsViewProps> = ({
                                 )}
                             </div>
 
-                            <div className="flex gap-2 items-end">
+                            <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-end">
                                 <div className="flex-grow">
                                     <label htmlFor="optName" className="block text-xs text-gray-500 mb-1">Nome (ex: Grande, 500g)</label>
                                     <input 
@@ -554,7 +554,7 @@ const ProductsView: React.FC<ProductsViewProps> = ({
                                         placeholder="Ex: 500g"
                                     />
                                 </div>
-                                <div className="w-1/3">
+                                <div className="w-full sm:w-1/3">
                                     <label htmlFor="optPrice" className="block text-xs text-gray-500 mb-1">Preço (R$)</label>
                                     <input 
                                         type="number" 
@@ -570,9 +570,10 @@ const ProductsView: React.FC<ProductsViewProps> = ({
                                     type="button" 
                                     onClick={handleAddOption}
                                     disabled={!newOption.name || !newOption.price}
-                                    className="px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-primary-dark disabled:opacity-50 transition-colors flex items-center justify-center shadow-sm"
+                                    className="px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-primary-dark disabled:opacity-50 transition-colors flex items-center justify-center shadow-sm h-10 sm:h-9"
                                 >
-                                    <PlusIcon className="w-5 h-5" />
+                                    <PlusIcon className="w-5 h-5 mr-1" />
+                                    <span className="sm:hidden">Adicionar Opção</span>
                                 </button>
                             </div>
                         </div>
@@ -628,7 +629,7 @@ const ProductsView: React.FC<ProductsViewProps> = ({
                             {message.text}
                         </div>
                     )}
-                    <div className="pt-2 flex items-center gap-4">
+                    <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
                         <button type="submit" disabled={isSubmitting} className="flex-grow justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-brand-primary hover:bg-brand-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
                             {isSubmitting ? 'Salvando...' : (editingProduct ? 'Atualizar Produto' : 'Cadastrar Produto')}
                         </button>
@@ -640,7 +641,7 @@ const ProductsView: React.FC<ProductsViewProps> = ({
             <div className="max-w-3xl mx-auto bg-white rounded-lg shadow-md p-6 md:p-8">
                 <h2 className="text-2xl font-bold text-brand-text mb-6">Gerenciar Categorias</h2>
                     <div className="space-y-4">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                         <input 
                             type="text" 
                             value={newCategory} 
@@ -651,7 +652,7 @@ const ProductsView: React.FC<ProductsViewProps> = ({
                         <button type="button" onClick={handleAddCategory} disabled={isSubmitting} className="px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-brand-primary hover:bg-brand-primary-dark disabled:opacity-50">Adicionar</button>
                     </div>
 
-                    <div className="border-b border-gray-200 mt-6">
+                    <div className="border-b border-gray-200 mt-6 overflow-x-auto">
                       <nav className="-mb-px flex space-x-8" aria-label="Tabs">
                         <button
                           onClick={() => { setCategoryTab('active'); setSelectedCategoryNames([]); }}
@@ -705,19 +706,19 @@ const ProductsView: React.FC<ProductsViewProps> = ({
                                   categoryTab === 'active' ? 'bg-gray-50 cursor-grab active:cursor-grabbing' : 'bg-gray-100/50'
                                 }`}
                             >
-                                <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-3 min-w-0 flex-grow">
                                     <input 
                                       type="checkbox"
                                       checked={selectedCategoryNames.includes(cat.name)}
                                       onChange={() => toggleCategorySelection(cat.name)}
-                                      className="w-5 h-5 text-brand-primary border-gray-300 rounded focus:ring-brand-primary cursor-pointer"
+                                      className="w-5 h-5 text-brand-primary border-gray-300 rounded focus:ring-brand-primary cursor-pointer flex-shrink-0"
                                     />
-                                    {categoryTab === 'active' && <DragHandleIcon className="w-5 h-5 text-gray-400" />}
-                                    <span className={`text-sm font-medium ${cat.isArchived ? 'text-gray-400 line-through' : 'text-gray-800'}`}>
+                                    {categoryTab === 'active' && <DragHandleIcon className="w-5 h-5 text-gray-400 flex-shrink-0" />}
+                                    <span className={`text-sm font-medium truncate ${cat.isArchived ? 'text-gray-400 line-through' : 'text-gray-800'}`}>
                                       {cat.name}
                                     </span>
                                 </div>
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 ml-4 flex-shrink-0">
                                   <button 
                                     type="button" 
                                     onClick={() => onToggleCategoriesArchive([cat.name], !cat.isArchived)}
@@ -750,7 +751,7 @@ const ProductsView: React.FC<ProductsViewProps> = ({
             <div className="max-w-3xl mx-auto bg-white rounded-lg shadow-md p-6 md:p-8">
                 <h2 className="text-2xl font-bold text-brand-text mb-6">Produtos Cadastrados</h2>
                 
-                <div className="border-b border-gray-200 mb-6">
+                <div className="border-b border-gray-200 mb-6 overflow-x-auto">
                   <nav className="-mb-px flex space-x-8" aria-label="Tabs">
                     <button
                       onClick={() => setProductViewTab('active')}
@@ -813,33 +814,33 @@ const ProductsView: React.FC<ProductsViewProps> = ({
                     {filteredProducts.map(p => {
                         const isArchived = categories.find(c => c.name === p.category && c.isArchived);
                         return (
-                        <div key={p.id} className={`flex items-center justify-between p-3 rounded-md border transition-all ${isArchived ? 'bg-gray-50 border-gray-200' : 'bg-white border-gray-100'}`}>
-                            <div className="flex items-center gap-4">
+                        <div key={p.id} className={`flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 rounded-md border transition-all gap-3 ${isArchived ? 'bg-gray-50 border-gray-200' : 'bg-white border-gray-100'}`}>
+                            <div className="flex items-center gap-3 min-w-0 w-full sm:w-auto flex-grow">
                                 {p.imageUrls && p.imageUrls.length > 0 ? (
-                                    <img src={p.imageUrls[0]} alt={p.name} className="w-12 h-12 object-cover rounded"/>
+                                    <img src={p.imageUrls[0]} alt={p.name} className="w-12 h-12 object-cover rounded flex-shrink-0"/>
                                 ) : (
-                                    <div className="w-12 h-12 bg-gray-200 rounded flex items-center justify-center text-gray-400 text-xs">Sem img</div>
+                                    <div className="w-12 h-12 bg-gray-200 rounded flex items-center justify-center text-gray-400 text-[10px] flex-shrink-0">Sem img</div>
                                 )}
-                                <div className="min-w-0">
-                                    <p className="font-semibold text-brand-text truncate">{p.name}</p>
-                                    <div className="flex items-center gap-2">
-                                        <p className="text-xs text-gray-500">{p.category}</p>
+                                <div className="min-w-0 flex-grow">
+                                    <p className="font-semibold text-brand-text truncate text-sm sm:text-base">{p.name}</p>
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <p className="text-[10px] sm:text-xs text-gray-500 truncate max-w-[150px]">{p.category}</p>
                                         {isArchived && (
-                                            <span className="text-[10px] font-bold bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded uppercase">Categoria Arquivada</span>
+                                            <span className="text-[9px] font-bold bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded uppercase flex-shrink-0">Arquivada</span>
                                         )}
                                     </div>
                                     {p.options && p.options.length > 0 && (
-                                        <p className="text-[10px] text-brand-primary font-medium mt-1">{p.options.length} opções disponíveis</p>
+                                        <p className="text-[9px] text-brand-primary font-medium mt-1">{p.options.length} opções</p>
                                     )}
                                 </div>
                             </div>
-                            <div className="flex items-center gap-4 ml-4">
-                                <button onClick={() => handleDuplicateClick(p)} className="flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-brand-primary hover:underline transition-colors" title="Duplicar">
+                            <div className="flex items-center gap-4 w-full sm:w-auto justify-end border-t sm:border-t-0 pt-2 sm:pt-0">
+                                <button onClick={() => handleDuplicateClick(p)} className="flex items-center gap-1 text-[10px] sm:text-xs font-medium text-gray-500 hover:text-brand-primary transition-colors" title="Duplicar">
                                     <CopyIcon className="w-4 h-4" />
                                     <span className="hidden sm:inline">Duplicar</span>
                                 </button>
-                                <button onClick={() => handleEditClick(p)} className="text-xs font-medium text-brand-primary hover:underline transition-colors">Editar</button>
-                                <button onClick={() => setProductToDelete(p)} className="text-xs font-medium text-red-600 hover:underline transition-colors">Apagar</button>
+                                <button onClick={() => handleEditClick(p)} className="text-[10px] sm:text-xs font-medium text-brand-primary hover:underline transition-colors">Editar</button>
+                                <button onClick={() => setProductToDelete(p)} className="text-[10px] sm:text-xs font-medium text-red-600 hover:underline transition-colors">Apagar</button>
                             </div>
                         </div>
                     )})}
