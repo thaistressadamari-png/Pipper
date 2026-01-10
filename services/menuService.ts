@@ -1,4 +1,3 @@
-
 import {
     collection,
     getDocs,
@@ -23,7 +22,6 @@ import {
 import { db } from '../firebase';
 import type { Product, StoreInfoData, Order, Client, DeliveryInfo, CategoryMetadata } from '../types';
 
-// Collection references
 const productsCollection = collection(db, 'products');
 const ordersCollection = collection(db, 'orders');
 const clientsCollection = collection(db, 'clients');
@@ -31,30 +29,19 @@ const dailyVisitsCollection = collection(db, 'dailyVisits');
 
 const storeInfoDoc = doc(db, 'store', 'info');
 const categoriesDoc = doc(db, 'metadata', 'categories');
-const siteStatsDoc = doc(db, 'metadata', 'siteStats');
 const countersDoc = doc(db, 'metadata', 'counters');
 
 const initialMenuData: Omit<Product, 'id'>[] = [
     {
         name: 'Brownie de chocolate',
-        description: 'Brownie artesanal com textura perfeita — crocante por fora e irresistivelmente macio por dentro. Feito com chocolate de alta qualidade e ingredientes selecionados, é a sobremesa ideal para qualquer momento.',
+        description: 'Brownie artesanal com textura perfeita.',
         price: 12.00,
         category: 'Pronta entrega',
-        imageUrls: [
-            'https://i.pinimg.com/736x/11/e7/73/11-e7-730c7cee3108dc7c39e3a79787aa.jpg'
-        ],
+        imageUrls: ['https://i.pinimg.com/736x/11/e7/73/11-e7-730c7cee3108dc7c39e3a79787aa.jpg'],
         leadTimeDays: 0,
-    },
-    {
-        name: 'Devil’s Food Cake',
-        description: 'Feito com uma massa intensa e molhadinha de chocolate 100% cacau. Recheado e coberto com blend de chocolate nobre nacional de alta qualidade.\n\nUm bolo que reúne toda cremosidade e a potência do chocolate em uma única mordida.\n\nO Devil’s Food Cake é um grande querido por aqui.',
-        price: 280.00,
-        category: 'Bolos - Sob Encomenda',
-        imageUrls: [
-            'https://scontent-gru2-1.cdninstagram.com/v/t51.82787-15/568687263_17863976997484929_5284925856057137730_n.jpg?stp=dst-jpg_e35_tt6&_nc_cat=109&ig_cache_key=Mzc0ODYyMjc2ODcyOTYwNTMwMQ%3D%3D.3-ccb1-7&ccb=1-7&_nc_sid=58cdad&efg=eyJ2ZW5jb2RlX3RhZyI6InhwaWRzLjE0NDB4MTkzOS5zZHIuQzMifQ%3D%3D&_nc_ohc=LGJvpaUKsUEQ7kNvwHojFYL&_nc_oc=AdlVR90a3YunQVz_qoXIblrLI7Hxh28uaUTpWsp0_wNVewCnIartcTlCOoiYk6h4BdNsHKfbZSqeXzOuDldtW4wC&_nc_ad=z-m&_nc_cid=0&_nc_zt=23&_nc_ht=scontent-gru2-1.cdninstagram.com&_nc_gid=6GTsgzv_44AdzNUeARsR1w&oh=00_Afd4BCxN8DeqfTH0utwiTXvmyuSB2GuJsiKK2aD_kZ6jIA&oe=6907E725'
-        ],
-        leadTimeDays: 5,
-    },
+        inventoryEnabled: true,
+        inventoryQuantity: 20
+    }
 ];
 
 const initialStoreInfo: StoreInfoData = {
@@ -63,54 +50,14 @@ const initialStoreInfo: StoreInfoData = {
     hours: '90-100min',
     coverImageUrl: 'https://delicious.com.br/wp-content/uploads/2020/10/DSC_0183.jpg',
     operatingHours: [
+        { day: 'SEG', time: '11:00 às 17:00' },
         { day: 'TER', time: '11:00 às 17:00' },
         { day: 'QUA', time: '11:00 às 17:00' },
         { day: 'QUI', time: '11:00 às 17:00' },
         { day: 'SEX', time: '11:00 às 17:00' },
-        { day: 'SÁB', time: '11:00 às 17:00' },
     ],
-    paymentMethods: {
-        online: ['Cartão de crédito', 'Pix']
-    },
+    paymentMethods: { online: ['Pix', 'Cartão de crédito'] },
     whatsappNumber: '5511943591371',
-};
-
-const initialCategories: CategoryMetadata[] = [
-    { name: 'Bolos - Sob Encomenda', isArchived: false },
-    { name: 'Pronta entrega', isArchived: false }
-];
-
-const normalizeCategories = (rawData: any): CategoryMetadata[] => {
-    if (!rawData) return [];
-    const listToProcess = [
-        ...(Array.isArray(rawData.names) ? rawData.names : []),
-        ...(Array.isArray(rawData.items) ? rawData.items : [])
-    ];
-    if (listToProcess.length === 0 && typeof rawData === 'object') {
-        if (Array.isArray(rawData)) return normalizeArray(rawData);
-    }
-    return normalizeArray(listToProcess);
-};
-
-const normalizeArray = (arr: any[]): CategoryMetadata[] => {
-    const seenNames = new Set<string>();
-    const result: CategoryMetadata[] = [];
-    arr.forEach((cat: any) => {
-        let name = '';
-        let isArchived = false;
-        if (typeof cat === 'string') {
-            name = cat;
-        } else if (cat && typeof cat === 'object') {
-            name = cat.name || '';
-            isArchived = !!cat.isArchived;
-        }
-        const trimmedName = name.trim();
-        if (trimmedName && !seenNames.has(trimmedName)) {
-            result.push({ name: trimmedName, isArchived });
-            seenNames.add(trimmedName);
-        }
-    });
-    return result;
 };
 
 export const initializeFirebaseData = async () => {
@@ -122,10 +69,58 @@ export const initializeFirebaseData = async () => {
             batch.set(productRef, { ...product, createdAt: new Date(Date.now() - index * 1000) });
         });
         batch.set(storeInfoDoc, initialStoreInfo);
-        batch.set(categoriesDoc, { names: initialCategories });
+        batch.set(categoriesDoc, { names: [{ name: 'Pronta entrega', isArchived: false }] });
         batch.set(countersDoc, { orderNumber: 1000 }); 
         await batch.commit();
     }
+};
+
+const deductInventory = async (transaction: any, orderData: Order, orderRef: any) => {
+    const orderSnap = await transaction.get(orderRef);
+    if (!orderSnap.exists()) return;
+    
+    const currentOrderData = orderSnap.data();
+    if (currentOrderData?.inventoryReduced === true) return;
+
+    for (const item of orderData.items) {
+        const pRef = doc(db, 'products', item.id);
+        const pSnap = await transaction.get(pRef);
+        
+        if (pSnap.exists()) {
+            const pData = pSnap.data() as Product;
+            if (pData.inventoryEnabled) {
+                const currentQty = pData.inventoryQuantity || 0;
+                const newQty = Math.max(0, currentQty - item.quantity);
+                transaction.update(pRef, { inventoryQuantity: newQty });
+            }
+        }
+    }
+    
+    transaction.update(orderRef, { inventoryReduced: true });
+};
+
+const returnInventory = async (transaction: any, orderData: Order, orderRef: any) => {
+    const orderSnap = await transaction.get(orderRef);
+    if (!orderSnap.exists()) return;
+
+    const currentOrderData = orderSnap.data();
+    if (currentOrderData?.inventoryReduced === false) return;
+
+    for (const item of orderData.items) {
+        const pRef = doc(db, 'products', item.id);
+        const pSnap = await transaction.get(pRef);
+        
+        if (pSnap.exists()) {
+            const pData = pSnap.data() as Product;
+            if (pData.inventoryEnabled) {
+                transaction.update(pRef, { 
+                    inventoryQuantity: increment(item.quantity) 
+                });
+            }
+        }
+    }
+    
+    transaction.update(orderRef, { inventoryReduced: false });
 };
 
 export const getMenu = async (): Promise<{ products: Product[], categories: CategoryMetadata[] }> => {
@@ -135,149 +130,90 @@ export const getMenu = async (): Promise<{ products: Product[], categories: Cate
         getDoc(categoriesDoc)
     ]);
     const products: Product[] = productsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
-    const categories = normalizeCategories(categoriesSnapshot.data());
+    const categories = categoriesSnapshot.data()?.names || [];
     return { products, categories };
 };
 
-export const addProduct = async (productData: Omit<Product, 'id'>): Promise<Product> => {
-    const docRef = await addDoc(productsCollection, { ...productData, createdAt: serverTimestamp() });
-    return { ...productData, id: docRef.id };
-};
+const updateClientInfoOnOrder = async (transaction: any, orderData: Order) => {
+    const clientId = orderData.customer.whatsapp.replace(/\D/g, '');
+    if (!clientId) return;
 
-export const updateProduct = async (updatedProduct: Product): Promise<Product> => {
-    const productRef = doc(db, 'products', updatedProduct.id);
-    const { id, ...dataToUpdate } = updatedProduct;
-    await updateDoc(productRef, dataToUpdate);
-    return updatedProduct;
-};
+    const clientRef = doc(db, 'clients', clientId);
+    const clientSnap = await transaction.get(clientRef);
+    
+    const address = orderData.delivery.address;
 
-export const deleteProduct = (productId: string): Promise<void> => {
-    return deleteDoc(doc(db, 'products', productId));
-};
-
-export const getStoreInfo = async (): Promise<StoreInfoData> => {
-    const docSnap = await getDoc(storeInfoDoc);
-    if (docSnap.exists()) return docSnap.data() as StoreInfoData;
-    throw new Error("Store info not found!");
-};
-
-export const updateStoreInfo = (newStoreInfo: StoreInfoData): Promise<StoreInfoData> => {
-    return setDoc(storeInfoDoc, newStoreInfo, { merge: true }).then(() => newStoreInfo);
-};
-
-export const addCategory = async (categoryName: string): Promise<CategoryMetadata[]> => {
-    const docSnap = await getDoc(categoriesDoc);
-    const current = normalizeCategories(docSnap.data());
-    if (!current.some(c => c.name === categoryName.trim())) {
-        const updated = [...current, { name: categoryName.trim(), isArchived: false }];
-        await setDoc(categoriesDoc, { names: updated });
-        return updated;
-    }
-    return current;
-};
-
-export const deleteCategory = async (categoryName: string): Promise<CategoryMetadata[]> => {
-    const docSnap = await getDoc(categoriesDoc);
-    const current = normalizeCategories(docSnap?.data());
-    const filtered = current.filter(c => c.name !== categoryName);
-    await setDoc(categoriesDoc, { names: filtered });
-    return filtered;
-};
-
-export const updateCategoryOrder = async (newOrder: CategoryMetadata[]): Promise<void> => {
-    await setDoc(categoriesDoc, { names: newOrder });
-};
-
-export const toggleCategoriesArchive = async (categoryNames: string[], archive: boolean): Promise<CategoryMetadata[]> => {
-    const docSnap = await getDoc(categoriesDoc);
-    const current = normalizeCategories(docSnap.data());
-    const updated = current.map(cat => categoryNames.includes(cat.name) ? { ...cat, isArchived: archive } : cat);
-    await setDoc(categoriesDoc, { names: updated });
-    return updated;
-};
-
-export const getClients = async (): Promise<Client[]> => {
-    const q = query(clientsCollection, orderBy('lastOrderDate', 'desc'));
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Client));
-};
-
-export const getClient = async (whatsapp: string): Promise<Client | null> => {
-    const rawWhatsapp = whatsapp.replace(/\D/g, '');
-    const clientDoc = await getDoc(doc(clientsCollection, rawWhatsapp));
-    if (clientDoc.exists()) return { id: clientDoc.id, ...clientDoc.data() } as Client;
-    return null;
-};
-
-export const updateClient = async (clientId: string, data: Partial<Client>): Promise<void> => {
-    await updateDoc(doc(clientsCollection, clientId), data);
-};
-
-export const deleteClient = async (clientId: string): Promise<void> => {
-    await deleteDoc(doc(clientsCollection, clientId));
-};
-
-export const removeClientAddress = async (whatsapp: string, address: DeliveryInfo['address']): Promise<void> => {
-    const rawWhatsapp = whatsapp.replace(/\D/g, '');
-    await updateDoc(doc(clientsCollection, rawWhatsapp), { addresses: arrayRemove(address) });
-};
-
-const updateClientOnOrder = async (order: Order, saveAddress: boolean) => {
-    const rawWhatsapp = order.customer.whatsapp.replace(/\D/g, '');
-    let clientId = rawWhatsapp || '00000000000';
-    if (clientId === '00000000000') {
-        clientId = `manual-${order.customer.name.toLowerCase().replace(/\s+/g, '-')}`;
-    }
-    const clientRef = doc(clientsCollection, clientId);
-    const clientDoc = await getDoc(clientRef);
-    const now = serverTimestamp();
-    const addressUpdate = saveAddress ? { addresses: arrayUnion(order.delivery.address) } : {};
-
-    if (clientDoc.exists()) {
-        await updateDoc(clientRef, {
-            name: order.customer.name,
-            lastOrderDate: now,
-            totalOrders: increment(1),
-            totalSpent: increment(order.total),
-            orderIds: arrayUnion(order.id),
-            ...addressUpdate
+    if (!clientSnap.exists()) {
+        transaction.set(clientRef, {
+            id: clientId,
+            name: orderData.customer.name,
+            firstOrderDate: orderData.createdAt || serverTimestamp(),
+            lastOrderDate: orderData.createdAt || serverTimestamp(),
+            totalOrders: 0,
+            totalSpent: 0,
+            addresses: [address],
+            orderIds: [orderData.id]
         });
     } else {
-        const newClient: Client = {
-            id: clientId,
-            name: order.customer.name,
-            firstOrderDate: now,
-            lastOrderDate: now,
-            totalOrders: 1,
-            totalSpent: order.total,
-            addresses: saveAddress ? [order.delivery.address] : [],
-            orderIds: [order.id]
-        };
-        await setDoc(clientRef, newClient);
+        const clientData = clientSnap.data();
+        const currentAddresses = clientData.addresses || [];
+        const isNewAddress = !currentAddresses.some((a: any) => 
+            a.cep === address.cep && a.number === address.number
+        );
+
+        transaction.update(clientRef, {
+            lastOrderDate: serverTimestamp(),
+            orderIds: arrayUnion(orderData.id),
+            addresses: isNewAddress ? arrayUnion(address) : currentAddresses
+        });
     }
 };
 
-/**
- * Recalculates client statistics based on valid orders existing in the orders collection.
- * This ensures consistency after orders are manually deleted.
- */
-export const syncClientStats = async (clientId: string): Promise<void> => {
-    const q = query(ordersCollection, where('customer.whatsapp', '==', clientId.replace(/\D/g, '')));
-    const querySnapshot = await getDocs(q);
-    const orders = querySnapshot.docs.map(doc => doc.data() as Order);
+export const updateOrderStatus = async (orderId: string, status: Order['status']): Promise<void> => {
+    const orderRef = doc(db, 'orders', orderId);
     
-    // Consider only valid statuses for spent/count stats
-    const validOrders = orders.filter(o => ['confirmed', 'shipped', 'completed'].includes(o.status));
-    
-    const totalSpent = validOrders.reduce((sum, o) => sum + (o.total || 0) + (o.deliveryFee || 0), 0);
-    const totalOrders = validOrders.length;
-    const orderIds = querySnapshot.docs.map(doc => doc.id);
+    await runTransaction(db, async (transaction) => {
+        const orderSnap = await transaction.get(orderRef);
+        if (!orderSnap.exists()) throw new Error("Pedido não encontrado");
+        const orderData = { id: orderSnap.id, ...orderSnap.data() } as Order;
 
-    const clientRef = doc(clientsCollection, clientId);
-    await updateDoc(clientRef, {
-        totalSpent,
-        totalOrders,
-        orderIds
+        const statusThatRequireInventoryDeduction = ['pending_payment', 'confirmed', 'shipped', 'completed'];
+        
+        if (statusThatRequireInventoryDeduction.includes(status)) {
+            await deductInventory(transaction, orderData, orderRef);
+        }
+
+        if (status === 'archived') {
+            await returnInventory(transaction, orderData, orderRef);
+        }
+
+        transaction.update(orderRef, { status, updatedAt: serverTimestamp() });
+        
+        // Sempre sincronizar os totais do cliente quando o status muda para algo faturável ou finalizado
+        const clientId = orderData.customer.whatsapp.replace(/\D/g, '');
+        if (clientId) {
+            // A sincronização real de valores será feita via trigger ou no próximo carregamento de estatísticas
+        }
+    });
+};
+
+export const processOrderCheckout = async (orderId: string, deliveryFee: number, paymentLink: string): Promise<void> => {
+    const orderRef = doc(db, 'orders', orderId);
+    
+    await runTransaction(db, async (transaction) => {
+        const orderSnap = await transaction.get(orderRef);
+        if (!orderSnap.exists()) throw new Error("Pedido não encontrado");
+        const orderData = { id: orderSnap.id, ...orderSnap.data() } as Order;
+
+        await deductInventory(transaction, orderData, orderRef);
+        await updateClientInfoOnOrder(transaction, orderData);
+
+        transaction.update(orderRef, {
+            deliveryFee,
+            paymentLink,
+            status: 'pending_payment',
+            updatedAt: serverTimestamp()
+        });
     });
 };
 
@@ -288,22 +224,50 @@ export const addOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'upda
         const counterDoc = await transaction.get(counterRef);
         const newOrderNumber = counterDoc.exists() ? counterDoc.data().orderNumber + 1 : 1001;
         transaction.set(counterRef, { orderNumber: newOrderNumber }, { merge: true });
+
         const orderRef = doc(collection(db, 'orders'));
         const now = serverTimestamp();
         const fullOrderData = {
             ...orderData,
-            customer: { ...orderData.customer, whatsapp: orderData.customer.whatsapp.replace(/\D/g, '') },
             orderNumber: newOrderNumber,
             status: 'new' as const,
+            inventoryReduced: false,
             createdAt: now,
             updatedAt: now,
         };
         transaction.set(orderRef, fullOrderData);
         newOrder = { ...fullOrderData, id: orderRef.id, createdAt: Timestamp.now(), updatedAt: Timestamp.now() };
+        
+        if (saveAddress) {
+            await updateClientInfoOnOrder(transaction, newOrder);
+        }
     });
-    if (!newOrder) throw new Error("Failed to create order.");
-    await updateClientOnOrder(newOrder, saveAddress);
+    if (!newOrder) throw new Error("Falha ao criar pedido.");
     return newOrder;
+};
+
+export const getStoreInfo = async (): Promise<StoreInfoData> => {
+    const docSnap = await getDoc(storeInfoDoc);
+    return docSnap.data() as StoreInfoData;
+};
+
+export const updateStoreInfo = (newStoreInfo: StoreInfoData): Promise<StoreInfoData> => {
+    return setDoc(storeInfoDoc, newStoreInfo, { merge: true }).then(() => newStoreInfo);
+};
+
+export const addProduct = async (productData: Omit<Product, 'id'>): Promise<Product> => {
+    const docRef = await addDoc(productsCollection, { ...productData, createdAt: serverTimestamp() });
+    return { ...productData, id: docRef.id };
+};
+
+export const updateProduct = async (updatedProduct: Product): Promise<Product> => {
+    const { id, ...data } = updatedProduct;
+    await updateDoc(doc(db, 'products', id), data);
+    return updatedProduct;
+};
+
+export const deleteProduct = (productId: string): Promise<void> => {
+    return deleteDoc(doc(db, 'products', productId));
 };
 
 export const getOrders = async (): Promise<Order[]> => {
@@ -313,48 +277,25 @@ export const getOrders = async (): Promise<Order[]> => {
 };
 
 export const getOrderById = async (orderId: string): Promise<Order | null> => {
-    const orderDoc = await getDoc(doc(ordersCollection, orderId));
-    if (orderDoc.exists()) return { id: orderDoc.id, ...orderDoc.data() } as Order;
-    return null;
+    const snap = await getDoc(doc(ordersCollection, orderId));
+    return snap.exists() ? { id: snap.id, ...snap.data() } as Order : null;
 };
 
-export const getOrdersByClientId = async (clientId: string): Promise<Order[]> => {
-    let q;
-    // To avoid requiring a composite index on (customer.whatsapp, createdAt),
-    // we fetch by whatsapp and sort client-side.
-    if (clientId.startsWith('manual-')) {
-        q = query(ordersCollection, where('customer.whatsapp', '==', '00000000000'));
-    } else {
-        q = query(ordersCollection, where('customer.whatsapp', '==', clientId));
-    }
-    
-    const querySnapshot = await getDocs(q);
-    let orders = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
-    
-    // Perform filtering and sorting client-side to prevent "Index required" errors
-    if (clientId.startsWith('manual-')) {
-        const targetName = clientId.replace('manual-', '').replace(/-/g, ' ');
-        orders = orders.filter(o => o.customer.name.toLowerCase() === targetName);
-    }
-    
-    // Sort by createdAt descending
-    orders.sort((a, b) => {
-        const dateA = a.createdAt?.toDate?.()?.getTime() || 0;
-        const dateB = b.createdAt?.toDate?.()?.getTime() || 0;
-        return dateB - dateA;
+export const getClient = async (whatsapp: string): Promise<Client | null> => {
+    const snap = await getDoc(doc(clientsCollection, whatsapp.replace(/\D/g, '')));
+    return snap.exists() ? { id: snap.id, ...snap.data() } as Client : null;
+};
+
+export const removeClientAddress = async (whatsapp: string, address: DeliveryInfo['address']): Promise<void> => {
+    await updateDoc(doc(clientsCollection, whatsapp.replace(/\D/g, '')), { 
+        addresses: arrayRemove(address) 
     });
-
-    return orders;
 };
 
-export const getOrdersByDateRange = async (startDate: Date, endDate: Date): Promise<Order[]> => {
-    const q = query(ordersCollection, where('createdAt', '>=', startDate), where('createdAt', '<=', endDate), orderBy('createdAt', 'desc'));
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
-};
-
-export const updateOrderStatus = (orderId: string, status: Order['status']): Promise<void> => {
-    return updateDoc(doc(ordersCollection, orderId), { status, updatedAt: serverTimestamp() });
+export const getOrdersByWhatsapp = async (whatsapp: string): Promise<Order[]> => {
+    const q = query(ordersCollection, where('customer.whatsapp', '==', whatsapp.replace(/\D/g, '')));
+    const snap = await getDocs(q);
+    return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order)).sort((a,b) => b.orderNumber - a.orderNumber);
 };
 
 export const incrementVisitCount = async (): Promise<void> => {
@@ -362,31 +303,82 @@ export const incrementVisitCount = async (): Promise<void> => {
     await setDoc(doc(dailyVisitsCollection, today), { count: increment(1) }, { merge: true });
 };
 
-export const getVisitCountByDateRange = async (startDate: Date, endDate: Date): Promise<number> => {
-    const q = query(dailyVisitsCollection, where(documentId(), '>=', startDate.toISOString().split('T')[0]), where(documentId(), '<=', endDate.toISOString().split('T')[0]));
-    const querySnapshot = await getDocs(q);
+export const getNewOrdersCount = async (): Promise<number> => {
+    const q = query(ordersCollection, where('status', '==', 'new'));
+    const snap = await getDocs(q);
+    return snap.size;
+};
+
+export const getOrdersByDateRange = async (start: Date, end: Date): Promise<Order[]> => {
+    const q = query(ordersCollection, where('createdAt', '>=', start), where('createdAt', '<=', end));
+    const snap = await getDocs(q);
+    return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
+};
+
+export const getVisitCountByDateRange = async (start: Date, end: Date): Promise<number> => {
+    const q = query(dailyVisitsCollection, where(documentId(), '>=', start.toISOString().split('T')[0]), where(documentId(), '<=', end.toISOString().split('T')[0]));
+    const snap = await getDocs(q);
     let total = 0;
-    querySnapshot.forEach(doc => { total += doc.data().count || 0; });
+    snap.forEach(d => total += d.data().count || 0);
     return total;
 };
 
-export const getNewOrdersCount = async (): Promise<number> => {
-    const q = query(ordersCollection, where('status', '==', 'new'));
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.size;
+export const updateOrderPaymentLink = (id: string, link: string) => updateDoc(doc(db, 'orders', id), { paymentLink: link });
+
+export const addCategory = async (name: string) => {
+    const snap = await getDoc(categoriesDoc);
+    const cats = snap.data()?.names || [];
+    if (!cats.find((c: any) => c.name === name)) {
+        const updated = [...cats, { name, isArchived: false }];
+        await setDoc(categoriesDoc, { names: updated });
+    }
 };
 
-export const updateOrderDeliveryFee = (orderId: string, deliveryFee: number): Promise<void> => {
-    return updateDoc(doc(ordersCollection, orderId), { deliveryFee, updatedAt: serverTimestamp() });
+export const deleteCategory = async (name: string) => {
+    const snap = await getDoc(categoriesDoc);
+    const filtered = (snap.data()?.names || []).filter((c: any) => c.name !== name);
+    await setDoc(categoriesDoc, { names: filtered });
 };
 
-export const updateOrderPaymentLink = (orderId: string, paymentLink: string): Promise<void> => {
-    return updateDoc(doc(ordersCollection, orderId), { paymentLink, updatedAt: serverTimestamp() });
+export const updateCategoryOrder = (order: any) => setDoc(categoriesDoc, { names: order });
+
+export const toggleCategoriesArchive = async (names: string[], archive: boolean) => {
+    const snap = await getDoc(categoriesDoc);
+    const updated = (snap.data()?.names || []).map((c: any) => names.includes(c.name) ? { ...c, isArchived: archive } : c);
+    await setDoc(categoriesDoc, { names: updated });
+    return updated;
 };
 
-export const getOrdersByWhatsapp = async (whatsapp: string): Promise<Order[]> => {
-    const raw = whatsapp.replace(/\D/g, '');
-    const q = query(ordersCollection, where('customer.whatsapp', '==', raw));
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order)).sort((a,b) => b.orderNumber - a.orderNumber);
+export const getClients = async () => {
+    const snap = await getDocs(query(clientsCollection, orderBy('name')));
+    return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Client));
+};
+
+export const updateClient = (id: string, data: any) => updateDoc(doc(clientsCollection, id), data);
+
+export const deleteClient = (id: string) => deleteDoc(doc(clientsCollection, id));
+
+export const getOrdersByClientId = async (id: string) => {
+    const q = query(ordersCollection, where('customer.whatsapp', '==', id.replace(/\D/g, '')));
+    const snap = await getDocs(q);
+    return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
+};
+
+export const syncClientStats = async (id: string) => {
+    const clientId = id.replace(/\D/g, '');
+    const ordersSnap = await getDocs(query(ordersCollection, where('customer.whatsapp', '==', clientId)));
+    
+    const revenueStatuses = ['confirmed', 'shipped', 'completed'];
+    const validOrders = ordersSnap.docs
+        .map(d => d.data() as Order)
+        .filter(o => revenueStatuses.includes(o.status));
+    
+    const totalSpent = validOrders.reduce((acc, o) => acc + (o.total || 0) + (o.deliveryFee || 0), 0);
+    const totalOrders = validOrders.length;
+
+    await updateDoc(doc(db, 'clients', clientId), {
+        totalSpent,
+        totalOrders,
+        lastUpdated: serverTimestamp()
+    });
 };

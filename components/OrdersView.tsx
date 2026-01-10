@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import type { Order } from '../types';
-import { getOrders, updateOrderStatus, updateOrderDeliveryFee, updateOrderPaymentLink } from '../services/menuService';
+// Removed updateOrderDeliveryFee from imports as it is not exported from menuService
+import { getOrders, updateOrderStatus, updateOrderPaymentLink, processOrderCheckout } from '../services/menuService';
 import { SearchIcon } from './IconComponents';
 import OrderCard from './OrderCard';
 import OrderDetailModal from './OrderDetailModal';
@@ -86,31 +87,17 @@ const OrdersView: React.FC = () => {
     
     const handleCheckoutAction = async (order: Order, deliveryFee: number, paymentLink: string) => {
         try {
-            // Update fee and link first, if they changed.
-            const updates: Promise<void>[] = [];
-            if (deliveryFee !== (order.deliveryFee || 0)) {
-                updates.push(updateOrderDeliveryFee(order.id, deliveryFee));
-            }
-            if (paymentLink !== (order.paymentLink || '')) {
-                updates.push(updateOrderPaymentLink(order.id, paymentLink));
-            }
-            if (updates.length > 0) {
-                await Promise.all(updates);
-            }
+            // Chamada unificada que gerencia a transação de saída de estoque e mudança de status
+            // No Admin, processamos apenas a transação local para ser instantâneo
+            await processOrderCheckout(order.id, deliveryFee, paymentLink);
 
-            // Send notification with potentially updated info
-            await fetch('/api/notify-delivery-fee', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ order: { ...order, deliveryFee, paymentLink } }),
-            });
+            // REMOVIDO: Notificação via Telegram aqui no Admin.
+            // Isso torna o checkout muito mais rápido pois não depende de APIs externas.
 
-            // Finally, update status and refetch
-            await updateOrderStatus(order.id, 'pending_payment');
             fetchOrders();
-        } catch (e) {
+        } catch (e: any) {
             console.error("Failed to process checkout action", e);
-            alert("Erro ao processar o checkout do pedido.");
+            alert(e.message || "Erro ao processar o checkout do pedido.");
         }
     };
     

@@ -2,7 +2,8 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import type { Product, StoreInfoData, Order, Client, ProductOption, DeliveryInfo, OrderItem } from '../types';
 import { getClient, addOrder, addProduct, addCategory } from '../services/menuService';
-import { SearchIcon, PlusIcon, MinusIcon, TrashIcon, SpinnerIcon, MapPinIcon, CheckCircleIcon, ChevronRightIcon, XIcon, UsersIcon } from './IconComponents';
+import { SearchIcon, PlusIcon, MinusIcon, TrashIcon, SpinnerIcon, MapPinIcon, CheckCircleIcon, ChevronRightIcon, XIcon, CalendarIcon } from './IconComponents';
+import Calendar from './Calendar';
 
 interface ManualOrderViewProps {
   products: Product[];
@@ -141,6 +142,7 @@ const ManualOrderView: React.FC<ManualOrderViewProps> = ({ products, storeInfo, 
     number: '',
     neighborhood: '',
     complement: '',
+    deliveryDate: new Date().toISOString().split('T')[0],
   });
 
   const [selectedItems, setSelectedItems] = useState<OrderItem[]>([]);
@@ -151,10 +153,12 @@ const ManualOrderView: React.FC<ManualOrderViewProps> = ({ products, storeInfo, 
   const [foundClient, setFoundClient] = useState<Client | null>(null);
   const [isSearchingClient, setIsSearchingClient] = useState(false);
   const [showCustomItemForm, setShowCustomItemForm] = useState(false);
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [customItem, setCustomItem] = useState({ name: '', price: '', category: 'Diversos', saveToMenu: false });
   const [priceEditingIdx, setPriceEditingIdx] = useState<number | null>(null);
 
   const nameInputRef = useRef<HTMLInputElement>(null);
+  const calendarRef = useRef<HTMLDivElement>(null);
 
   const formatPrice = (price: number) => price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
@@ -169,9 +173,18 @@ const ManualOrderView: React.FC<ManualOrderViewProps> = ({ products, storeInfo, 
     return ['Pix', 'Cartão de crédito', 'Dinheiro'];
   }, [storeInfo]);
 
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (calendarRef.current && !calendarRef.current.contains(event.target as Node)) {
+        setIsCalendarOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   const handleNoWhatsapp = () => {
     setCustomerData(prev => ({ ...prev, whatsapp: '(00) 00000-0000' }));
-    // Focar no nome após preencher o número padrão
     setTimeout(() => {
         nameInputRef.current?.focus();
     }, 100);
@@ -179,7 +192,6 @@ const ManualOrderView: React.FC<ManualOrderViewProps> = ({ products, storeInfo, 
 
   const handleWhatsappBlur = async () => {
     const raw = customerData.whatsapp.replace(/\D/g, '');
-    // Ignorar busca se for o número padrão
     if (raw === '00000000000') return;
 
     if (raw.length >= 10) {
@@ -310,7 +322,7 @@ const ManualOrderView: React.FC<ManualOrderViewProps> = ({ products, storeInfo, 
         total: subtotal,
         deliveryFee: parseFloat(deliveryFee || '0'),
         paymentMethod,
-        deliveryDate: new Date().toISOString().split('T')[0],
+        deliveryDate: customerData.deliveryDate,
       };
       await addOrder(orderData, true);
       alert("Venda lançada com sucesso!");
@@ -394,8 +406,32 @@ const ManualOrderView: React.FC<ManualOrderViewProps> = ({ products, storeInfo, 
             )}
 
             <div className="pt-4 border-t border-gray-100">
-              <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Endereço de Entrega (Opcional)</h4>
+              <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Agendamento & Entrega</h4>
               <div className="space-y-4">
+                <div className="relative" ref={calendarRef}>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Data de Entrega</label>
+                    <button
+                        type="button"
+                        onClick={() => setIsCalendarOpen(!isCalendarOpen)}
+                        className="w-full flex items-center justify-between px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 shadow-sm hover:bg-gray-50 focus:ring-2 focus:ring-brand-primary outline-none"
+                    >
+                        <span>{new Date(customerData.deliveryDate + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'long' })}</span>
+                        <CalendarIcon className="w-5 h-5 text-gray-400" />
+                    </button>
+                    {isCalendarOpen && (
+                        <div className="absolute z-50 left-0 right-0 top-full mt-2">
+                            <Calendar
+                                selectedDate={customerData.deliveryDate}
+                                minDate={new Date().toISOString().split('T')[0]}
+                                onDateSelect={(date) => {
+                                    setCustomerData({ ...customerData, deliveryDate: date });
+                                    setIsCalendarOpen(false);
+                                }}
+                            />
+                        </div>
+                    )}
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div className="sm:col-span-1">
                         <label className="block text-xs font-bold text-gray-500 uppercase mb-1">CEP</label>

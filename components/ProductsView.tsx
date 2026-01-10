@@ -197,6 +197,8 @@ const ProductsView: React.FC<ProductsViewProps> = ({
     category: '',
     imageUrls: '',
     leadTimeDays: '0',
+    inventoryEnabled: false,
+    inventoryQuantity: '0'
   };
 
   const [productForm, setProductForm] = useState(initialFormState);
@@ -237,8 +239,12 @@ const ProductsView: React.FC<ProductsViewProps> = ({
   }, [productOptions, isProductModalOpen]);
   
   const handleProductFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setProductForm(prev => ({ ...prev, [name]: value }));
+    const { name, value, type } = e.target as HTMLInputElement;
+    if (type === 'checkbox') {
+        setProductForm(prev => ({ ...prev, [name]: (e.target as HTMLInputElement).checked }));
+    } else {
+        setProductForm(prev => ({ ...prev, [name]: value }));
+    }
   };
 
   const openAddProductModal = () => {
@@ -259,6 +265,8 @@ const ProductsView: React.FC<ProductsViewProps> = ({
         category: product.category,
         imageUrls: product.imageUrls ? product.imageUrls.join('\n') : '',
         leadTimeDays: String(product.leadTimeDays || 0),
+        inventoryEnabled: !!product.inventoryEnabled,
+        inventoryQuantity: String(product.inventoryQuantity || 0)
     });
     setProductOptions(product.options || []);
     setIsProductModalOpen(true);
@@ -274,6 +282,8 @@ const ProductsView: React.FC<ProductsViewProps> = ({
         category: product.category,
         imageUrls: product.imageUrls ? product.imageUrls.join('\n') : '',
         leadTimeDays: String(product.leadTimeDays || 0),
+        inventoryEnabled: !!product.inventoryEnabled,
+        inventoryQuantity: String(product.inventoryQuantity || 0)
     });
     setProductOptions(product.options || []);
     setEditingProduct(null); 
@@ -336,8 +346,6 @@ const ProductsView: React.FC<ProductsViewProps> = ({
           effectivePrice = Math.min(...productOptions.map(o => o.price));
       }
 
-      // IMPORTANTE: Começar com um objeto limpo e adicionar apenas o que for preenchido
-      // Isso garante que se o campo for limpo no formulário, a propriedade será removida no Firebase
       const productData: any = {
         name: productForm.name,
         description: productForm.description,
@@ -346,6 +354,8 @@ const ProductsView: React.FC<ProductsViewProps> = ({
         imageUrls: imageUrlsArray,
         leadTimeDays: parseInt(productForm.leadTimeDays, 10) || 0,
         options: productOptions,
+        inventoryEnabled: productForm.inventoryEnabled,
+        inventoryQuantity: parseInt(productForm.inventoryQuantity, 10) || 0,
       };
 
       if (editingProduct) {
@@ -356,10 +366,6 @@ const ProductsView: React.FC<ProductsViewProps> = ({
       if (!isNaN(origPrice) && origPrice > 0) {
         productData.originalPrice = origPrice;
       } else {
-        // Se o campo estiver em branco, passamos null ou 0 para limpar ou deixamos de fora
-        // Mas o updateDoc do Firebase precisa saber que deve remover se não enviarmos.
-        // No nosso service, estamos enviando o objeto completo, então se não existir a chave, o Firebase mantém.
-        // Para remover, definimos como null.
         productData.originalPrice = null;
       }
 
@@ -575,6 +581,35 @@ const ProductsView: React.FC<ProductsViewProps> = ({
                                         <input type="number" name="originalPrice" id="originalPrice" value={productForm.originalPrice} onChange={handleProductFormChange} className={inputStyles} step="0.01" min="0" placeholder="Sem promoção" />
                                     </div>
                                 </div>
+
+                                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <input 
+                                            type="checkbox" 
+                                            id="inventoryEnabled" 
+                                            name="inventoryEnabled" 
+                                            checked={!!productForm.inventoryEnabled} 
+                                            onChange={handleProductFormChange}
+                                            className="w-4 h-4 text-brand-primary border-gray-300 rounded focus:ring-brand-primary"
+                                        />
+                                        <label htmlFor="inventoryEnabled" className="text-sm font-bold text-brand-text">Habilitar Controle de Estoque</label>
+                                    </div>
+                                    {productForm.inventoryEnabled && (
+                                        <div className="animate-fade-in">
+                                            <label htmlFor="inventoryQuantity" className="block text-sm font-medium text-brand-text-light">Quantidade Disponível</label>
+                                            <input 
+                                                type="number" 
+                                                name="inventoryQuantity" 
+                                                id="inventoryQuantity" 
+                                                value={productForm.inventoryQuantity} 
+                                                onChange={handleProductFormChange} 
+                                                className={inputStyles} 
+                                                min="0"
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div>
                                         <label htmlFor="category" className="block text-sm font-medium text-brand-text-light">Categoria</label>
@@ -814,6 +849,11 @@ const ProductsView: React.FC<ProductsViewProps> = ({
                                         <p className="text-[10px] sm:text-xs text-gray-500 truncate max-w-[150px]">{p.category}</p>
                                         {isArchived && (
                                             <span className="text-[9px] font-bold bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded uppercase flex-shrink-0">Arquivada</span>
+                                        )}
+                                        {p.inventoryEnabled && (
+                                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase flex-shrink-0 ${p.inventoryQuantity && p.inventoryQuantity > 0 ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}`}>
+                                                Estoque: {p.inventoryQuantity || 0}
+                                            </span>
                                         )}
                                         {p.promotionalTag && (
                                             <span className="text-[9px] font-bold bg-brand-primary text-white px-1.5 py-0.5 rounded uppercase flex-shrink-0">{p.promotionalTag}</span>

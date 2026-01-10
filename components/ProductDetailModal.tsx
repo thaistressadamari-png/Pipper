@@ -57,7 +57,14 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
   }, [isImageFullscreen, product, handleImageNavigation, setIsImageFullscreen]);
   
   const handleQuantityChange = (amount: number) => {
-    setQuantity(prev => Math.max(1, prev + amount));
+    setQuantity(prev => {
+        const next = Math.max(1, prev + amount);
+        // Se estoque habilitado, não deixa passar do saldo
+        if (product?.inventoryEnabled && next > (product.inventoryQuantity || 0)) {
+            return prev;
+        }
+        return next;
+    });
   };
   
   const handleAddToCartClick = () => {
@@ -66,6 +73,12 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
             alert("Por favor, selecione uma opção.");
             return;
         }
+        
+        if (product.inventoryEnabled && quantity > (product.inventoryQuantity || 0)) {
+            alert("Desculpe, a quantidade desejada é maior do que o nosso estoque disponível.");
+            return;
+        }
+
       onAddToCart(product, quantity, observations, selectedOption || undefined);
     }
   };
@@ -79,10 +92,11 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
   const currentPrice = selectedOption ? selectedOption.price : product.price;
   const total = currentPrice * quantity;
   const hasImages = product.imageUrls && product.imageUrls.length > 0;
+  
+  const isSoldOut = product.inventoryEnabled && (product.inventoryQuantity || 0) <= 0;
 
   return (
     <>
-      {/* Fullscreen Image Gallery (Modal) */}
       {isImageFullscreen && hasImages && (
         <div 
             className="fixed inset-0 bg-black bg-opacity-90 z-[60] flex items-center justify-center p-4"
@@ -125,7 +139,6 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
         </div>
       )}
       
-      {/* Full Page Product Detail */}
       <div
         className="fixed inset-0 z-50 bg-white flex flex-col animate-slide-in-up"
         role="dialog"
@@ -145,8 +158,13 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
                      <img 
                         src={product.imageUrls[currentImageIndex]} 
                         alt={product.name} 
-                        className="w-full h-full object-cover" 
+                        className={`w-full h-full object-cover ${isSoldOut ? 'grayscale' : ''}`} 
                      />
+                     {isSoldOut && (
+                         <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                             <span className="bg-red-600 text-white font-bold px-6 py-2 rounded-lg text-xl uppercase tracking-widest shadow-xl">ESGOTADO</span>
+                         </div>
+                     )}
                   </div>
                   
                   <button 
@@ -164,7 +182,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
                       <ExpandIcon className="w-6 h-6"/>
                   </button>
                   
-                  {product.imageUrls.length > 1 && (
+                  {product.imageUrls.length > 1 && !isSoldOut && (
                       <>
                           <button
                               onClick={(e) => { e.stopPropagation(); handleImageNavigation('prev'); }}
@@ -207,12 +225,21 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
             )}
             
             <div className="p-6 space-y-6">
-                {!hasImages && <h1 id="product-title" className="text-2xl font-bold text-brand-text">{product.name}</h1>}
-                {hasImages && <h1 id="product-title" className="text-2xl font-bold text-brand-text mb-2">{product.name}</h1>}
+                <div className="flex justify-between items-start">
+                    <div className="flex-grow">
+                        {!hasImages && <h1 id="product-title" className="text-2xl font-bold text-brand-text">{product.name}</h1>}
+                        {hasImages && <h1 id="product-title" className="text-2xl font-bold text-brand-text mb-2">{product.name}</h1>}
+                    </div>
+                    {product.inventoryEnabled && (
+                        <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${product.inventoryQuantity && product.inventoryQuantity > 0 ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}`}>
+                            Saldo: {product.inventoryQuantity || 0}
+                        </span>
+                    )}
+                </div>
                 
                 <p className="text-brand-text-light whitespace-pre-wrap text-base leading-relaxed">{product.description}</p>
                 
-                {product.options && product.options.length > 0 && (
+                {product.options && product.options.length > 0 && !isSoldOut && (
                     <div className="pt-4 border-t border-gray-100">
                         <h3 className="text-base font-bold text-brand-text mb-3">Escolha uma opção:</h3>
                         <div className="space-y-3">
@@ -235,47 +262,51 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
                     </div>
                 )}
   
-                <div className="pt-4 border-t border-gray-100">
-                    <label htmlFor="observations" className="block text-sm font-bold text-brand-text mb-2">Observações</label>
-                    <textarea 
-                        id="observations"
-                        value={observations}
-                        onChange={(e) => setObservations(e.target.value)}
-                        rows={3}
-                        placeholder="Digite as observações aqui..."
-                        className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-base text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent transition-colors duration-200"
-                    />
-                </div>
+                {!isSoldOut && (
+                    <div className="pt-4 border-t border-gray-100">
+                        <label htmlFor="observations" className="block text-sm font-bold text-brand-text mb-2">Observações</label>
+                        <textarea 
+                            id="observations"
+                            value={observations}
+                            onChange={(e) => setObservations(e.target.value)}
+                            rows={3}
+                            placeholder="Digite as observações aqui..."
+                            className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-base text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent transition-colors duration-200"
+                        />
+                    </div>
+                )}
             </div>
           </div>
         </div>
         
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] z-30">
-            <div className="max-w-2xl mx-auto w-full">
-                <div className="flex justify-between items-center mb-4">
-                    <div className="flex flex-col">
-                      <span className="text-sm text-gray-500">Total</span>
-                      <span className={`text-2xl font-bold ${product.originalPrice && !selectedOption ? 'text-brand-accent' : 'text-brand-text'}`}>
-                          {formatPrice(total)}
-                      </span>
+        {!isSoldOut && (
+            <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] z-30">
+                <div className="max-w-2xl mx-auto w-full">
+                    <div className="flex justify-between items-center mb-4">
+                        <div className="flex flex-col">
+                          <span className="text-sm text-gray-500">Total</span>
+                          <span className={`text-2xl font-bold ${product.originalPrice && !selectedOption ? 'text-brand-accent' : 'text-brand-text'}`}>
+                              {formatPrice(total)}
+                          </span>
+                        </div>
+                        <div className="flex items-center bg-gray-100 rounded-full">
+                          <button onClick={() => handleQuantityChange(-1)} disabled={quantity === 1} className="p-3 rounded-full text-brand-text hover:bg-gray-200 transition disabled:opacity-30"><MinusIcon className="w-5 h-5" /></button>
+                          <span className="px-4 text-xl font-bold w-14 text-center text-brand-text">{quantity}</span>
+                          <button onClick={() => handleQuantityChange(1)} className="p-3 rounded-full text-brand-text hover:bg-gray-200 transition"><PlusIcon className="w-5 h-5" /></button>
+                        </div>
                     </div>
-                    <div className="flex items-center bg-gray-100 rounded-full">
-                      <button onClick={() => handleQuantityChange(-1)} disabled={quantity === 1} className="p-3 rounded-full text-brand-text hover:bg-gray-200 transition disabled:opacity-30"><MinusIcon className="w-5 h-5" /></button>
-                      <span className="px-4 text-xl font-bold w-14 text-center text-brand-text">{quantity}</span>
-                      <button onClick={() => handleQuantityChange(1)} className="p-3 rounded-full text-brand-text hover:bg-gray-200 transition"><PlusIcon className="w-5 h-5" /></button>
-                    </div>
+                    <button 
+                      onClick={handleAddToCartClick}
+                      className="w-full bg-brand-primary text-white font-bold py-4 px-6 rounded-xl text-lg flex items-center justify-center gap-3 hover:bg-brand-primary-dark transition-colors duration-300 shadow-md active:scale-[0.98]"
+                    >
+                        <ShoppingBagIcon className="w-6 h-6" />
+                        <span>
+                            Adicionar ao Carrinho
+                        </span>
+                    </button>
                 </div>
-                <button 
-                  onClick={handleAddToCartClick}
-                  className="w-full bg-brand-primary text-white font-bold py-4 px-6 rounded-xl text-lg flex items-center justify-center gap-3 hover:bg-brand-primary-dark transition-colors duration-300 shadow-md active:scale-[0.98]"
-                >
-                    <ShoppingBagIcon className="w-6 h-6" />
-                    <span>
-                        Adicionar ao Carrinho
-                    </span>
-                </button>
             </div>
-        </div>
+        )}
       </div>
     </>
   );

@@ -16,6 +16,8 @@ export interface Product {
   leadTimeDays: number;
   options?: ProductOption[];
   createdAt?: any;
+  inventoryEnabled?: boolean;
+  inventoryQuantity?: number;
 }
 
 export interface CategoryMetadata {

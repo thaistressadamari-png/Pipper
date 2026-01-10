@@ -24,7 +24,6 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ order, isOpen, onCl
         }
     }, [order]);
 
-    // Bloqueia o scroll do body quando o modal está aberto
     useEffect(() => {
         if (isOpen) {
             document.body.style.overflow = 'hidden';
@@ -53,9 +52,15 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ order, isOpen, onCl
     
     const handleActionClick = async (action: () => Promise<void>) => {
         setIsSubmitting(true);
-        await action();
-        setIsSubmitting(false);
-        onClose();
+        try {
+            await action();
+            onClose();
+        } catch (e) {
+            console.error(e);
+            alert("Erro ao realizar ação.");
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     const handleCheckoutClick = async () => {
@@ -69,7 +74,6 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ order, isOpen, onCl
 
     const totalWithFee = (order.total || 0) + parseFloat(deliveryFee || '0');
 
-    // Helper for buttons to ensure consistent styling
     const ActionBtn: React.FC<{ onClick: () => void, colorClass: string, children: React.ReactNode }> = ({ onClick, colorClass, children }) => (
         <button 
             onClick={onClick} 
@@ -85,7 +89,7 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ order, isOpen, onCl
             case 'new':
                 return (
                     <>
-                        <ActionBtn onClick={() => { handleCheckoutClick(); }} colorClass="text-white bg-green-600 hover:bg-green-700">
+                        <ActionBtn onClick={handleCheckoutClick} colorClass="text-white bg-green-600 hover:bg-green-700">
                             Checkout
                         </ActionBtn>
                         <ActionBtn onClick={() => { handleActionClick(() => onStatusUpdate(order.id, 'archived')); }} colorClass="text-gray-700 bg-gray-100 hover:bg-gray-200">
@@ -139,14 +143,12 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ order, isOpen, onCl
 
     return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-            {/* Backdrop: Fundo escuro absoluto cobrindo todo o container fixo */}
             <div 
                 className="absolute inset-0 bg-black/60 backdrop-blur-sm"
                 onClick={onClose}
                 aria-hidden="true"
             />
             
-            {/* Modal Card: Relativo para ficar acima do backdrop */}
             <div className="relative bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden">
                 <div className="flex-1 overflow-y-auto px-6 pt-6 pb-12 space-y-6">
                     <header className="flex items-center justify-between border-b pb-4">

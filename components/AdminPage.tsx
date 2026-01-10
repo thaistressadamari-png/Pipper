@@ -7,6 +7,7 @@ import StoreInfoView from './StoreInfoView';
 import OrdersView from './OrdersView';
 import ClientsView from './ClientsView';
 import ManualOrderView from './ManualOrderView';
+import InventoryView from './InventoryView';
 import { DashboardIcon, BoxIcon, StoreIcon, MenuIcon, XIcon, ClipboardListIcon, UsersIcon, PlusIcon } from './IconComponents';
 import { getNewOrdersCount } from '../services/menuService';
 
@@ -27,7 +28,7 @@ interface AdminPageProps {
 }
 
 const AdminPage: React.FC<AdminPageProps> = (props) => {
-  const [activeView, setActiveView] = useState<'dashboard' | 'products' | 'store' | 'orders' | 'clients' | 'manual_order'>('dashboard');
+  const [activeView, setActiveView] = useState<'dashboard' | 'products' | 'inventory' | 'store' | 'orders' | 'clients' | 'manual_order'>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [newOrdersCount, setNewOrdersCount] = useState(0);
   
@@ -54,7 +55,7 @@ const AdminPage: React.FC<AdminPageProps> = (props) => {
     return () => clearInterval(intervalId);
   }, []);
 
-  const handleNavClick = (view: 'dashboard' | 'products' | 'store' | 'orders' | 'clients' | 'manual_order') => {
+  const handleNavClick = (view: 'dashboard' | 'products' | 'inventory' | 'store' | 'orders' | 'clients' | 'manual_order') => {
     setActiveView(view);
     setIsSidebarOpen(false);
   };
@@ -75,6 +76,8 @@ const AdminPage: React.FC<AdminPageProps> = (props) => {
         return <DashboardView products={props.products} />;
       case 'products':
         return <ProductsView {...props} />;
+      case 'inventory':
+        return <InventoryView products={props.products} onUpdateProduct={props.onUpdateProduct} />;
       case 'store':
         return <StoreInfoView {...props} />;
       case 'orders':
@@ -96,13 +99,13 @@ const AdminPage: React.FC<AdminPageProps> = (props) => {
             <XIcon className="w-6 h-6" />
           </button>
         </div>
-        <nav className="flex-grow p-4 space-y-2">
+        <nav className="flex-grow p-4 space-y-1">
           <button onClick={() => handleNavClick('dashboard')} className={navItemClasses('dashboard')}>
             <DashboardIcon className={navIconClasses('dashboard')} />
             Dashboard
           </button>
           
-          <button onClick={() => handleNavClick('manual_order')} className={`${navItemClasses('manual_order')} bg-brand-accent/10 text-brand-accent border border-brand-accent/20`}>
+          <button onClick={() => handleNavClick('manual_order')} className={`${navItemClasses('manual_order')} bg-brand-accent/10 text-brand-accent border border-brand-accent/20 mb-2`}>
             <PlusIcon className={`${navIconClasses('manual_order')} !text-brand-accent`} />
             Novo Pedido
           </button>
@@ -120,9 +123,16 @@ const AdminPage: React.FC<AdminPageProps> = (props) => {
             <UsersIcon className={navIconClasses('clients')} />
             Clientes
           </button>
+          <div className="pt-2 pb-1 px-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Catálogo</div>
           <button onClick={() => handleNavClick('products')} className={navItemClasses('products')}>
             <BoxIcon className={navIconClasses('products')} />
             Produtos
+          </button>
+          <button onClick={() => handleNavClick('inventory')} className={navItemClasses('inventory')}>
+            <svg xmlns="http://www.w3.org/2000/svg" className={navIconClasses('inventory')} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+            </svg>
+            Estoque
           </button>
           <button onClick={() => handleNavClick('store')} className={navItemClasses('store')}>
             <StoreIcon className={navIconClasses('store')} />
@@ -144,6 +154,7 @@ const AdminPage: React.FC<AdminPageProps> = (props) => {
     switch(activeView) {
         case 'dashboard': return 'Dashboard';
         case 'products': return 'Gerenciar Produtos';
+        case 'inventory': return 'Gestão de Estoque';
         case 'store': return 'Informações da Loja';
         case 'orders': return 'Gerenciar Pedidos';
         case 'clients': return 'Clientes';
