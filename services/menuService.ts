@@ -1,3 +1,4 @@
+
 import {
     collection,
     getDocs,
@@ -76,50 +77,55 @@ export const initializeFirebaseData = async () => {
 };
 
 const deductInventory = async (transaction: any, orderData: Order, orderRef: any) => {
+    // READ phase
     const orderSnap = await transaction.get(orderRef);
     if (!orderSnap.exists()) return;
-    
     const currentOrderData = orderSnap.data();
     if (currentOrderData?.inventoryReduced === true) return;
 
+    const updates: { ref: any, newQty: number }[] = [];
     for (const item of orderData.items) {
         const pRef = doc(db, 'products', item.id);
         const pSnap = await transaction.get(pRef);
-        
         if (pSnap.exists()) {
             const pData = pSnap.data() as Product;
             if (pData.inventoryEnabled) {
                 const currentQty = pData.inventoryQuantity || 0;
-                const newQty = Math.max(0, currentQty - item.quantity);
-                transaction.update(pRef, { inventoryQuantity: newQty });
+                updates.push({ ref: pRef, newQty: Math.max(0, currentQty - item.quantity) });
             }
         }
     }
-    
+
+    // WRITE phase
+    for (const up of updates) {
+        transaction.update(up.ref, { inventoryQuantity: up.newQty });
+    }
     transaction.update(orderRef, { inventoryReduced: true });
 };
 
 const returnInventory = async (transaction: any, orderData: Order, orderRef: any) => {
+    // READ phase
     const orderSnap = await transaction.get(orderRef);
     if (!orderSnap.exists()) return;
-
     const currentOrderData = orderSnap.data();
     if (currentOrderData?.inventoryReduced === false) return;
 
+    const updates: { ref: any, qty: number }[] = [];
     for (const item of orderData.items) {
         const pRef = doc(db, 'products', item.id);
         const pSnap = await transaction.get(pRef);
-        
         if (pSnap.exists()) {
             const pData = pSnap.data() as Product;
             if (pData.inventoryEnabled) {
-                transaction.update(pRef, { 
-                    inventoryQuantity: increment(item.quantity) 
-                });
+                updates.push({ ref: pRef, qty: item.quantity });
             }
         }
     }
-    
+
+    // WRITE phase
+    for (const up of updates) {
+        transaction.update(up.ref, { inventoryQuantity: increment(up.qty) });
+    }
     transaction.update(orderRef, { inventoryReduced: false });
 };
 
@@ -134,44 +140,8 @@ export const getMenu = async (): Promise<{ products: Product[], categories: Cate
     return { products, categories };
 };
 
-const updateClientInfoOnOrder = async (transaction: any, orderData: Order) => {
-    const clientId = orderData.customer.whatsapp.replace(/\D/g, '');
-    if (!clientId) return;
-
-    const clientRef = doc(db, 'clients', clientId);
-    const clientSnap = await transaction.get(clientRef);
-    
-    const address = orderData.delivery.address;
-
-    if (!clientSnap.exists()) {
-        transaction.set(clientRef, {
-            id: clientId,
-            name: orderData.customer.name,
-            firstOrderDate: orderData.createdAt || serverTimestamp(),
-            lastOrderDate: orderData.createdAt || serverTimestamp(),
-            totalOrders: 0,
-            totalSpent: 0,
-            addresses: [address],
-            orderIds: [orderData.id]
-        });
-    } else {
-        const clientData = clientSnap.data();
-        const currentAddresses = clientData.addresses || [];
-        const isNewAddress = !currentAddresses.some((a: any) => 
-            a.cep === address.cep && a.number === address.number
-        );
-
-        transaction.update(clientRef, {
-            lastOrderDate: serverTimestamp(),
-            orderIds: arrayUnion(orderData.id),
-            addresses: isNewAddress ? arrayUnion(address) : currentAddresses
-        });
-    }
-};
-
 export const updateOrderStatus = async (orderId: string, status: Order['status']): Promise<void> => {
     const orderRef = doc(db, 'orders', orderId);
-    
     await runTransaction(db, async (transaction) => {
         const orderSnap = await transaction.get(orderRef);
         if (!orderSnap.exists()) throw new Error("Pedido não encontrado");
@@ -179,35 +149,60 @@ export const updateOrderStatus = async (orderId: string, status: Order['status']
 
         const statusThatRequireInventoryDeduction = ['pending_payment', 'confirmed', 'shipped', 'completed'];
         
+        // Firestore Transactions: All reads must be done before any writes.
+        // We pass the transaction and let internal functions handle their reads first.
         if (statusThatRequireInventoryDeduction.includes(status)) {
             await deductInventory(transaction, orderData, orderRef);
-        }
-
-        if (status === 'archived') {
+        } else if (status === 'archived') {
             await returnInventory(transaction, orderData, orderRef);
         }
 
+        // Final WRITE
         transaction.update(orderRef, { status, updatedAt: serverTimestamp() });
-        
-        // Sempre sincronizar os totais do cliente quando o status muda para algo faturável ou finalizado
-        const clientId = orderData.customer.whatsapp.replace(/\D/g, '');
-        if (clientId) {
-            // A sincronização real de valores será feita via trigger ou no próximo carregamento de estatísticas
-        }
     });
 };
 
 export const processOrderCheckout = async (orderId: string, deliveryFee: number, paymentLink: string): Promise<void> => {
     const orderRef = doc(db, 'orders', orderId);
-    
     await runTransaction(db, async (transaction) => {
         const orderSnap = await transaction.get(orderRef);
         if (!orderSnap.exists()) throw new Error("Pedido não encontrado");
         const orderData = { id: orderSnap.id, ...orderSnap.data() } as Order;
 
-        await deductInventory(transaction, orderData, orderRef);
-        await updateClientInfoOnOrder(transaction, orderData);
+        const clientId = orderData.customer.whatsapp.replace(/\D/g, '');
+        const clientRef = doc(db, 'clients', clientId);
+        const clientSnap = await transaction.get(clientRef);
 
+        // All reads for inventory
+        await deductInventory(transaction, orderData, orderRef);
+
+        // Writes for client
+        const address = orderData.delivery.address;
+        if (!clientSnap.exists()) {
+            transaction.set(clientRef, {
+                id: clientId,
+                name: orderData.customer.name,
+                firstOrderDate: serverTimestamp(),
+                lastOrderDate: serverTimestamp(),
+                totalOrders: 0,
+                totalSpent: 0,
+                addresses: [address],
+                orderIds: [orderData.id]
+            });
+        } else {
+            const clientData = clientSnap.data();
+            const currentAddresses = clientData.addresses || [];
+            const isNewAddress = !currentAddresses.some((a: any) => 
+                a.cep === address.cep && a.number === address.number
+            );
+            transaction.update(clientRef, {
+                lastOrderDate: serverTimestamp(),
+                orderIds: arrayUnion(orderData.id),
+                addresses: isNewAddress ? arrayUnion(address) : currentAddresses
+            });
+        }
+
+        // Final WRITE for order
         transaction.update(orderRef, {
             deliveryFee,
             paymentLink,
@@ -218,32 +213,60 @@ export const processOrderCheckout = async (orderId: string, deliveryFee: number,
 };
 
 export const addOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt' | 'orderNumber' | 'status'>, saveAddress: boolean = true): Promise<Order> => {
-    let newOrder: Order | null = null;
-    await runTransaction(db, async (transaction) => {
-        const counterRef = doc(db, 'metadata', 'counters');
-        const counterDoc = await transaction.get(counterRef);
-        const newOrderNumber = counterDoc.exists() ? counterDoc.data().orderNumber + 1 : 1001;
-        transaction.set(counterRef, { orderNumber: newOrderNumber }, { merge: true });
+    const orderRef = doc(collection(db, 'orders'));
+    const counterRef = doc(db, 'metadata', 'counters');
+    const clientId = orderData.customer.whatsapp.replace(/\D/g, '');
+    const clientRef = doc(db, 'clients', clientId);
 
-        const orderRef = doc(collection(db, 'orders'));
-        const now = serverTimestamp();
+    return await runTransaction(db, async (transaction) => {
+        // READS
+        const counterDoc = await transaction.get(counterRef);
+        const clientSnap = await transaction.get(clientRef);
+        
+        const newOrderNumber = counterDoc.exists() ? counterDoc.data().orderNumber + 1 : 1001;
+        const now = Timestamp.now();
         const fullOrderData = {
             ...orderData,
             orderNumber: newOrderNumber,
             status: 'new' as const,
             inventoryReduced: false,
-            createdAt: now,
-            updatedAt: now,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
         };
+
+        // WRITES
+        transaction.set(counterRef, { orderNumber: newOrderNumber }, { merge: true });
         transaction.set(orderRef, fullOrderData);
-        newOrder = { ...fullOrderData, id: orderRef.id, createdAt: Timestamp.now(), updatedAt: Timestamp.now() };
-        
+
         if (saveAddress) {
-            await updateClientInfoOnOrder(transaction, newOrder);
+            const address = orderData.delivery.address;
+            if (!clientSnap.exists()) {
+                transaction.set(clientRef, {
+                    id: clientId,
+                    name: orderData.customer.name,
+                    firstOrderDate: serverTimestamp(),
+                    lastOrderDate: serverTimestamp(),
+                    totalOrders: 0,
+                    totalSpent: 0,
+                    addresses: [address],
+                    orderIds: [orderRef.id]
+                });
+            } else {
+                const clientData = clientSnap.data();
+                const currentAddresses = clientData.addresses || [];
+                const isNewAddress = !currentAddresses.some((a: any) => 
+                    a.cep === address.cep && a.number === address.number
+                );
+                transaction.update(clientRef, {
+                    lastOrderDate: serverTimestamp(),
+                    orderIds: arrayUnion(orderRef.id),
+                    addresses: isNewAddress ? arrayUnion(address) : currentAddresses
+                });
+            }
         }
+
+        return { ...fullOrderData, id: orderRef.id, createdAt: now, updatedAt: now } as Order;
     });
-    if (!newOrder) throw new Error("Falha ao criar pedido.");
-    return newOrder;
 };
 
 export const getStoreInfo = async (): Promise<StoreInfoData> => {
