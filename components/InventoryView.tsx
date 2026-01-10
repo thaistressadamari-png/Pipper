@@ -1,7 +1,7 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import type { Product } from '../types';
-import { SearchIcon, PlusIcon, MinusIcon, TrashIcon, CheckCircleIcon, XIcon, BoxIcon } from './IconComponents';
+import { SearchIcon, PlusIcon, MinusIcon, TrashIcon, CheckCircleIcon, XIcon, BoxIcon, SpinnerIcon } from './IconComponents';
 
 interface InventoryViewProps {
     products: Product[];
@@ -87,9 +87,9 @@ const InventoryModal: React.FC<{
                     <button 
                         onClick={handleSave}
                         disabled={isSaving || !value}
-                        className="w-full py-4 bg-brand-primary text-white font-bold rounded-xl shadow-lg hover:bg-brand-primary-dark active:scale-95 transition-all disabled:opacity-50"
+                        className="w-full py-4 bg-brand-primary text-white font-bold rounded-xl shadow-lg hover:bg-brand-primary-dark active:scale-95 transition-all disabled:opacity-50 flex justify-center items-center"
                     >
-                        {isSaving ? 'Salvando...' : 'Confirmar Atualização'}
+                        {isSaving ? <SpinnerIcon className="w-6 h-6" /> : 'Confirmar Atualização'}
                     </button>
                 </div>
             </div>
@@ -97,23 +97,42 @@ const InventoryModal: React.FC<{
     );
 };
 
-const InventoryView: React.FC<InventoryViewProps> = ({ products, onUpdateProduct }) => {
+const InventoryView: React.FC<InventoryViewProps> = ({ products: initialProducts, onUpdateProduct }) => {
     const [search, setSearch] = useState('');
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+    // Estado local para refletir mudanças instantaneamente sem esperar o fetch global
+    const [localProducts, setLocalProducts] = useState<Product[]>(initialProducts);
+
+    // Sincroniza o estado local quando os produtos iniciais mudam
+    useEffect(() => {
+        setLocalProducts(initialProducts);
+    }, [initialProducts]);
 
     const inventoryProducts = useMemo(() => {
-        return products
+        return localProducts
             .filter(p => p.inventoryEnabled)
             .filter(p => p.name.toLowerCase().includes(search.toLowerCase()))
             .sort((a, b) => (a.inventoryQuantity || 0) - (b.inventoryQuantity || 0));
-    }, [products, search]);
+    }, [localProducts, search]);
 
     const handleUpdateQuantity = async (newQuantity: number) => {
         if (!selectedProduct) return;
-        await onUpdateProduct({
+        
+        const updatedProduct = {
             ...selectedProduct,
             inventoryQuantity: newQuantity
-        });
+        };
+
+        // Atualização Otimista: Muda na tela agora!
+        setLocalProducts(prev => prev.map(p => p.id === selectedProduct.id ? updatedProduct : p));
+
+        try {
+            await onUpdateProduct(updatedProduct);
+        } catch (e) {
+            // Se falhar no banco, reverte o estado local
+            setLocalProducts(initialProducts);
+            alert("Erro ao sincronizar com o servidor. O valor foi revertido.");
+        }
     };
 
     return (
@@ -156,7 +175,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ products, onUpdateProduct
                                 <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">{p.category}</p>
                                 
                                 <div className="mt-2 flex items-center gap-2">
-                                    <div className={`px-2 py-1 rounded-md text-xs font-black ${
+                                    <div className={`px-2 py-1 rounded-md text-xs font-black transition-colors duration-500 ${
                                         (p.inventoryQuantity || 0) <= 0 
                                             ? 'bg-red-100 text-red-700' 
                                             : (p.inventoryQuantity || 0) <= 5 

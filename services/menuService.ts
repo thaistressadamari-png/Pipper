@@ -149,15 +149,12 @@ export const updateOrderStatus = async (orderId: string, status: Order['status']
 
         const statusThatRequireInventoryDeduction = ['pending_payment', 'confirmed', 'shipped', 'completed'];
         
-        // Firestore Transactions: All reads must be done before any writes.
-        // We pass the transaction and let internal functions handle their reads first.
         if (statusThatRequireInventoryDeduction.includes(status)) {
             await deductInventory(transaction, orderData, orderRef);
         } else if (status === 'archived') {
             await returnInventory(transaction, orderData, orderRef);
         }
 
-        // Final WRITE
         transaction.update(orderRef, { status, updatedAt: serverTimestamp() });
     });
 };
@@ -173,10 +170,8 @@ export const processOrderCheckout = async (orderId: string, deliveryFee: number,
         const clientRef = doc(db, 'clients', clientId);
         const clientSnap = await transaction.get(clientRef);
 
-        // All reads for inventory
         await deductInventory(transaction, orderData, orderRef);
 
-        // Writes for client
         const address = orderData.delivery.address;
         if (!clientSnap.exists()) {
             transaction.set(clientRef, {
@@ -190,19 +185,13 @@ export const processOrderCheckout = async (orderId: string, deliveryFee: number,
                 orderIds: [orderData.id]
             });
         } else {
-            const clientData = clientSnap.data();
-            const currentAddresses = clientData.addresses || [];
-            const isNewAddress = !currentAddresses.some((a: any) => 
-                a.cep === address.cep && a.number === address.number
-            );
             transaction.update(clientRef, {
                 lastOrderDate: serverTimestamp(),
                 orderIds: arrayUnion(orderData.id),
-                addresses: isNewAddress ? arrayUnion(address) : currentAddresses
+                addresses: arrayUnion(address)
             });
         }
 
-        // Final WRITE for order
         transaction.update(orderRef, {
             deliveryFee,
             paymentLink,
@@ -219,7 +208,6 @@ export const addOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'upda
     const clientRef = doc(db, 'clients', clientId);
 
     return await runTransaction(db, async (transaction) => {
-        // READS
         const counterDoc = await transaction.get(counterRef);
         const clientSnap = await transaction.get(clientRef);
         
@@ -234,7 +222,6 @@ export const addOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'upda
             updatedAt: serverTimestamp(),
         };
 
-        // WRITES
         transaction.set(counterRef, { orderNumber: newOrderNumber }, { merge: true });
         transaction.set(orderRef, fullOrderData);
 
@@ -252,15 +239,10 @@ export const addOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'upda
                     orderIds: [orderRef.id]
                 });
             } else {
-                const clientData = clientSnap.data();
-                const currentAddresses = clientData.addresses || [];
-                const isNewAddress = !currentAddresses.some((a: any) => 
-                    a.cep === address.cep && a.number === address.number
-                );
                 transaction.update(clientRef, {
                     lastOrderDate: serverTimestamp(),
                     orderIds: arrayUnion(orderRef.id),
-                    addresses: isNewAddress ? arrayUnion(address) : currentAddresses
+                    addresses: arrayUnion(address)
                 });
             }
         }
