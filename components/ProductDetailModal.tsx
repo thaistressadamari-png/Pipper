@@ -59,7 +59,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
   const handleQuantityChange = (amount: number) => {
     setQuantity(prev => {
         const next = Math.max(1, prev + amount);
-        // Se estoque habilitado, não deixa passar do saldo
+        // Se estoque habilitado, não deixa passar do saldo (lógica mantida internamente)
         if (product?.inventoryEnabled && next > (product.inventoryQuantity || 0)) {
             return prev;
         }
@@ -230,11 +230,6 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
                         {!hasImages && <h1 id="product-title" className="text-2xl font-bold text-brand-text">{product.name}</h1>}
                         {hasImages && <h1 id="product-title" className="text-2xl font-bold text-brand-text mb-2">{product.name}</h1>}
                     </div>
-                    {product.inventoryEnabled && (
-                        <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${product.inventoryQuantity && product.inventoryQuantity > 0 ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}`}>
-                            Saldo: {product.inventoryQuantity || 0}
-                        </span>
-                    )}
                 </div>
                 
                 <p className="text-brand-text-light whitespace-pre-wrap text-base leading-relaxed">{product.description}</p>
