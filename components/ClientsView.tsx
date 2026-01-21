@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import type { Client, Order, DeliveryInfo } from '../types';
-import { getClients, deleteClient, updateClient, getOrdersByClientId, removeClientAddress, syncClientStats } from '../services/menuService';
+import { getClients, deleteClient, updateClient, getOrdersByClientId, removeClientAddress, getOrders } from '../services/menuService';
 import { SearchIcon, UsersIcon, TrashIcon, CalendarIcon, ShoppingBagIcon, ChevronRightIcon, XIcon, ArrowLeftIcon, MapPinIcon, SpinnerIcon } from './IconComponents';
 
 const formatPrice = (price: number) => {
@@ -26,9 +27,6 @@ const formatTimestamp = (timestamp: any): string => {
     return timestamp.toDate().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 };
 
-// Status que permitem que o cliente seja LISTADO no CRM (Incluindo pending_payment para novos clientes aparecerem)
-const VISIBLE_CLIENT_STATUSES = ['new', 'pending_payment', 'confirmed', 'shipped', 'completed'];
-// Status que efetivamente contam para o faturamento (Total Gasto)
 const REVENUE_ORDER_STATUSES = ['confirmed', 'shipped', 'completed'];
 
 const ConfirmModal: React.FC<{
@@ -43,7 +41,7 @@ const ConfirmModal: React.FC<{
     if (!isOpen) return null;
     return (
         <div className="fixed inset-0 bg-black/60 z-[110] flex items-center justify-center p-4 backdrop-blur-sm">
-            <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 text-center animate-slide-in-up">
+            <div className="bg-white rounded-2xl shadow-2xl max-sm w-full p-6 text-center animate-slide-in-up">
                 <div className={`w-16 h-16 ${isDanger ? 'bg-red-100 text-red-600' : 'bg-brand-secondary text-brand-primary'} rounded-full flex items-center justify-center mx-auto mb-4`}>
                     <TrashIcon className="w-8 h-8" />
                 </div>
@@ -371,15 +369,49 @@ const ClientsView: React.FC = () => {
     const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
     const [viewingClient, setViewingClient] = useState<Client | null>(null);
 
-    const loadClients = async () => {
+    const loadClientsAndStats = async () => {
         setIsLoading(true);
-        const data = await getClients();
-        setClients(data);
-        setIsLoading(false);
+        try {
+            // Buscamos clientes e todos os pedidos simultaneamente para calcular em tempo real
+            const [clientsData, allOrders] = await Promise.all([
+                getClients(),
+                getOrders()
+            ]);
+
+            // Mapeamos os pedidos confirmados por cliente (whatsapp id)
+            const revenueMap = new Map<string, { total: number, count: number }>();
+            
+            allOrders.forEach(order => {
+                if (REVENUE_ORDER_STATUSES.includes(order.status)) {
+                    const clientId = order.customer.whatsapp.replace(/\D/g, '');
+                    const current = revenueMap.get(clientId) || { total: 0, count: 0 };
+                    revenueMap.set(clientId, {
+                        total: current.total + (order.total || 0) + (order.deliveryFee || 0),
+                        count: current.count + 1
+                    });
+                }
+            });
+
+            // Enriquecemos os dados dos clientes com os valores reais calculados
+            const enrichedClients = clientsData.map(c => {
+                const stats = revenueMap.get(c.id) || { total: 0, count: 0 };
+                return {
+                    ...c,
+                    totalSpent: stats.total,
+                    totalOrders: stats.count
+                };
+            });
+
+            setClients(enrichedClients);
+        } catch (e) {
+            console.error("Failed to load clients and stats", e);
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     useEffect(() => {
-        loadClients();
+        loadClientsAndStats();
     }, []);
 
     const filteredClients = useMemo(() => {
@@ -392,14 +424,14 @@ const ClientsView: React.FC = () => {
     const handleSaveClient = async (id: string, data: Partial<Client>) => {
         await updateClient(id, data);
         setEditingClient(null);
-        loadClients();
+        loadClientsAndStats();
     };
 
     const handleDeleteClient = async () => {
         if (!clientToDelete) return;
         await deleteClient(clientToDelete.id);
         setClientToDelete(null);
-        loadClients();
+        loadClientsAndStats();
     };
 
     return (
@@ -465,7 +497,7 @@ const ClientsView: React.FC = () => {
                 <ClientDetailModal 
                     client={viewingClient} 
                     onClose={() => setViewingClient(null)}
-                    onAddressRemoved={loadClients}
+                    onAddressRemoved={loadClientsAndStats}
                 />
             )}
 

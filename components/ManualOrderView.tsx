@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import type { Product, StoreInfoData, Order, Client, ProductOption, DeliveryInfo, OrderItem } from '../types';
 import { getClient, addOrder, addProduct, addCategory } from '../services/menuService';
@@ -56,7 +55,7 @@ const CategorySearchSelect: React.FC<{
                             autoFocus
                             type="text"
                             placeholder="Buscar ou criar..."
-                            className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-brand-primary outline-none"
+                            className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded bg-white text-gray-900 focus:ring-1 focus:ring-brand-primary outline-none"
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                         />
@@ -67,7 +66,7 @@ const CategorySearchSelect: React.FC<{
                                 key={cat}
                                 type="button"
                                 onClick={() => { onChange(cat); setIsOpen(false); setSearch(''); }}
-                                className="w-full text-left px-4 py-2 text-sm hover:bg-brand-secondary/30 transition-colors flex items-center justify-between"
+                                className="w-full text-left px-4 py-2 text-sm hover:bg-brand-secondary/30 transition-colors flex items-center justify-between text-gray-900"
                             >
                                 {cat}
                                 {value === cat && <CheckCircleIcon className="w-4 h-4 text-brand-primary" />}
@@ -114,7 +113,7 @@ const EditPriceModal: React.FC<{
                             type="text"
                             value={price}
                             onChange={e => setPrice(e.target.value)}
-                            className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg font-bold text-xl outline-none focus:ring-2 focus:ring-brand-primary"
+                            className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg font-bold text-xl bg-white text-gray-900 outline-none focus:ring-2 focus:ring-brand-primary"
                         />
                     </div>
                     <button
@@ -175,6 +174,7 @@ const ManualOrderView: React.FC<ManualOrderViewProps> = ({ products, storeInfo, 
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
+      // Fix: Use 'event' instead of 'e'
       if (calendarRef.current && !calendarRef.current.contains(event.target as Node)) {
         setIsCalendarOpen(false);
       }
@@ -370,7 +370,7 @@ const ManualOrderView: React.FC<ManualOrderViewProps> = ({ products, storeInfo, 
                     onChange={e => setCustomerData({ ...customerData, whatsapp: e.target.value })}
                     onBlur={handleWhatsappBlur}
                     placeholder="(00) 00000-0000"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary outline-none"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-brand-primary outline-none"
                     required
                   />
                   {isSearchingClient && <SpinnerIcon className="absolute right-3 top-2.5 w-4 h-4 text-brand-primary" />}
@@ -384,7 +384,7 @@ const ManualOrderView: React.FC<ManualOrderViewProps> = ({ products, storeInfo, 
                   value={customerData.name}
                   onChange={e => setCustomerData({ ...customerData, name: e.target.value })}
                   placeholder="Ex: João Silva"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary outline-none"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-brand-primary outline-none"
                   required
                 />
               </div>
@@ -397,7 +397,7 @@ const ManualOrderView: React.FC<ManualOrderViewProps> = ({ products, storeInfo, 
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {foundClient.addresses.map((addr, i) => (
-                    <button key={i} type="button" onClick={() => selectSavedAddress(addr)} className="text-[10px] bg-white border border-brand-secondary/50 px-2 py-1 rounded hover:bg-brand-secondary transition-colors font-medium shadow-sm">
+                    <button key={i} type="button" onClick={() => selectSavedAddress(addr)} className="text-[10px] bg-white border border-brand-secondary/50 px-2 py-1 rounded hover:bg-brand-secondary transition-colors font-medium shadow-sm text-gray-900">
                       {addr.street}, {addr.number}
                     </button>
                   ))}
@@ -413,7 +413,7 @@ const ManualOrderView: React.FC<ManualOrderViewProps> = ({ products, storeInfo, 
                     <button
                         type="button"
                         onClick={() => setIsCalendarOpen(!isCalendarOpen)}
-                        className="w-full flex items-center justify-between px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 shadow-sm hover:bg-gray-50 focus:ring-2 focus:ring-brand-primary outline-none"
+                        className="w-full flex items-center justify-between px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 shadow-sm hover:bg-gray-50 focus:ring-2 focus:ring-brand-primary outline-none"
                     >
                         <span>{new Date(customerData.deliveryDate + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'long' })}</span>
                         <CalendarIcon className="w-5 h-5 text-gray-400" />
@@ -435,26 +435,26 @@ const ManualOrderView: React.FC<ManualOrderViewProps> = ({ products, storeInfo, 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div className="sm:col-span-1">
                         <label className="block text-xs font-bold text-gray-500 uppercase mb-1">CEP</label>
-                        <input type="text" value={customerData.cep} onChange={e => setCustomerData({ ...customerData, cep: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-brand-primary" placeholder="00000-000" />
+                        <input type="text" value={customerData.cep} onChange={e => setCustomerData({ ...customerData, cep: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm outline-none focus:ring-2 focus:ring-brand-primary" placeholder="00000-000" />
                     </div>
                     <div className="sm:col-span-2">
                         <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Logradouro / Rua</label>
-                        <input type="text" value={customerData.street} onChange={e => setCustomerData({ ...customerData, street: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-brand-primary" placeholder="Ex: Av. Paulista" />
+                        <input type="text" value={customerData.street} onChange={e => setCustomerData({ ...customerData, street: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm outline-none focus:ring-2 focus:ring-brand-primary" placeholder="Ex: Av. Paulista" />
                     </div>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                     <div>
                         <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Número</label>
-                        <input type="text" value={customerData.number} onChange={e => setCustomerData({ ...customerData, number: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-brand-primary" placeholder="Ex: 123" />
+                        <input type="text" value={customerData.number} onChange={e => setCustomerData({ ...customerData, number: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm outline-none focus:ring-2 focus:ring-brand-primary" placeholder="Ex: 123" />
                     </div>
                     <div className="sm:col-span-2">
                         <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Bairro</label>
-                        <input type="text" value={customerData.neighborhood} onChange={e => setCustomerData({ ...customerData, neighborhood: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-brand-primary" placeholder="Ex: Centro" />
+                        <input type="text" value={customerData.neighborhood} onChange={e => setCustomerData({ ...customerData, neighborhood: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm outline-none focus:ring-2 focus:ring-brand-primary" placeholder="Ex: Centro" />
                     </div>
                 </div>
                 <div>
                     <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Complemento</label>
-                    <input type="text" value={customerData.complement} onChange={e => setCustomerData({ ...customerData, complement: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-brand-primary" placeholder="Ex: Apto 101, Bloco A" />
+                    <input type="text" value={customerData.complement} onChange={e => setCustomerData({ ...customerData, complement: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm outline-none focus:ring-2 focus:ring-brand-primary" placeholder="Ex: Apto 101, Bloco A" />
                 </div>
               </div>
             </div>
@@ -507,7 +507,7 @@ const ManualOrderView: React.FC<ManualOrderViewProps> = ({ products, storeInfo, 
                   placeholder="Buscar no cardápio..."
                   value={searchProduct}
                   onChange={e => setSearchProduct(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-full text-sm outline-none focus:ring-2 focus:ring-brand-primary"
+                  className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-full bg-white text-gray-900 text-sm outline-none focus:ring-2 focus:ring-brand-primary"
                 />
               </div>
               <button 
@@ -530,11 +530,11 @@ const ManualOrderView: React.FC<ManualOrderViewProps> = ({ products, storeInfo, 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nome do Item</label>
-                        <input type="text" placeholder="Ex: Bolo de Pote Extra" value={customItem.name} onChange={e => setCustomItem({...customItem, name: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm shadow-sm" />
+                        <input type="text" placeholder="Ex: Bolo de Pote Extra" value={customItem.name} onChange={e => setCustomItem({...customItem, name: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm shadow-sm" />
                       </div>
                       <div>
                         <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Valor Unitário</label>
-                        <input type="number" placeholder="0,00" value={customItem.price} onChange={e => setCustomItem({...customItem, price: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm shadow-sm" />
+                        <input type="number" placeholder="0,00" value={customItem.price} onChange={e => setCustomItem({...customItem, price: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm shadow-sm" />
                       </div>
                       <div className="sm:col-span-2">
                         <CategorySearchSelect categories={existingCategories} value={customItem.category} onChange={(val) => setCustomItem({...customItem, category: val})} />
@@ -601,7 +601,7 @@ const ManualOrderView: React.FC<ManualOrderViewProps> = ({ products, storeInfo, 
               <span className="text-sm text-gray-500">Taxa de Entrega</span>
               <div className="relative w-32">
                 <span className="absolute left-2 top-1.5 text-xs text-gray-400">R$</span>
-                <input type="number" step="0.5" value={deliveryFee} onChange={e => setDeliveryFee(e.target.value)} className="w-full pl-7 pr-2 py-1 border border-gray-300 rounded-lg text-sm text-right font-black text-brand-primary focus:ring-2 focus:ring-brand-primary outline-none shadow-inner" />
+                <input type="number" step="0.5" value={deliveryFee} onChange={e => setDeliveryFee(e.target.value)} className="w-full pl-7 pr-2 py-1 border border-gray-300 rounded-lg bg-white text-brand-primary text-sm text-right font-black focus:ring-2 focus:ring-brand-primary outline-none shadow-inner" />
               </div>
             </div>
             <div className="pt-3 border-t border-gray-100 flex justify-between items-center">
