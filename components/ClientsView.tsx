@@ -177,13 +177,21 @@ const ClientDetailModal: React.FC<{
         <div className="fixed inset-0 bg-white z-[90] flex flex-col md:inset-x-4 md:inset-y-4 md:rounded-2xl md:shadow-2xl overflow-hidden animate-slide-in-up">
             <header className="p-4 border-b flex items-center justify-between bg-white sticky top-0 z-10">
                 <div className="flex items-center gap-3">
-                    <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full"><ArrowLeftIcon className="w-6 h-6"/></button>
+                    <button 
+                        onClick={onClose} 
+                        className="p-2 hover:bg-brand-secondary/50 rounded-full transition-colors group"
+                        aria-label="Voltar"
+                    >
+                        <ArrowLeftIcon className="w-6 h-6 text-brand-primary"/>
+                    </button>
                     <div>
                         <h2 className="font-bold text-xl text-brand-text">{client.name}</h2>
                         <p className="text-xs text-gray-500">{formatWhatsapp(client.id)}</p>
                     </div>
                 </div>
-                <button onClick={onClose} className="hidden md:block p-2 hover:bg-gray-100 rounded-full"><XIcon className="w-6 h-6"/></button>
+                <button onClick={onClose} className="hidden md:block p-2 hover:bg-gray-100 rounded-full text-gray-400">
+                    <XIcon className="w-6 h-6"/>
+                </button>
             </header>
 
             <div className="flex-1 overflow-y-auto p-4 space-y-8 max-w-4xl mx-auto w-full no-scrollbar">
