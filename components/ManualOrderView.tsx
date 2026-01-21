@@ -1,7 +1,8 @@
+
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import type { Product, StoreInfoData, Order, Client, ProductOption, DeliveryInfo, OrderItem } from '../types';
-import { getClient, addOrder, addProduct, addCategory } from '../services/menuService';
-import { SearchIcon, PlusIcon, MinusIcon, TrashIcon, SpinnerIcon, MapPinIcon, CheckCircleIcon, ChevronRightIcon, XIcon, CalendarIcon } from './IconComponents';
+import { getClient, addOrder, addProduct, addCategory, getClients } from '../services/menuService';
+import { SearchIcon, PlusIcon, MinusIcon, TrashIcon, SpinnerIcon, MapPinIcon, CheckCircleIcon, ChevronRightIcon, XIcon, CalendarIcon, UsersIcon } from './IconComponents';
 import Calendar from './Calendar';
 
 interface ManualOrderViewProps {
@@ -156,10 +157,20 @@ const ManualOrderView: React.FC<ManualOrderViewProps> = ({ products, storeInfo, 
   const [customItem, setCustomItem] = useState({ name: '', price: '', category: 'Diversos', saveToMenu: false });
   const [priceEditingIdx, setPriceEditingIdx] = useState<number | null>(null);
 
+  // Client Search Feature
+  const [allClients, setAllClients] = useState<Client[]>([]);
+  const [clientSearchDropdownOpen, setClientSearchDropdownOpen] = useState(false);
+  const clientSearchContainerRef = useRef<HTMLDivElement>(null);
+
   const nameInputRef = useRef<HTMLInputElement>(null);
   const calendarRef = useRef<HTMLDivElement>(null);
 
   const formatPrice = (price: number) => price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+  useEffect(() => {
+    // Load all clients for searching
+    getClients().then(setAllClients);
+  }, []);
 
   const existingCategories = useMemo(() => {
     return Array.from(new Set(products.map(p => p.category))).sort();
@@ -174,9 +185,11 @@ const ManualOrderView: React.FC<ManualOrderViewProps> = ({ products, storeInfo, 
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      // Fix: Use 'event' instead of 'e'
       if (calendarRef.current && !calendarRef.current.contains(event.target as Node)) {
         setIsCalendarOpen(false);
+      }
+      if (clientSearchContainerRef.current && !clientSearchContainerRef.current.contains(event.target as Node)) {
+        setClientSearchDropdownOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -192,7 +205,7 @@ const ManualOrderView: React.FC<ManualOrderViewProps> = ({ products, storeInfo, 
 
   const handleWhatsappBlur = async () => {
     const raw = customerData.whatsapp.replace(/\D/g, '');
-    if (raw === '00000000000') return;
+    if (raw === '00000000000' || !raw) return;
 
     if (raw.length >= 10) {
       setIsSearchingClient(true);
@@ -220,6 +233,22 @@ const ManualOrderView: React.FC<ManualOrderViewProps> = ({ products, storeInfo, 
       complement: addr.complement || '',
     }));
   };
+
+  const selectClient = (client: Client) => {
+      setFoundClient(client);
+      setCustomerData(prev => ({
+          ...prev,
+          name: client.name,
+          whatsapp: client.id.replace(/^(\d{2})(\d{5})(\d{4})$/, '($1) $2-$3'),
+      }));
+      setClientSearchDropdownOpen(false);
+  };
+
+  const filteredClients = useMemo(() => {
+      const query = customerData.name.toLowerCase().trim();
+      if (!query || query.length < 2) return [];
+      return allClients.filter(c => c.name.toLowerCase().includes(query)).slice(0, 5);
+  }, [allClients, customerData.name]);
 
   const addItem = (product: Product | { id: string, name: string, price: number }, option?: ProductOption) => {
     const price = option ? option.price : product.price;
@@ -286,7 +315,7 @@ const ManualOrderView: React.FC<ManualOrderViewProps> = ({ products, storeInfo, 
       setPriceEditingIdx(null);
   };
 
-  const filteredProducts = useMemo(() => {
+  const filteredProductsBySearch = useMemo(() => {
     if (!searchProduct) return products;
     return products.filter(p => p.name.toLowerCase().includes(searchProduct.toLowerCase()));
   }, [products, searchProduct]);
@@ -352,6 +381,45 @@ const ManualOrderView: React.FC<ManualOrderViewProps> = ({ products, storeInfo, 
           </h3>
           <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="relative" ref={clientSearchContainerRef}>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nome Completo <span className="text-red-500">*</span></label>
+                <div className="relative">
+                    <input
+                      ref={nameInputRef}
+                      type="text"
+                      value={customerData.name}
+                      onChange={e => {
+                          setCustomerData({ ...customerData, name: e.target.value });
+                          setClientSearchDropdownOpen(true);
+                      }}
+                      onFocus={() => setClientSearchDropdownOpen(true)}
+                      placeholder="Ex: João Silva"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-brand-primary outline-none"
+                      required
+                    />
+                    {clientSearchDropdownOpen && filteredClients.length > 0 && (
+                        <div className="absolute z-[60] left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl overflow-hidden animate-slide-in-up">
+                            <p className="px-3 py-2 bg-gray-50 text-[10px] font-bold text-gray-400 uppercase border-b border-gray-100">Sugestões de Clientes</p>
+                            {filteredClients.map(c => (
+                                <button
+                                    key={c.id}
+                                    type="button"
+                                    onClick={() => selectClient(c)}
+                                    className="w-full text-left px-3 py-2.5 hover:bg-brand-secondary/30 transition-colors flex items-center gap-3 border-b border-gray-50 last:border-0"
+                                >
+                                    <div className="w-8 h-8 rounded-full bg-brand-secondary/50 flex items-center justify-center flex-shrink-0">
+                                        <UsersIcon className="w-4 h-4 text-brand-primary" />
+                                    </div>
+                                    <div className="min-w-0">
+                                        <p className="font-bold text-sm text-brand-text truncate">{c.name}</p>
+                                        <p className="text-xs text-gray-500">{c.id.replace(/^(\d{2})(\d{5})(\d{4})$/, '($1) $2-$3')}</p>
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
+              </div>
               <div>
                 <div className="flex justify-between items-center mb-1">
                     <label className="block text-xs font-bold text-gray-500 uppercase">WhatsApp <span className="text-red-500">*</span></label>
@@ -376,22 +444,10 @@ const ManualOrderView: React.FC<ManualOrderViewProps> = ({ products, storeInfo, 
                   {isSearchingClient && <SpinnerIcon className="absolute right-3 top-2.5 w-4 h-4 text-brand-primary" />}
                 </div>
               </div>
-              <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nome Completo <span className="text-red-500">*</span></label>
-                <input
-                  ref={nameInputRef}
-                  type="text"
-                  value={customerData.name}
-                  onChange={e => setCustomerData({ ...customerData, name: e.target.value })}
-                  placeholder="Ex: João Silva"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-brand-primary outline-none"
-                  required
-                />
-              </div>
             </div>
 
-            {foundClient && foundClient.addresses.length > 0 && (
-              <div className="bg-brand-secondary/20 p-3 rounded-lg border border-brand-secondary/30">
+            {foundClient && foundClient.addresses && foundClient.addresses.length > 0 && (
+              <div className="bg-brand-secondary/20 p-3 rounded-lg border border-brand-secondary/30 animate-fade-in">
                 <p className="text-xs font-bold text-brand-primary mb-2 flex items-center gap-1">
                   <MapPinIcon className="w-3 h-3" /> Usar endereço salvo
                 </p>
@@ -556,7 +612,7 @@ const ManualOrderView: React.FC<ManualOrderViewProps> = ({ products, storeInfo, 
           )}
 
           <div className="space-y-4 max-h-[600px] overflow-y-auto no-scrollbar pr-1">
-            {filteredProducts.map(p => (
+            {filteredProductsBySearch.map(p => (
               <div key={p.id} className="p-4 border border-gray-100 rounded-xl bg-white shadow-sm hover:border-brand-primary/30 transition-all">
                 <div className="flex justify-between items-start mb-2">
                     <h4 className="font-bold text-sm text-brand-text uppercase opacity-90">{p.name}</h4>
