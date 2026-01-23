@@ -1,7 +1,8 @@
+
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import type { Product, Order } from '../types';
 import { getOrdersByDateRange, getVisitCountByDateRange } from '../services/menuService';
-import { CalendarIcon } from './IconComponents';
+import { CalendarIcon, UsersIcon } from './IconComponents';
 import Calendar from './Calendar';
 
 interface DashboardViewProps {
@@ -119,37 +120,53 @@ const DashboardView: React.FC<DashboardViewProps> = ({ products }) => {
     const productsById = useMemo(() => new Map(products.map(p => [p.id, p])), [products]);
 
     const stats = useMemo(() => {
-        const confirmedOrders = orders.filter(o => o.status === 'confirmed' || o.status === 'completed');
+        const confirmedOrders = orders.filter(o => o.status === 'confirmed' || o.status === 'completed' || o.status === 'shipped');
         
+        // Faturamento agora considera apenas o total dos produtos (subtotal)
         const revenue = confirmedOrders.reduce((sum, o) => sum + (o.total || 0), 0);
         const newOrdersCount = confirmedOrders.length;
 
+        // TOP PRODUCTS LOGIC
         const productCounts = new Map<string, { name: string; count: number; imageUrl: string }>();
         confirmedOrders.forEach(order => {
             if (!Array.isArray(order.items)) return;
-
             order.items.forEach(item => {
                 if (!item || !item.id || !item.name) return;
-                
                 const productInfo = productsById.get(item.id);
                 const imageUrl = productInfo?.imageUrls?.[0] || 'https://via.placeholder.com/150';
-
                 const existing = productCounts.get(item.id) || { name: item.name, count: 0, imageUrl };
                 const quantity = typeof item.quantity === 'number' && item.quantity > 0 ? item.quantity : 0;
                 productCounts.set(item.id, { ...existing, count: existing.count + quantity });
             });
         });
-
         const topProducts = Array.from(productCounts.values())
             .sort((a, b) => b.count - a.count)
-            .slice(0, 3);
+            .slice(0, 5);
+
+        // TOP CLIENTS LOGIC
+        const clientStats = new Map<string, { name: string; totalSpent: number; orderCount: number }>();
+        confirmedOrders.forEach(order => {
+            const clientName = order.customer.name.trim();
+            if (!clientName) return;
+            const current = clientStats.get(clientName) || { name: clientName, totalSpent: 0, orderCount: 0 };
+            // Faturamento por cliente também ignora taxa de entrega
+            const orderTotal = (order.total || 0);
+            clientStats.set(clientName, {
+                ...current,
+                totalSpent: current.totalSpent + orderTotal,
+                orderCount: current.orderCount + 1
+            });
+        });
+        const topClients = Array.from(clientStats.values())
+            .sort((a, b) => b.totalSpent - a.totalSpent)
+            .slice(0, 5);
             
-        return { revenue, newOrdersCount, topProducts };
+        return { revenue, newOrdersCount, topProducts, topClients };
     }, [orders, productsById]);
 
 
     const { monthlyChartData, yAxisMax } = useMemo(() => {
-        const confirmedChartOrders = chartOrders.filter(o => o.status === 'confirmed' || o.status === 'completed');
+        const confirmedChartOrders = chartOrders.filter(o => o.status === 'confirmed' || o.status === 'completed' || o.status === 'shipped');
         const data = new Map<string, { revenue: number, monthLabel: string }>();
         const today = new Date();
         
@@ -161,27 +178,22 @@ const DashboardView: React.FC<DashboardViewProps> = ({ products }) => {
         }
 
         confirmedChartOrders.forEach(order => {
-            if (!order.createdAt || typeof order.createdAt.toDate !== 'function') {
-                console.warn('Skipping order with invalid createdAt field:', order.id);
-                return;
-            }
+            if (!order.createdAt || typeof order.createdAt.toDate !== 'function') return;
             const orderDate = order.createdAt.toDate();
             if (isNaN(orderDate.getTime())) return;
-
             const monthKey = `${orderDate.getFullYear()}-${String(orderDate.getMonth() + 1).padStart(2, '0')}`;
-
             if (data.has(monthKey)) {
                 const current = data.get(monthKey)!;
+                // Gráfico ignora taxa de entrega
                 data.set(monthKey, { 
                     ...current, 
-                    revenue: current.revenue + (order.total || 0) 
+                    revenue: current.revenue + (order.total || 0)
                 });
             }
         });
         
         const calculatedData = Array.from(data.entries()).map(([key, value]) => ({...value, key}));
         const maxRevenue = Math.max(...calculatedData.map(d => d.revenue));
-        
         const calculatedYAxisMax = maxRevenue > 0 ? Math.ceil(maxRevenue / 50) * 50 : 100;
 
         return { monthlyChartData: calculatedData, yAxisMax: calculatedYAxisMax };
@@ -218,11 +230,11 @@ const DashboardView: React.FC<DashboardViewProps> = ({ products }) => {
 
     return (
         <div className="space-y-8">
-            <div className="flex justify-end items-center gap-4">
-                <div className="relative">
+            <div className="flex flex-col sm:flex-row justify-end items-center gap-4">
+                <div className="relative w-full sm:w-auto">
                     <button
                         onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                        className="px-4 py-2 bg-white border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent text-sm text-gray-900 font-medium"
+                        className="w-full sm:w-auto px-4 py-2 bg-white border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent text-sm text-gray-900 font-medium"
                     >
                         {dateRangeLabel}
                     </button>
@@ -238,70 +250,108 @@ const DashboardView: React.FC<DashboardViewProps> = ({ products }) => {
                         </div>
                     )}
                 </div>
-                <DateRangePicker label="Período Personalizado" onRangeChange={handleRangeChange} />
+                <div className="w-full sm:w-auto">
+                    <DateRangePicker label="Período Personalizado" onRangeChange={handleRangeChange} />
+                </div>
             </div>
 
             {isLoading ? (
-                <div className="text-center text-gray-500">Carregando dados...</div>
+                <div className="text-center text-gray-500 py-20 animate-pulse font-bold">Carregando métricas...</div>
             ) : error ? (
                 <div className="text-center text-red-500 bg-red-100 p-4 rounded-lg">{error}</div>
             ) : (
                 <>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <StatCard title="Faturamento Confirmado" value={stats.revenue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} note="Apenas pedidos confirmados/finalizados" />
-                        <StatCard title="Pedidos Confirmados" value={String(stats.newOrdersCount)} note="Apenas pedidos confirmados/finalizados" />
+                        <StatCard title="Faturamento Bruto" value={stats.revenue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} note="Subtotal dos produtos" />
+                        <StatCard title="Vendas Pagas" value={String(stats.newOrdersCount)} note="Confirmados, Enviados e Finalizados" />
                         <StatCard title="Visitas no Período" value={visitCount.toLocaleString('pt-BR')} />
                     </div>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                        <div className="lg:col-span-2 bg-white p-6 rounded-lg shadow">
-                            <h3 className="text-lg font-bold text-brand-text mb-4">Faturamento Confirmado (Últimos 6 meses)</h3>
-                            <div className="h-72 flex gap-4">
-                                <div className="flex flex-col justify-between text-right text-xs font-medium text-gray-400">
-                                    {yAxisLabels.map(label => <span key={label}>{label}</span>)}
-                                </div>
-                                <div className="flex-grow flex justify-around gap-2 border-b border-l border-gray-200 pl-2">
-                                    {monthlyChartData.map(data => (
-                                        <div key={data.key} className="flex flex-col justify-end text-center w-full flex-grow pt-5">
-                                            {data.revenue > 0 && (
-                                                <span className="text-xs md:text-sm font-semibold text-brand-primary mb-1 whitespace-nowrap">
-                                                    {data.revenue.toLocaleString('pt-BR', {
-                                                        style: 'currency',
-                                                        currency: 'BRL',
-                                                        minimumFractionDigits: 0,
-                                                        maximumFractionDigits: 0,
-                                                    })}
-                                                </span>
-                                            )}
-                                            <div 
-                                                className="w-full bg-brand-secondary rounded-t-md hover:bg-brand-primary/80 transition-colors"
-                                                style={{ height: yAxisMax > 0 ? `${(data.revenue / yAxisMax) * 100}%` : '0%' }}
-                                                title={data.revenue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                                            ></div>
-                                            <span className="text-xs font-medium text-gray-500 mt-2 uppercase">{data.monthLabel}</span>
-                                        </div>
-                                    ))}
-                                </div>
+                    <div className="bg-white p-6 rounded-lg shadow">
+                        <h3 className="text-lg font-bold text-brand-text mb-4">Faturamento Bruto (Mensal)</h3>
+                        <div className="h-72 flex gap-4">
+                            <div className="flex flex-col justify-between text-right text-xs font-medium text-gray-400">
+                                {yAxisLabels.map(label => <span key={label}>{label}</span>)}
+                            </div>
+                            <div className="flex-grow flex justify-around gap-2 border-b border-l border-gray-200 pl-2">
+                                {monthlyChartData.map(data => (
+                                    <div key={data.key} className="flex flex-col justify-end text-center w-full flex-grow pt-5">
+                                        {data.revenue > 0 && (
+                                            <span className="text-[10px] md:text-xs font-bold text-brand-primary mb-1 whitespace-nowrap">
+                                                {formatCurrency(data.revenue)}
+                                            </span>
+                                        )}
+                                        <div 
+                                            className="w-full bg-brand-primary/40 rounded-t-md hover:bg-brand-primary transition-colors"
+                                            style={{ height: yAxisMax > 0 ? `${(data.revenue / yAxisMax) * 100}%` : '0%' }}
+                                            title={data.revenue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                        ></div>
+                                        <span className="text-[10px] font-bold text-gray-400 mt-2 uppercase">{data.monthLabel}</span>
+                                    </div>
+                                ))}
                             </div>
                         </div>
+                    </div>
 
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        {/* TOP PRODUCTS */}
                         <div className="bg-white p-6 rounded-lg shadow">
-                            <h3 className="text-lg font-bold text-brand-text mb-4">Produtos Mais Populares (Confirmados)</h3>
+                            <h3 className="text-lg font-bold text-brand-text mb-6 flex items-center gap-2">
+                                <span className="w-1.5 h-6 bg-brand-primary rounded-full"></span>
+                                Top 5 Produtos Vendidos
+                            </h3>
                             {stats.topProducts.length > 0 ? (
                                 <ul className="space-y-6">
                                     {stats.topProducts.map((product, index) => (
-                                        <li key={product.name + index} className="flex items-center gap-5">
-                                             <span className="text-2xl font-bold text-gray-300 w-8 text-center">{index + 1}</span>
-                                            <img src={product.imageUrl} alt={product.name} className="w-20 h-20 object-cover rounded-lg flex-shrink-0" />
-                                            <div className="flex-grow">
-                                                <p className="font-bold text-brand-text text-lg leading-tight">{product.name}</p>
-                                                <p className="text-base text-gray-500">{product.count} {product.count === 1 ? 'unidade' : 'unidades'}</p>
+                                        <li key={product.name + index} className="flex items-center gap-5 group">
+                                            <span className="text-2xl font-black text-gray-200 w-8 text-center">{index + 1}</span>
+                                            <img src={product.imageUrl} alt={product.name} className="w-16 h-16 object-cover rounded-lg flex-shrink-0 shadow-sm" />
+                                            <div className="flex-grow min-w-0">
+                                                <p className="font-bold text-brand-text text-base leading-tight truncate group-hover:text-brand-primary transition-colors">{product.name}</p>
+                                                <div className="flex items-center gap-2 mt-1">
+                                                    <span className="text-xs bg-brand-secondary/30 text-brand-primary px-2 py-0.5 rounded-full font-bold">
+                                                        {product.count} un
+                                                    </span>
+                                                </div>
                                             </div>
                                         </li>
                                     ))}
                                 </ul>
                             ) : (
-                                <p className="text-sm text-gray-500 text-center py-8">Nenhum pedido confirmado para este período.</p>
+                                <p className="text-sm text-gray-500 text-center py-12 italic">Nenhuma venda registrada para este período.</p>
+                            )}
+                        </div>
+
+                        {/* TOP CLIENTS */}
+                        <div className="bg-white p-6 rounded-lg shadow">
+                            <h3 className="text-lg font-bold text-brand-text mb-6 flex items-center gap-2">
+                                <span className="w-1.5 h-6 bg-brand-accent rounded-full"></span>
+                                Top 5 Clientes (Faturamento)
+                            </h3>
+                            {stats.topClients.length > 0 ? (
+                                <ul className="space-y-6">
+                                    {stats.topClients.map((client, index) => (
+                                        <li key={client.name + index} className="flex items-center gap-5 group">
+                                            <span className="text-2xl font-black text-gray-200 w-8 text-center">{index + 1}</span>
+                                            <div className="w-12 h-12 bg-gray-50 rounded-full flex items-center justify-center flex-shrink-0 border border-gray-100">
+                                                <UsersIcon className="w-6 h-6 text-gray-400" />
+                                            </div>
+                                            <div className="flex-grow min-w-0">
+                                                <p className="font-bold text-brand-text text-base leading-tight truncate group-hover:text-brand-primary transition-colors">{client.name}</p>
+                                                <div className="flex items-center gap-3 mt-1">
+                                                    <span className="text-sm font-black text-brand-primary">
+                                                        {client.totalSpent.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                                    </span>
+                                                    <span className="text-[10px] font-bold text-gray-400 uppercase bg-gray-100 px-2 py-0.5 rounded">
+                                                        {client.orderCount} {client.orderCount === 1 ? 'pedido' : 'pedidos'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </li>
+                                    ))}
+                                </ul>
+                            ) : (
+                                <p className="text-sm text-gray-500 text-center py-12 italic">Sem dados de clientes para este período.</p>
                             )}
                         </div>
                     </div>
