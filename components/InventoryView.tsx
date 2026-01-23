@@ -6,6 +6,7 @@ import { SearchIcon, PlusIcon, MinusIcon, TrashIcon, CheckCircleIcon, XIcon, Box
 interface InventoryViewProps {
     products: Product[];
     onUpdateProduct: (product: Product) => Promise<void>;
+    onRefresh?: () => Promise<void>;
 }
 
 const InventoryModal: React.FC<{
@@ -97,13 +98,12 @@ const InventoryModal: React.FC<{
     );
 };
 
-const InventoryView: React.FC<InventoryViewProps> = ({ products: initialProducts, onUpdateProduct }) => {
+const InventoryView: React.FC<InventoryViewProps> = ({ products: initialProducts, onUpdateProduct, onRefresh }) => {
     const [search, setSearch] = useState('');
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-    // Estado local para refletir mudanças instantaneamente sem esperar o fetch global
     const [localProducts, setLocalProducts] = useState<Product[]>(initialProducts);
+    const [isRefreshing, setIsRefreshing] = useState(false);
 
-    // Sincroniza o estado local quando os produtos iniciais mudam
     useEffect(() => {
         setLocalProducts(initialProducts);
     }, [initialProducts]);
@@ -115,6 +115,16 @@ const InventoryView: React.FC<InventoryViewProps> = ({ products: initialProducts
             .sort((a, b) => (a.inventoryQuantity || 0) - (b.inventoryQuantity || 0));
     }, [localProducts, search]);
 
+    const handleManualRefresh = async () => {
+        if (!onRefresh) return;
+        setIsRefreshing(true);
+        try {
+            await onRefresh();
+        } finally {
+            setIsRefreshing(false);
+        }
+    };
+
     const handleUpdateQuantity = async (newQuantity: number) => {
         if (!selectedProduct) return;
         
@@ -123,13 +133,11 @@ const InventoryView: React.FC<InventoryViewProps> = ({ products: initialProducts
             inventoryQuantity: newQuantity
         };
 
-        // Atualização Otimista: Muda na tela agora!
         setLocalProducts(prev => prev.map(p => p.id === selectedProduct.id ? updatedProduct : p));
 
         try {
             await onUpdateProduct(updatedProduct);
         } catch (e) {
-            // Se falhar no banco, reverte o estado local
             setLocalProducts(initialProducts);
             alert("Erro ao sincronizar com o servidor. O valor foi revertido.");
         }
@@ -156,8 +164,22 @@ const InventoryView: React.FC<InventoryViewProps> = ({ products: initialProducts
                         className="w-full bg-gray-50 border-transparent rounded-full py-2.5 pl-10 pr-4 text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-primary"
                     />
                 </div>
-                <div className="flex-shrink-0 px-4 py-2 bg-brand-secondary/30 rounded-lg text-xs font-bold text-brand-primary uppercase">
-                    {inventoryProducts.length} Itens monitorados
+                <div className="flex items-center gap-2">
+                    <button 
+                        onClick={handleManualRefresh}
+                        disabled={isRefreshing}
+                        title="Atualizar dados do servidor"
+                        className="p-2.5 text-gray-500 hover:text-brand-primary bg-gray-50 rounded-full border border-gray-100 hover:border-brand-primary transition-all active:scale-95 disabled:opacity-50"
+                    >
+                        {isRefreshing ? <SpinnerIcon className="w-5 h-5" /> : (
+                            <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                        )}
+                    </button>
+                    <div className="flex-shrink-0 px-4 py-2 bg-brand-secondary/30 rounded-lg text-xs font-bold text-brand-primary uppercase">
+                        {inventoryProducts.length} Itens monitorados
+                    </div>
                 </div>
             </div>
 

@@ -8,7 +8,8 @@ import OrdersView from './OrdersView';
 import ClientsView from './ClientsView';
 import ManualOrderView from './ManualOrderView';
 import InventoryView from './InventoryView';
-import { DashboardIcon, BoxIcon, StoreIcon, MenuIcon, XIcon, ClipboardListIcon, UsersIcon, PlusIcon } from './IconComponents';
+// Import SpinnerIcon from IconComponents
+import { DashboardIcon, BoxIcon, StoreIcon, MenuIcon, XIcon, ClipboardListIcon, UsersIcon, PlusIcon, SpinnerIcon } from './IconComponents';
 import { getNewOrdersCount } from '../services/menuService';
 
 interface AdminPageProps {
@@ -25,12 +26,14 @@ interface AdminPageProps {
   onToggleCategoriesArchive: (categoryNames: string[], archive: boolean) => Promise<void>;
   onNavigateBack: () => void;
   onLogout: () => void;
+  onRefreshData?: () => Promise<void>;
 }
 
 const AdminPage: React.FC<AdminPageProps> = (props) => {
   const [activeView, setActiveView] = useState<'dashboard' | 'products' | 'inventory' | 'store' | 'orders' | 'clients' | 'manual_order'>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [newOrdersCount, setNewOrdersCount] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
   const mainContentRef = useRef<HTMLDivElement>(null);
 
@@ -55,9 +58,19 @@ const AdminPage: React.FC<AdminPageProps> = (props) => {
     return () => clearInterval(intervalId);
   }, []);
 
-  const handleNavClick = (view: 'dashboard' | 'products' | 'inventory' | 'store' | 'orders' | 'clients' | 'manual_order') => {
+  const handleNavClick = async (view: 'dashboard' | 'products' | 'inventory' | 'store' | 'orders' | 'clients' | 'manual_order') => {
     setActiveView(view);
     setIsSidebarOpen(false);
+    
+    // Se entrar na aba de estoque, força um refresh dos dados para garantir valores atualizados
+    if (view === 'inventory' && props.onRefreshData) {
+        setIsRefreshing(true);
+        try {
+            await props.onRefreshData();
+        } finally {
+            setIsRefreshing(false);
+        }
+    }
   };
   
   const navItemClasses = (viewName: typeof activeView) => 
@@ -77,7 +90,7 @@ const AdminPage: React.FC<AdminPageProps> = (props) => {
       case 'products':
         return <ProductsView {...props} />;
       case 'inventory':
-        return <InventoryView products={props.products} onUpdateProduct={props.onUpdateProduct} />;
+        return <InventoryView products={props.products} onUpdateProduct={props.onUpdateProduct} onRefresh={props.onRefreshData} />;
       case 'store':
         return <StoreInfoView {...props} />;
       case 'orders':
@@ -176,7 +189,10 @@ const AdminPage: React.FC<AdminPageProps> = (props) => {
                     <button onClick={() => setIsSidebarOpen(true)} className="md:hidden p-2 -ml-2 mr-2 text-gray-600">
                         <MenuIcon className="w-6 h-6" />
                     </button>
-                    <h2 className="text-xl font-bold text-brand-text capitalize truncate">{getPageTitle()}</h2>
+                    <div className="flex items-center gap-2 min-w-0">
+                        <h2 className="text-xl font-bold text-brand-text capitalize truncate">{getPageTitle()}</h2>
+                        {isRefreshing && <SpinnerIcon className="w-4 h-4 text-brand-primary" />}
+                    </div>
                 </div>
                 <button onClick={props.onNavigateBack} className="text-sm font-medium text-brand-primary hover:underline whitespace-nowrap">
                     &larr; Voltar ao cardápio

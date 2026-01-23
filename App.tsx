@@ -535,6 +535,7 @@ const App: React.FC = () => {
         onToggleCategoriesArchive={handleToggleCategoriesArchive}
         onNavigateBack={() => setView('menu')}
         onLogout={handleLogout}
+        onRefreshData={fetchInitialData}
       />;
     case 'checkout':
         return <CheckoutPage 
