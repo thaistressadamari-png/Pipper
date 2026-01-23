@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import type { Client, Order, DeliveryInfo } from '../types';
 import { getClients, deleteClient, updateClient, getOrdersByClientId, removeClientAddress, getOrders } from '../services/menuService';
-import { SearchIcon, UsersIcon, TrashIcon, CalendarIcon, ShoppingBagIcon, ChevronRightIcon, XIcon, ArrowLeftIcon, MapPinIcon, SpinnerIcon } from './IconComponents';
+import { SearchIcon, UsersIcon, TrashIcon, CalendarIcon, ShoppingBagIcon, ChevronRightIcon, XIcon, ArrowLeftIcon, MapPinIcon, PlusIcon, CheckCircleIcon } from './IconComponents';
 
 const formatPrice = (price: number) => {
     return (price || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -15,11 +15,11 @@ const maskPhone = (v: string) => {
       .slice(0, 15);
 };
 
-const formatWhatsapp = (clientId: string = '') => {
-    if (clientId.startsWith('manual-') || clientId === '00000000000') {
+const formatWhatsapp = (whatsapp: string = '', clientId: string = '') => {
+    if (clientId.startsWith('manual-') || whatsapp === '00000000000' || !whatsapp) {
         return <span className="text-gray-400 italic">Venda Manual / Balcão</span>;
     }
-    return maskPhone(clientId);
+    return maskPhone(whatsapp);
 };
 
 const formatTimestamp = (timestamp: any): string => {
@@ -72,37 +72,190 @@ const EditClientModal: React.FC<{
     onSave: (id: string, data: Partial<Client>) => Promise<void> 
 }> = ({ client, onClose, onSave }) => {
     const [name, setName] = useState(client.name);
+    const [whatsapp, setWhatsapp] = useState(maskPhone(client.whatsapp || ''));
+    const [observations, setObservations] = useState(client.observations || '');
+    const [birthday, setBirthday] = useState(client.birthday || '');
+    const [addresses, setAddresses] = useState<DeliveryInfo['address'][]>(client.addresses || []);
     const [isSaving, setIsSaving] = useState(false);
+    
+    const [newAddress, setNewAddress] = useState<DeliveryInfo['address']>({
+        cep: '',
+        street: '',
+        number: '',
+        neighborhood: '',
+        complement: ''
+    });
+    const [showAddressForm, setShowAddressForm] = useState(false);
+
+    const handleWhatsappChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setWhatsapp(maskPhone(e.target.value));
+    };
+
+    const handleNoWhatsapp = () => {
+        setWhatsapp(maskPhone('00000000000'));
+    };
 
     const handleSave = async () => {
         if (!name.trim()) return alert("Nome é obrigatório");
         setIsSaving(true);
-        await onSave(client.id, { name: name.trim() });
+        await onSave(client.id, { 
+            name: name.trim(),
+            whatsapp: whatsapp.replace(/\D/g, ''),
+            observations: observations.trim(),
+            birthday,
+            addresses
+        });
         setIsSaving(false);
+    };
+
+    const handleAddAddress = () => {
+        if (!newAddress.street || !newAddress.number || !newAddress.neighborhood) {
+            return alert("Preencha rua, número e bairro para adicionar o endereço.");
+        }
+        setAddresses([...addresses, { ...newAddress }]);
+        setNewAddress({ cep: '', street: '', number: '', neighborhood: '', complement: '' });
+        setShowAddressForm(false);
+    };
+
+    const handleRemoveAddress = (index: number) => {
+        setAddresses(addresses.filter((_, i) => i !== index));
     };
 
     return (
         <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4 backdrop-blur-sm">
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 animate-slide-in-up">
-                <h3 className="text-lg font-bold text-gray-800 mb-4">Editar Cliente</h3>
-                <div className="space-y-4">
-                    <div>
-                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nome</label>
-                        <input 
-                            type="text" 
-                            value={name} 
-                            onChange={e => setName(e.target.value)} 
-                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-brand-primary outline-none"
-                            autoFocus
-                        />
-                    </div>
-                    <div className="flex gap-2">
-                        <button onClick={onClose} className="flex-1 py-2 bg-gray-100 rounded-lg font-medium">Cancelar</button>
-                        <button onClick={handleSave} disabled={isSaving} className="flex-1 py-2 bg-brand-primary text-white rounded-lg font-bold disabled:opacity-50">
-                            {isSaving ? 'Salvando...' : 'Salvar'}
-                        </button>
-                    </div>
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-slide-in-up">
+                <header className="p-4 border-b bg-gray-50 flex items-center justify-between">
+                    <h3 className="text-xl font-bold text-gray-800">Editar Cliente</h3>
+                    <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full text-gray-400">
+                        <XIcon className="w-6 h-6"/>
+                    </button>
+                </header>
+                
+                <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                    <section className="space-y-4">
+                        <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest border-b pb-1">Informações Básicas</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nome Completo</label>
+                                <input 
+                                    type="text" 
+                                    value={name} 
+                                    onChange={e => setName(e.target.value)} 
+                                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-brand-primary outline-none text-gray-900 shadow-sm"
+                                    placeholder="Nome do cliente"
+                                />
+                            </div>
+                            <div>
+                                <div className="flex justify-between items-center mb-1">
+                                    <label className="block text-xs font-bold text-gray-500 uppercase">WhatsApp</label>
+                                    <button 
+                                        type="button" 
+                                        onClick={handleNoWhatsapp}
+                                        className="text-[10px] font-bold text-brand-primary hover:underline bg-brand-secondary/40 px-2 py-0.5 rounded"
+                                    >
+                                        Sem número
+                                    </button>
+                                </div>
+                                <input 
+                                    type="tel" 
+                                    value={whatsapp} 
+                                    onChange={handleWhatsappChange} 
+                                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-brand-primary outline-none text-gray-900 shadow-sm"
+                                    placeholder="(00) 00000-0000"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Data de Nascimento</label>
+                                <input 
+                                    type="date" 
+                                    value={birthday} 
+                                    onChange={e => setBirthday(e.target.value)} 
+                                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-brand-primary outline-none text-gray-900 shadow-sm"
+                                />
+                            </div>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Observações Internas (CRM)</label>
+                            <textarea 
+                                value={observations} 
+                                onChange={e => setObservations(e.target.value)} 
+                                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-brand-primary outline-none text-gray-900 text-sm shadow-sm"
+                                rows={3}
+                                placeholder="Notas sobre preferências, alergias ou histórico..."
+                            />
+                        </div>
+                    </section>
+
+                    <section className="space-y-4">
+                        <div className="flex justify-between items-center border-b pb-1">
+                            <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest">Endereços</h4>
+                            <button 
+                                type="button" 
+                                onClick={() => setShowAddressForm(!showAddressForm)}
+                                className="text-[10px] font-bold text-brand-primary flex items-center gap-1 hover:underline"
+                            >
+                                {showAddressForm ? 'Fechar' : '+ Adicionar Endereço'}
+                            </button>
+                        </div>
+                        
+                        {showAddressForm && (
+                            <div className="p-4 bg-gray-50 border border-brand-primary/20 rounded-xl space-y-3 animate-fade-in">
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="col-span-2 sm:col-span-1">
+                                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">CEP</label>
+                                        <input type="text" value={newAddress.cep} onChange={e => setNewAddress({...newAddress, cep: e.target.value})} className="w-full px-2 py-1.5 border rounded-md text-sm" placeholder="00000-000"/>
+                                    </div>
+                                    <div className="col-span-2 sm:col-span-1">
+                                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Bairro</label>
+                                        <input type="text" value={newAddress.neighborhood} onChange={e => setNewAddress({...newAddress, neighborhood: e.target.value})} className="w-full px-2 py-1.5 border rounded-md text-sm"/>
+                                    </div>
+                                    <div className="col-span-2 sm:col-span-1">
+                                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Rua</label>
+                                        <input type="text" value={newAddress.street} onChange={e => setNewAddress({...newAddress, street: e.target.value})} className="w-full px-2 py-1.5 border rounded-md text-sm"/>
+                                    </div>
+                                    <div className="col-span-1 sm:col-span-1">
+                                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Número</label>
+                                        <input type="text" value={newAddress.number} onChange={e => setNewAddress({...newAddress, number: e.target.value})} className="w-full px-2 py-1.5 border rounded-md text-sm"/>
+                                    </div>
+                                    <div className="col-span-2">
+                                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Complemento</label>
+                                        <input type="text" value={newAddress.complement} onChange={e => setNewAddress({...newAddress, complement: e.target.value})} className="w-full px-2 py-1.5 border rounded-md text-sm"/>
+                                    </div>
+                                </div>
+                                <button type="button" onClick={handleAddAddress} className="w-full py-2 bg-brand-primary text-white rounded-lg font-bold text-sm">
+                                    Confirmar Novo Endereço
+                                </button>
+                            </div>
+                        )}
+
+                        <div className="space-y-2">
+                            {addresses.length > 0 ? addresses.map((addr, idx) => (
+                                <div key={idx} className="flex justify-between items-center p-3 bg-white border border-gray-100 rounded-lg shadow-sm">
+                                    <div className="text-xs text-gray-600">
+                                        <p className="font-bold text-brand-text">{addr.street}, {addr.number}</p>
+                                        <p>{addr.neighborhood} - {addr.cep}</p>
+                                    </div>
+                                    <button onClick={() => handleRemoveAddress(idx)} className="p-2 text-gray-300 hover:text-red-500 rounded-lg">
+                                        <TrashIcon className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            )) : (
+                                <p className="text-center py-6 text-sm text-gray-400 italic">Nenhum endereço cadastrado.</p>
+                            )}
+                        </div>
+                    </section>
                 </div>
+
+                <footer className="p-4 border-t bg-gray-50 flex gap-3">
+                    <button onClick={onClose} className="flex-1 py-3 bg-white border border-gray-200 rounded-xl font-bold text-gray-600 hover:bg-gray-100 transition-colors">Cancelar</button>
+                    <button 
+                        onClick={handleSave} 
+                        disabled={isSaving} 
+                        className="flex-[2] py-3 bg-brand-primary text-white rounded-xl font-black shadow-lg hover:brightness-105 active:scale-95 transition-all disabled:opacity-50"
+                    >
+                        {isSaving ? 'Salvando...' : 'Salvar Alterações'}
+                    </button>
+                </footer>
             </div>
         </div>
     );
@@ -186,7 +339,7 @@ const ClientDetailModal: React.FC<{
                     </button>
                     <div>
                         <h2 className="font-bold text-xl text-brand-text">{client.name}</h2>
-                        <p className="text-xs text-gray-500">{formatWhatsapp(client.id)}</p>
+                        <p className="text-xs text-gray-500">{formatWhatsapp(client.whatsapp, client.id)}</p>
                     </div>
                 </div>
                 <button onClick={onClose} className="hidden md:block p-2 hover:bg-gray-100 rounded-full text-gray-400">
@@ -221,6 +374,29 @@ const ClientDetailModal: React.FC<{
                         <p className="text-2xl font-black text-brand-primary">{formatPrice(monthTotal)}</p>
                     </div>
                 </section>
+
+                {(client.observations || client.birthday) && (
+                    <section className="bg-brand-secondary/10 p-5 rounded-xl border border-brand-secondary/20 shadow-sm animate-fade-in">
+                        <h3 className="text-xs font-black text-brand-primary uppercase tracking-widest mb-3 flex items-center gap-2">
+                             <div className="w-1.5 h-3 bg-brand-primary rounded-full"></div>
+                             Dados do Perfil
+                        </h3>
+                        <div className="space-y-3">
+                            {client.birthday && (
+                                <div className="flex items-center gap-2">
+                                    <span className="text-gray-400"><CalendarIcon className="w-4 h-4"/></span>
+                                    <span className="text-sm font-medium text-gray-700">Aniversário: <span className="text-brand-text font-bold">{new Date(client.birthday + 'T00:00:00').toLocaleDateString('pt-BR')}</span></span>
+                                </div>
+                            )}
+                            {client.observations && (
+                                <div className="bg-white p-3 rounded-lg border border-gray-100 shadow-inner">
+                                    <p className="text-xs font-bold text-gray-400 uppercase mb-1">Observações Internas</p>
+                                    <p className="text-sm text-gray-700 leading-relaxed italic">{client.observations}</p>
+                                </div>
+                            )}
+                        </div>
+                    </section>
+                )}
 
                 {isLoading ? (
                     <div className="text-center py-20"><p className="animate-pulse text-gray-400 font-bold">Acessando histórico de pedidos...</p></div>
@@ -326,16 +502,16 @@ const ClientCard: React.FC<{
                 <div className="min-w-0 flex-grow cursor-pointer" onClick={() => onView(client)}>
                     <h3 className="text-lg font-bold text-brand-text truncate pr-2 group-hover:text-brand-primary transition-colors">{client.name}</h3>
                     <p className="text-xs text-gray-500 flex items-center gap-1 font-medium">
-                        {formatWhatsapp(client.id)}
+                        {formatWhatsapp(client.whatsapp, client.id)}
                     </p>
                 </div>
                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button 
                         onClick={() => onEdit(client)}
                         className="p-1.5 text-gray-400 hover:text-brand-primary hover:bg-brand-secondary/30 rounded-lg"
-                        title="Editar Nome"
+                        title="Editar Informações"
                     >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121(0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                     </button>
                     <button 
                         onClick={() => onDelete(client)}
@@ -346,6 +522,12 @@ const ClientCard: React.FC<{
                     </button>
                 </div>
             </div>
+
+            {client.observations && (
+                <div className="mt-2 bg-amber-50 p-2 rounded border border-amber-100 text-[10px] text-amber-800 italic line-clamp-1">
+                    "{client.observations}"
+                </div>
+            )}
 
             <div className="mt-4 flex gap-2">
                 <div className="flex-1 bg-gray-50 p-2 rounded-lg text-center">
@@ -380,18 +562,19 @@ const ClientsView: React.FC = () => {
     const loadClientsAndStats = async () => {
         setIsLoading(true);
         try {
-            // Buscamos clientes e todos os pedidos simultaneamente para calcular em tempo real
             const [clientsData, allOrders] = await Promise.all([
                 getClients(),
                 getOrders()
             ]);
 
-            // Mapeamos os pedidos confirmados por cliente (whatsapp id)
             const revenueMap = new Map<string, { total: number, count: number }>();
             
             allOrders.forEach(order => {
                 if (REVENUE_ORDER_STATUSES.includes(order.status)) {
-                    const clientId = order.customer.whatsapp.replace(/\D/g, '');
+                    // O identificador único agora é o NOME
+                    const clientId = order.customer.name?.trim() || '';
+                    if (!clientId) return;
+                    
                     const current = revenueMap.get(clientId) || { total: 0, count: 0 };
                     revenueMap.set(clientId, {
                         total: current.total + (order.total || 0) + (order.deliveryFee || 0),
@@ -400,8 +583,8 @@ const ClientsView: React.FC = () => {
                 }
             });
 
-            // Enriquecemos os dados dos clientes com os valores reais calculados
             const enrichedClients = clientsData.map(c => {
+                // c.id agora contém o nome, o que deve bater com as chaves do revenueMap
                 const stats = revenueMap.get(c.id) || { total: 0, count: 0 };
                 return {
                     ...c,
@@ -425,7 +608,7 @@ const ClientsView: React.FC = () => {
     const filteredClients = useMemo(() => {
         return clients.filter(c => 
             c.name.toLowerCase().includes(search.toLowerCase()) || 
-            c.id.includes(search.replace(/\D/g, ''))
+            c.whatsapp?.includes(search.replace(/\D/g, ''))
         );
     }, [clients, search]);
 

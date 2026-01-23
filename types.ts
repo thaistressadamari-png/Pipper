@@ -87,13 +87,18 @@ export interface Order {
   updatedAt: any;
 }
 
+// Added 'whatsapp' and 'needsSync' to Client interface to fix reported errors in ClientsView.tsx
 export interface Client {
   id: string;
   name: string;
+  whatsapp: string;
   firstOrderDate: any;
   lastOrderDate: any;
   totalOrders: number;
   totalSpent: number;
   addresses: DeliveryInfo['address'][];
   orderIds: string[];
+  observations?: string;
+  birthday?: string;
+  needsSync?: boolean;
 }

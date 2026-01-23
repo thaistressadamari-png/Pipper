@@ -131,9 +131,7 @@ export const getMenu = async (): Promise<{ products: Product[], categories: Cate
         getDocs(productsQuery),
         getDoc(categoriesDoc)
     ]);
-    // Added type assertion for data() to Product
     const products: Product[] = productsSnapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as Product) } as Product));
-    // Added type assertion for categories metadata document
     const categories = (categoriesSnapshot.data() as { names: CategoryMetadata[] })?.names || [];
     return { products, categories };
 };
@@ -143,7 +141,6 @@ export const updateOrderStatus = async (orderId: string, status: Order['status']
     await runTransaction(db, async (transaction) => {
         const orderSnap = await transaction.get(orderRef);
         if (!orderSnap.exists()) throw new Error("Pedido não encontrado");
-        // Added type assertion for order data
         const orderData = { id: orderSnap.id, ...(orderSnap.data() as Order) } as Order;
 
         const statusThatRequireInventoryDeduction = ['pending_payment', 'confirmed', 'shipped', 'completed'];
@@ -156,10 +153,10 @@ export const updateOrderStatus = async (orderId: string, status: Order['status']
 
         transaction.update(orderRef, { status, updatedAt: serverTimestamp() });
         
-        // Se o status mudou para um que conta receita, sinalizamos necessidade de sync do cliente
         const revenueStatuses = ['confirmed', 'shipped', 'completed'];
         if (revenueStatuses.includes(status) || status === 'archived') {
-            const clientId = orderData.customer.whatsapp.replace(/\D/g, '');
+            // Usamos o nome como identificador único para o CRM conforme solicitado
+            const clientId = orderData.customer.name.trim();
             const clientRef = doc(db, 'clients', clientId);
             transaction.update(clientRef, { needsSync: true });
         }
@@ -171,10 +168,10 @@ export const processOrderCheckout = async (orderId: string, deliveryFee: number,
     await runTransaction(db, async (transaction) => {
         const orderSnap = await transaction.get(orderRef);
         if (!orderSnap.exists()) throw new Error("Pedido não encontrado");
-        // Added type assertion for order data
         const orderData = { id: orderSnap.id, ...(orderSnap.data() as Order) } as Order;
 
-        const clientId = orderData.customer.whatsapp.replace(/\D/g, '');
+        // Novo identificador baseado no nome
+        const clientId = orderData.customer.name.trim();
         const clientRef = doc(db, 'clients', clientId);
         const clientSnap = await transaction.get(clientRef);
 
@@ -185,6 +182,7 @@ export const processOrderCheckout = async (orderId: string, deliveryFee: number,
             transaction.set(clientRef, {
                 id: clientId,
                 name: orderData.customer.name,
+                whatsapp: orderData.customer.whatsapp.replace(/\D/g, ''),
                 firstOrderDate: serverTimestamp(),
                 lastOrderDate: serverTimestamp(),
                 totalOrders: 0,
@@ -214,14 +212,15 @@ export const processOrderCheckout = async (orderId: string, deliveryFee: number,
 export const addOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt' | 'orderNumber' | 'status'>, saveAddress: boolean = true): Promise<Order> => {
     const orderRef = doc(collection(db, 'orders'));
     const counterRef = doc(db, 'metadata', 'counters');
-    const clientId = orderData.customer.whatsapp.replace(/\D/g, '');
+    
+    // Identificador único por Nome
+    const clientId = orderData.customer.name.trim();
     const clientRef = doc(db, 'clients', clientId);
 
     return await runTransaction(db, async (transaction) => {
         const counterDoc = await transaction.get(counterRef);
         const clientSnap = await transaction.get(clientRef);
         
-        // Cast counter data to any to access orderNumber safely
         const counterData = counterDoc.data() as any;
         const newOrderNumber = counterDoc.exists() ? counterData.orderNumber + 1 : 1001;
         const now = Timestamp.now();
@@ -243,6 +242,7 @@ export const addOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'upda
                 transaction.set(clientRef, {
                     id: clientId,
                     name: orderData.customer.name,
+                    whatsapp: orderData.customer.whatsapp.replace(/\D/g, ''),
                     firstOrderDate: serverTimestamp(),
                     lastOrderDate: serverTimestamp(),
                     totalOrders: 0,
@@ -292,24 +292,30 @@ export const deleteProduct = (productId: string): Promise<void> => {
 export const getOrders = async (): Promise<Order[]> => {
     const q = query(ordersCollection, orderBy('orderNumber', 'desc'));
     const querySnapshot = await getDocs(q);
-    // Added type assertion for order data
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as Order) } as Order));
 };
 
 export const getOrderById = async (orderId: string): Promise<Order | null> => {
     const snap = await getDoc(doc(ordersCollection, orderId));
-    // Added type assertion for order data
     return snap.exists() ? { id: snap.id, ...(snap.data() as Order) } as Order : null;
 };
 
+/**
+ * Busca cliente pelo telefone. 
+ * Agora faz uma query pois o ID do documento é o Nome.
+ */
 export const getClient = async (whatsapp: string): Promise<Client | null> => {
-    const snap = await getDoc(doc(clientsCollection, whatsapp.replace(/\D/g, '')));
-    // Added type assertion for client data
-    return snap.exists() ? { id: snap.id, ...(snap.data() as Client) } as Client : null;
+    const rawWhatsapp = whatsapp.replace(/\D/g, '');
+    const q = query(clientsCollection, where('whatsapp', '==', rawWhatsapp));
+    const snap = await getDocs(q);
+    if (snap.empty) return null;
+    // Retorna o primeiro encontrado com este número
+    const doc = snap.docs[0];
+    return { id: doc.id, ...(doc.data() as Client) } as Client;
 };
 
-export const removeClientAddress = async (whatsapp: string, address: DeliveryInfo['address']): Promise<void> => {
-    await updateDoc(doc(clientsCollection, whatsapp.replace(/\D/g, '')), { 
+export const removeClientAddress = async (clientId: string, address: DeliveryInfo['address']): Promise<void> => {
+    await updateDoc(doc(clientsCollection, clientId), { 
         addresses: arrayRemove(address) 
     });
 };
@@ -317,7 +323,6 @@ export const removeClientAddress = async (whatsapp: string, address: DeliveryInf
 export const getOrdersByWhatsapp = async (whatsapp: string): Promise<Order[]> => {
     const q = query(ordersCollection, where('customer.whatsapp', '==', whatsapp.replace(/\D/g, '')));
     const snap = await getDocs(q);
-    // Added type assertion for order data
     return snap.docs.map(doc => ({ id: doc.id, ...(doc.data() as Order) } as Order)).sort((a,b) => b.orderNumber - a.orderNumber);
 };
 
@@ -335,7 +340,6 @@ export const getNewOrdersCount = async (): Promise<number> => {
 export const getOrdersByDateRange = async (start: Date, end: Date): Promise<Order[]> => {
     const q = query(ordersCollection, where('createdAt', '>=', start), where('createdAt', '<=', end));
     const snap = await getDocs(q);
-    // Added type assertion for order data
     return snap.docs.map(doc => ({ id: doc.id, ...(doc.data() as Order) } as Order));
 };
 
@@ -343,35 +347,35 @@ export const getVisitCountByDateRange = async (start: Date, end: Date): Promise<
     const q = query(dailyVisitsCollection, where(documentId(), '>=', start.toISOString().split('T')[0]), where(documentId(), '<=', end.toISOString().split('T')[0]));
     const snap = await getDocs(q);
     let total = 0;
-    // Added type assertion for daily visits data
     snap.forEach(d => total += (d.data() as { count: number }).count || 0);
     return total;
 };
 
 export const updateOrderPaymentLink = (id: string, link: string) => updateDoc(doc(db, 'orders', id), { paymentLink: link });
 
-export const addCategory = async (name: string) => {
+export const addCategory = async (name: string): Promise<CategoryMetadata[]> => {
     const snap = await getDoc(categoriesDoc);
-    // Added type assertion for categories metadata document
-    const cats = (snap.data() as { names: any[] })?.names || [];
-    if (!cats.find((c: any) => c.name === name)) {
+    const cats = (snap.data() as { names: CategoryMetadata[] })?.names || [];
+    if (!cats.find((c: CategoryMetadata) => c.name === name)) {
         const updated = [...cats, { name, isArchived: false }];
         await setDoc(categoriesDoc, { names: updated });
+        return updated;
     }
+    return cats;
 };
 
-export const deleteCategory = async (name: string) => {
+export const deleteCategory = async (name: string): Promise<CategoryMetadata[]> => {
     const snap = await getDoc(categoriesDoc);
-    // Added type assertion for categories metadata document
-    const filtered = ((snap.data() as { names: any[] })?.names || []).filter((c: any) => c.name !== name);
+    const cats = (snap.data() as { names: CategoryMetadata[] })?.names || [];
+    const filtered = cats.filter((c: CategoryMetadata) => c.name !== name);
     await setDoc(categoriesDoc, { names: filtered });
+    return filtered;
 };
 
 export const updateCategoryOrder = (order: any) => setDoc(categoriesDoc, { names: order });
 
 export const toggleCategoriesArchive = async (names: string[], archive: boolean) => {
     const snap = await getDoc(categoriesDoc);
-    // Added type assertion for categories metadata document
     const updated = ((snap.data() as { names: any[] })?.names || []).map((c: any) => names.includes(c.name) ? { ...c, isArchived: archive } : c);
     await setDoc(categoriesDoc, { names: updated });
     return updated;
@@ -379,7 +383,6 @@ export const toggleCategoriesArchive = async (names: string[], archive: boolean)
 
 export const getClients = async () => {
     const snap = await getDocs(query(clientsCollection, orderBy('name')));
-    // Added type assertion for client data
     return snap.docs.map(doc => ({ id: doc.id, ...(doc.data() as Client) } as Client));
 };
 
@@ -388,15 +391,14 @@ export const updateClient = (id: string, data: any) => updateDoc(doc(clientsColl
 export const deleteClient = (id: string) => deleteDoc(doc(clientsCollection, id));
 
 export const getOrdersByClientId = async (id: string) => {
-    const q = query(ordersCollection, where('customer.whatsapp', '==', id.replace(/\D/g, '')));
+    // id aqui é o nome do cliente
+    const q = query(ordersCollection, where('customer.name', '==', id));
     const snap = await getDocs(q);
-    // Added type assertion for order data
     return snap.docs.map(doc => ({ id: doc.id, ...(doc.data() as Order) } as Order));
 };
 
-export const syncClientStats = async (id: string) => {
-    const clientId = id.replace(/\D/g, '');
-    const ordersSnap = await getDocs(query(ordersCollection, where('customer.whatsapp', '==', clientId)));
+export const syncClientStats = async (clientId: string) => {
+    const ordersSnap = await getDocs(query(ordersCollection, where('customer.name', '==', clientId)));
     
     const revenueStatuses = ['confirmed', 'shipped', 'completed'];
     const validOrders = ordersSnap.docs
@@ -412,4 +414,110 @@ export const syncClientStats = async (id: string) => {
         needsSync: false,
         lastUpdated: serverTimestamp()
     });
+};
+
+/**
+ * RECONSTRUÇÃO VIA HISTÓRICO DE PEDIDOS
+ * Agora utiliza o NOME do cliente como ID único, separando clientes que usam o mesmo WhatsApp.
+ */
+export const reconstructClientsFromHistory = async () => {
+    const ordersSnapshot = await getDocs(ordersCollection);
+    const orders = ordersSnapshot.docs.map(d => ({ id: d.id, ...d.data() as Order }));
+    
+    const revenueStatuses = ['confirmed', 'shipped', 'completed'];
+    const clientsMap: Record<string, { 
+        name: string, 
+        whatsapp: string,
+        firstOrder: any, 
+        lastOrder: any, 
+        orders: Order[],
+        addresses: Set<string>,
+        orderIds: string[]
+    }> = {};
+
+    orders.forEach(order => {
+        // Usamos o NOME como chave do mapa para separar clientes com mesmo telefone
+        const nameKey = order.customer?.name?.trim();
+        if (!nameKey) return;
+
+        if (!clientsMap[nameKey]) {
+            clientsMap[nameKey] = {
+                name: order.customer.name,
+                whatsapp: order.customer.whatsapp?.replace(/\D/g, '') || '',
+                firstOrder: order.createdAt,
+                lastOrder: order.createdAt,
+                orders: [],
+                addresses: new Set(),
+                orderIds: []
+            };
+        }
+
+        const client = clientsMap[nameKey];
+        client.orders.push(order);
+        client.orderIds.push(order.id);
+        
+        // Mantém o WhatsApp mais recente se houver variação (opcional)
+        if (order.customer.whatsapp) {
+            client.whatsapp = order.customer.whatsapp.replace(/\D/g, '');
+        }
+
+        // Datas
+        if (order.createdAt?.toDate && client.firstOrder?.toDate) {
+            if (order.createdAt.toDate() < client.firstOrder.toDate()) client.firstOrder = order.createdAt;
+            if (order.createdAt.toDate() > client.lastOrder.toDate()) client.lastOrder = order.createdAt;
+        }
+
+        // Endereços (Unique keys para Set)
+        if (order.delivery?.address) {
+            const addr = order.delivery.address;
+            const key = JSON.stringify({
+                cep: addr.cep,
+                street: addr.street,
+                number: addr.number,
+                neighborhood: addr.neighborhood,
+                complement: addr.complement || ''
+            });
+            client.addresses.add(key);
+        }
+    });
+
+    const batch = writeBatch(db);
+    let count = 0;
+
+    for (const nameKey in clientsMap) {
+        const data = clientsMap[nameKey];
+        const validOrders = data.orders.filter(o => revenueStatuses.includes(o.status));
+        
+        const totalSpent = validOrders.reduce((acc, o) => acc + (o.total || 0) + (o.deliveryFee || 0), 0);
+        const totalOrders = validOrders.length;
+        
+        // Document ID agora é o NOME
+        const clientRef = doc(clientsCollection, nameKey);
+        
+        // Parse de endereços de volta para objeto
+        const addressesArray = Array.from(data.addresses).map(str => JSON.parse(str));
+
+        batch.set(clientRef, {
+            id: nameKey,
+            name: data.name,
+            whatsapp: data.whatsapp,
+            firstOrderDate: data.firstOrder,
+            lastOrderDate: data.lastOrder,
+            totalOrders: totalOrders,
+            totalSpent: totalSpent,
+            addresses: addressesArray,
+            orderIds: data.orderIds,
+            needsSync: false,
+            lastMaintenance: serverTimestamp()
+        }, { merge: true });
+        
+        count++;
+        // Limite de 500 por batch do Firestore
+        if (count % 450 === 0) {
+            await batch.commit();
+        }
+    }
+
+    await batch.commit();
+    return count;
 };
