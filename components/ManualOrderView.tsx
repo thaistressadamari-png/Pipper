@@ -11,6 +11,13 @@ interface ManualOrderViewProps {
   onOrderCreated: () => void;
 }
 
+const maskPhone = (v: string) => {
+    return v.replace(/\D/g, '')
+      .replace(/^(\d{2})(\d)/g, '($1) $2')
+      .replace(/(\d)(\d{4})$/, '$1-$2')
+      .slice(0, 15);
+};
+
 const CategorySearchSelect: React.FC<{
     categories: string[];
     value: string;
@@ -197,7 +204,7 @@ const ManualOrderView: React.FC<ManualOrderViewProps> = ({ products, storeInfo, 
   }, []);
 
   const handleNoWhatsapp = () => {
-    setCustomerData(prev => ({ ...prev, whatsapp: '(00) 00000-0000' }));
+    setCustomerData(prev => ({ ...prev, whatsapp: maskPhone('00000000000') }));
     setTimeout(() => {
         nameInputRef.current?.focus();
     }, 100);
@@ -239,7 +246,7 @@ const ManualOrderView: React.FC<ManualOrderViewProps> = ({ products, storeInfo, 
       setCustomerData(prev => ({
           ...prev,
           name: client.name,
-          whatsapp: client.id.replace(/^(\d{2})(\d{5})(\d{4})$/, '($1) $2-$3'),
+          whatsapp: maskPhone(client.whatsapp || '00000000000'),
       }));
       setClientSearchDropdownOpen(false);
   };
@@ -412,7 +419,7 @@ const ManualOrderView: React.FC<ManualOrderViewProps> = ({ products, storeInfo, 
                                     </div>
                                     <div className="min-w-0">
                                         <p className="font-bold text-sm text-brand-text truncate">{c.name}</p>
-                                        <p className="text-xs text-gray-500">{c.id.replace(/^(\d{2})(\d{5})(\d{4})$/, '($1) $2-$3')}</p>
+                                        <p className="text-xs text-gray-500">{c.whatsapp ? maskPhone(c.whatsapp) : 'Sem número'}</p>
                                     </div>
                                 </button>
                             ))}
@@ -435,7 +442,7 @@ const ManualOrderView: React.FC<ManualOrderViewProps> = ({ products, storeInfo, 
                   <input
                     type="tel"
                     value={customerData.whatsapp}
-                    onChange={e => setCustomerData({ ...customerData, whatsapp: e.target.value })}
+                    onChange={e => setCustomerData({ ...customerData, whatsapp: maskPhone(e.target.value) })}
                     onBlur={handleWhatsappBlur}
                     placeholder="(00) 00000-0000"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-brand-primary outline-none"
