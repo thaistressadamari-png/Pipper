@@ -155,7 +155,6 @@ export const updateOrderStatus = async (orderId: string, status: Order['status']
         
         const revenueStatuses = ['confirmed', 'shipped', 'completed'];
         if (revenueStatuses.includes(status) || status === 'archived') {
-            // Usamos o nome como identificador único para o CRM conforme solicitado
             const clientId = orderData.customer.name.trim();
             const clientRef = doc(db, 'clients', clientId);
             transaction.update(clientRef, { needsSync: true });
@@ -170,7 +169,6 @@ export const processOrderCheckout = async (orderId: string, deliveryFee: number,
         if (!orderSnap.exists()) throw new Error("Pedido não encontrado");
         const orderData = { id: orderSnap.id, ...(orderSnap.data() as Order) } as Order;
 
-        // Novo identificador baseado no nome
         const clientId = orderData.customer.name.trim();
         const clientRef = doc(db, 'clients', clientId);
         const clientSnap = await transaction.get(clientRef);
@@ -209,15 +207,18 @@ export const processOrderCheckout = async (orderId: string, deliveryFee: number,
     });
 };
 
-export const addOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt' | 'orderNumber' | 'status'>, saveAddress: boolean = true): Promise<Order> => {
+export const addOrder = async (
+    orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt' | 'orderNumber' | 'status'>, 
+    saveAddress: boolean = true,
+    shouldNotifyTelegram: boolean = false
+): Promise<Order> => {
     const orderRef = doc(collection(db, 'orders'));
     const counterRef = doc(db, 'metadata', 'counters');
     
-    // Identificador único por Nome
     const clientId = orderData.customer.name.trim();
     const clientRef = doc(db, 'clients', clientId);
 
-    return await runTransaction(db, async (transaction) => {
+    const result = await runTransaction(db, async (transaction) => {
         const counterDoc = await transaction.get(counterRef);
         const clientSnap = await transaction.get(clientRef);
         
@@ -263,6 +264,16 @@ export const addOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'upda
 
         return { ...fullOrderData, id: orderRef.id, createdAt: now, updatedAt: now } as Order;
     });
+
+    if (shouldNotifyTelegram) {
+        fetch('/api/notify-telegram', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ order: result }),
+        }).catch(err => console.error("Erro ao enviar notificação para o Telegram:", err));
+    }
+
+    return result;
 };
 
 export const getStoreInfo = async (): Promise<StoreInfoData> => {
@@ -300,16 +311,11 @@ export const getOrderById = async (orderId: string): Promise<Order | null> => {
     return snap.exists() ? { id: snap.id, ...(snap.data() as Order) } as Order : null;
 };
 
-/**
- * Busca cliente pelo telefone. 
- * Agora faz uma query pois o ID do documento é o Nome.
- */
 export const getClient = async (whatsapp: string): Promise<Client | null> => {
     const rawWhatsapp = whatsapp.replace(/\D/g, '');
     const q = query(clientsCollection, where('whatsapp', '==', rawWhatsapp));
     const snap = await getDocs(q);
     if (snap.empty) return null;
-    // Retorna o primeiro encontrado com este número
     const doc = snap.docs[0];
     return { id: doc.id, ...(doc.data() as Client) } as Client;
 };
@@ -391,7 +397,6 @@ export const updateClient = (id: string, data: any) => updateDoc(doc(clientsColl
 export const deleteClient = (id: string) => deleteDoc(doc(clientsCollection, id));
 
 export const getOrdersByClientId = async (id: string) => {
-    // id aqui é o nome do cliente
     const q = query(ordersCollection, where('customer.name', '==', id));
     const snap = await getDocs(q);
     return snap.docs.map(doc => ({ id: doc.id, ...(doc.data() as Order) } as Order));
@@ -416,10 +421,6 @@ export const syncClientStats = async (clientId: string) => {
     });
 };
 
-/**
- * RECONSTRUÇÃO VIA HISTÓRICO DE PEDIDOS
- * Agora utiliza o NOME do cliente como ID único, separando clientes que usam o mesmo WhatsApp.
- */
 export const reconstructClientsFromHistory = async () => {
     const ordersSnapshot = await getDocs(ordersCollection);
     const orders = ordersSnapshot.docs.map(d => ({ id: d.id, ...d.data() as Order }));
@@ -436,7 +437,6 @@ export const reconstructClientsFromHistory = async () => {
     }> = {};
 
     orders.forEach(order => {
-        // Usamos o NOME como chave do mapa para separar clientes com mesmo telefone
         const nameKey = order.customer?.name?.trim();
         if (!nameKey) return;
 
@@ -456,18 +456,15 @@ export const reconstructClientsFromHistory = async () => {
         client.orders.push(order);
         client.orderIds.push(order.id);
         
-        // Mantém o WhatsApp mais recente se houver variação (opcional)
         if (order.customer.whatsapp) {
             client.whatsapp = order.customer.whatsapp.replace(/\D/g, '');
         }
 
-        // Datas
         if (order.createdAt?.toDate && client.firstOrder?.toDate) {
             if (order.createdAt.toDate() < client.firstOrder.toDate()) client.firstOrder = order.createdAt;
             if (order.createdAt.toDate() > client.lastOrder.toDate()) client.lastOrder = order.createdAt;
         }
 
-        // Endereços (Unique keys para Set)
         if (order.delivery?.address) {
             const addr = order.delivery.address;
             const key = JSON.stringify({
@@ -491,10 +488,8 @@ export const reconstructClientsFromHistory = async () => {
         const totalSpent = validOrders.reduce((acc, o) => acc + (o.total || 0) + (o.deliveryFee || 0), 0);
         const totalOrders = validOrders.length;
         
-        // Document ID agora é o NOME
         const clientRef = doc(clientsCollection, nameKey);
         
-        // Parse de endereços de volta para objeto
         const addressesArray = Array.from(data.addresses).map(str => JSON.parse(str));
 
         batch.set(clientRef, {
@@ -512,7 +507,6 @@ export const reconstructClientsFromHistory = async () => {
         }, { merge: true });
         
         count++;
-        // Limite de 500 por batch do Firestore
         if (count % 450 === 0) {
             await batch.commit();
         }

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import type { CartItem, StoreInfoData, Order, DeliveryInfo } from '../types';
 import { ArrowLeftIcon, CalendarIcon, SpinnerIcon, XIcon, CheckCircleIcon, TrashIcon, MapPinIcon, PlusIcon, MinusIcon } from './IconComponents';
@@ -126,7 +127,6 @@ const SavedAddressesModal: React.FC<{
 
 
 const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNavigateBack, onOrderSuccess, onUpdateQuantity, onRemoveItem }) => {
-  // Scroll to top when component mounts
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
@@ -150,7 +150,6 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
   const [cepError, setCepError] = useState('');
   const [isPhoneModalOpen, setIsPhoneModalOpen] = useState(false);
   
-  // Address search state
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
   const [foundAddresses, setFoundAddresses] = useState<DeliveryInfo['address'][]>([]);
   const [addressToDelete, setAddressToDelete] = useState<DeliveryInfo['address'] | null>(null);
@@ -186,14 +185,14 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
       .replace(/\D/g, '')
       .replace(/^(\d{2})(\d)/g, '($1) $2')
       .replace(/(\d)(\d{4})$/, '$1-$2')
-      .slice(0, 15); // (XX) XXXXX-XXXX
+      .slice(0, 15);
   };
 
   const maskCep = (value: string) => {
     return value
         .replace(/\D/g, '')
         .replace(/^(\d{5})(\d)/, '$1-$2')
-        .slice(0, 9); // XXXXX-XXX
+        .slice(0, 9);
   };
   
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -205,7 +204,6 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
     } else {
         setFormData(prev => ({ ...prev, [name]: value }));
     }
-    // Clear error for the field being edited
     if (formErrors[name]) {
         setFormErrors(prev => ({...prev, [name]: ''}));
     }
@@ -268,7 +266,7 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
           const rect = calendarButtonRef.current.getBoundingClientRect();
           const windowHeight = window.innerHeight;
           const spaceBelow = windowHeight - rect.bottom;
-          if (spaceBelow < 350) { // Approx height of calendar
+          if (spaceBelow < 350) {
               setCalendarPosition('top');
           } else {
               setCalendarPosition('bottom');
@@ -280,9 +278,6 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
   const checkClient = async (whatsapp: string) => {
       const client = await getClient(whatsapp);
       if (client) {
-          // IMPORTANT: Only auto-fill name if the field is empty.
-          // This prevents overwriting a name the user might have already typed 
-          // while the fetch was happening or via browser autofill.
           setFormData(prev => {
               if (!prev.name) {
                   return { ...prev, name: client.name };
@@ -376,15 +371,16 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
                 name: item.name,
                 quantity: item.quantity,
                 price: item.price,
-                observations: item.observations || '', // Fix undefined
-                option: item.selectedOption?.name || '' // Fix undefined
+                observations: item.observations || '',
+                option: item.selectedOption?.name || ''
             })),
             total: total,
             paymentMethod: formData.paymentMethod,
             deliveryDate: formData.deliveryDate
         };
 
-        const newOrder = await addOrder(orderData, saveAddress);
+        // Adicionando o terceiro parâmetro 'true' para ativar a notificação do Telegram
+        const newOrder = await addOrder(orderData, saveAddress, true);
         onOrderSuccess(newOrder);
 
     } catch (error) {
@@ -409,7 +405,6 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
 
       <main className="flex-grow container mx-auto px-4 py-6 max-w-2xl">
         
-        {/* Cart Items Section */}
         <section className="bg-white p-6 rounded-lg shadow-sm border border-gray-100 mb-6">
             <h2 className="text-xl font-bold text-brand-text mb-4">Seu Carrinho</h2>
             <div className="space-y-4">
@@ -462,7 +457,6 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
         {cartItems.length > 0 && (
         <form onSubmit={handleSubmit} className="space-y-6">
             
-            {/* 1. Identification */}
             <section className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
                 <div className="flex items-center gap-2 mb-4">
                     <div className="bg-brand-primary text-white w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold">1</div>
@@ -505,7 +499,6 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
                 </div>
             </section>
 
-             {/* 2. Delivery Address */}
             <section className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
                 <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
@@ -621,7 +614,6 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
                 </div>
             </section>
 
-             {/* 3. Delivery Date */}
              <section className="bg-white p-6 rounded-lg shadow-sm border border-gray-100 relative">
                 <div className="flex items-center gap-2 mb-4">
                     <div className="bg-brand-primary text-white w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold">3</div>
@@ -655,7 +647,6 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
                  </div>
             </section>
 
-             {/* 4. Payment */}
             <section className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
                  <div className="flex items-center gap-2 mb-4">
                     <div className="bg-brand-primary text-white w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold">4</div>
@@ -683,7 +674,6 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
                  </div>
             </section>
 
-             {/* Order Summary */}
             <section className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
                 <h2 className="text-lg font-bold text-brand-text mb-4">Resumo do Pedido</h2>
                 <div className="space-y-3 mb-4">
