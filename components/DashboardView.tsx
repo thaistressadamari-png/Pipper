@@ -282,7 +282,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ products }) => {
                                             </span>
                                         )}
                                         <div 
-                                            className="w-full bg-brand-primary/40 rounded-t-md hover:bg-brand-primary transition-colors"
+                                            className="w-full bg-brand-primary/60 rounded-t-md hover:bg-brand-primary transition-colors"
                                             style={{ height: yAxisMax > 0 ? `${(data.revenue / yAxisMax) * 100}%` : '0%' }}
                                             title={data.revenue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                                         ></div>
