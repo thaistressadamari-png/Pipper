@@ -293,9 +293,10 @@ const App: React.FC = () => {
   };
 
   const SectionTitle: React.FC<{ title: string }> = ({ title }) => (
-    <div className="flex justify-between items-center mb-4 mt-8">
-        <div className="flex items-center space-x-2">
-            <h2 className="text-xl font-bold text-brand-text">{title}</h2>
+    <div className="flex justify-between items-center mb-6 mt-10">
+        <div className="flex items-center space-x-3">
+            <div className="w-1.5 h-6 bg-brand-primary rounded-full"></div>
+            <h2 className="text-xl font-bold text-brand-text tracking-tight">{title}</h2>
         </div>
     </div>
   );
@@ -398,8 +399,8 @@ const App: React.FC = () => {
                     {Array.from({length: 2}).map((_, i) => (
                         <div key={i}>
                             <div className="h-6 bg-gray-200 rounded w-1/3 animate-pulse mb-4 mt-8"></div>
-                            <div className="space-y-4">
-                                {Array.from({length: 2}).map((_, index) => (
+                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                                {Array.from({length: 3}).map((_, index) => (
                                     <div key={index} className="flex items-center bg-white p-2 rounded-lg gap-4 animate-pulse">
                                         <div className="w-24 h-24 sm:w-32 sm:h-32 bg-gray-200 rounded-md"></div>
                                         <div className="flex-grow space-y-3 py-2">
@@ -422,7 +423,7 @@ const App: React.FC = () => {
                     <section>
                         <SectionTitle title={`Resultados para "${searchQuery}"`} />
                         {searchResults.length > 0 ? (
-                        <div className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
                             {searchResults.map(product => (
                             <ProductCard key={product.id} product={product} onProductClick={handleProductClick} />
                             ))}
@@ -440,7 +441,7 @@ const App: React.FC = () => {
                             return (
                                 <section key={category}>
                                     <SectionTitle title={category} />
-                                    <div className="space-y-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
                                         {categoryProducts.map(product => (
                                             <ProductCard key={product.id} product={product} onProductClick={handleProductClick} />
                                         ))}
@@ -453,7 +454,7 @@ const App: React.FC = () => {
                         return (
                         <section>
                             <SectionTitle title={selectedCategory} />
-                            <div className="space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
                                 {categoryProducts.map(product => (
                                 <ProductCard
                                     key={product.id}
