@@ -1,3 +1,4 @@
+
 import * as https from "https";
 import { Buffer } from "buffer";
 
@@ -17,9 +18,16 @@ interface ApiResponse {
 
 const formatPrice = (price: number) => (price || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
-// Robust encoding for Telegram Markdown links
-// encodeURIComponent does not encode ! ' ( ) *
-// These characters can break Markdown links if not encoded
+// Helper to escape HTML special characters
+const escapeHtml = (unsafe: string) => {
+    return (unsafe || '')
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+};
+
 function fixedEncodeURIComponent(str: string) {
   return encodeURIComponent(str).replace(/[!'()*]/g, function(c) {
     return '%' + c.charCodeAt(0).toString(16).toUpperCase();
@@ -34,8 +42,7 @@ async function sendDeliveryFeeLinkToTelegram(order: any) {
         throw new Error("Telegram Bot Token or Chat ID are not configured in environment variables.");
     }
     
-    // 1. Construir a mensagem para o CLIENTE
-    const itemsList = order.items.map((item: any) => {
+    const itemsList = (order.items || []).map((item: any) => {
         let text = `- ${item.quantity}x ${item.name}`;
         if (item.option) {
             text += ` (${item.option})`;
@@ -43,7 +50,7 @@ async function sendDeliveryFeeLinkToTelegram(order: any) {
         return text;
     }).join("\n");
 
-    let customerMessage = `Olá, ${order.customer.name}! ✨
+    let customerMessage = `Olá, ${order.customer?.name}! ✨
 
 Recebemos o seu pedido *#${order.orderNumber}* na Pipper Confeitaria.
 
@@ -53,7 +60,7 @@ ${itemsList}
 *Subtotal:* ${formatPrice(order.total)}
 *Entrega:* ${formatPrice(order.deliveryFee)}
 --------------------
-*Total:* *${formatPrice(order.total + (order.deliveryFee || 0))}*`;
+*Total:* *${formatPrice((order.total || 0) + (order.deliveryFee || 0))}*`;
 
     if (order.paymentLink) {
         customerMessage += `
@@ -68,24 +75,18 @@ Assim que o pagamento for confirmado, preparamos tudo com muito carinho pra voc�
 
 Qualquer dúvida é só responder por aqui!`;
 
-    // 2. Construir o link do WhatsApp
-    // Use fixedEncodeURIComponent to ensure parentheses and other special chars are encoded
-    // This prevents Telegram from cutting off the URL inside the Markdown link
     const encodedMessage = fixedEncodeURIComponent(customerMessage);
-
-    const customerWhatsapp = `55${order.customer.whatsapp.replace(/\D/g, '')}`; 
+    const rawWhatsapp = (order.customer?.whatsapp || '').replace(/\D/g, '');
+    const customerWhatsapp = `55${rawWhatsapp}`; 
     const whatsappLink = `https://wa.me/${customerWhatsapp}?text=${encodedMessage}`;
 
-    // 3. Construir a mensagem para o ADMIN (que será enviada ao Telegram)
-    const adminMessage = `Clique no link abaixo para enviar o resumo final para *${order.customer.name}* via WhatsApp.
-
-[Enviar Mensagem para o Cliente](${whatsappLink})`;
-
+    // Admin message formatted as HTML
+    const adminMessage = `Resumo final pronto para <b>${escapeHtml(order.customer?.name)}</b> (Pedido #${order.orderNumber}).\n\n<a href="${whatsappLink}">➡️ ENVIAR WHATSAPP PARA CLIENTE</a>`;
 
     const data = JSON.stringify({
       chat_id: chatId,
       text: adminMessage,
-      parse_mode: "Markdown",
+      parse_mode: "HTML",
     });
 
     const options = {

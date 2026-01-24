@@ -21,11 +21,26 @@ interface ApiResponse {
 }
 
 const formatPrice = (price: number) => (price || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
 const formatDisplayDate = (dateString: string) => {
     if (!dateString) return 'N/A';
-    const date = new Date(dateString + 'T00:00:00');
-    return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' }).format(date);
+    try {
+        const date = new Date(dateString + 'T00:00:00');
+        return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' }).format(date);
+    } catch (e) {
+        return dateString;
+    }
 }
+
+// Helper to escape HTML special characters for Telegram HTML mode
+const escapeHtml = (unsafe: string) => {
+    return (unsafe || '')
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+};
 
 async function sendNewOrderNotification(order: any) {
     const botToken = process.env.TELEGRAM_BOT_TOKEN;
@@ -35,62 +50,64 @@ async function sendNewOrderNotification(order: any) {
         throw new Error("Telegram Bot Token or Chat ID are not configured in environment variables.");
     }
 
-    const itemsList = order.items.map((item: any) => {
-        let text = `- ${item.quantity}x ${item.name}`;
+    const itemsList = (order.items || []).map((item: any) => {
+        let text = `• <b>${item.quantity}x</b> ${escapeHtml(item.name)}`;
         if (item.option) {
-            text += ` (${item.option})`;
+            text += ` (<i>${escapeHtml(item.option)}</i>)`;
         }
         if (item.observations) {
-            text += `\n  Obs: ${item.observations}`;
+            text += `\n  <pre>Obs: ${escapeHtml(item.observations)}</pre>`;
         }
         return text;
     }).join("\n");
 
-    const address = order.delivery.address;
-    const fullAddress = `${address.street}, ${address.number}${address.complement ? `, ${address.complement}` : ''} - ${address.neighborhood}`;
+    const address = order.delivery?.address || {};
+    const fullAddress = escapeHtml(`${address.street || ''}, ${address.number || ''}${address.complement ? `, ${address.complement}` : ''} - ${address.neighborhood || ''}`);
     
-    const customerWhatsapp = `55${order.customer.whatsapp.replace(/\D/g, '')}`;
+    const rawWhatsapp = (order.customer?.whatsapp || '').replace(/\D/g, '');
+    const customerWhatsapp = `55${rawWhatsapp}`;
     const whatsappLink = `https://wa.me/${customerWhatsapp}`;
 
-    const message = `*🔔 NOVO PEDIDO - #${order.orderNumber} 🔔*
+    const message = `<b>🔔 NOVO PEDIDO - #${order.orderNumber} 🔔</b>
 
-*🗓️ DATA AGENDADA:*
-*${formatDisplayDate(order.deliveryDate)}*
-
----
-
-*👤 CLIENTE*
-*Nome:* ${order.customer.name}
-*WhatsApp:* ${order.customer.whatsapp}
-> [💬 Iniciar conversa no WhatsApp](${whatsappLink})
+<b>🗓️ DATA AGENDADA:</b>
+<b>${formatDisplayDate(order.deliveryDate)}</b>
 
 ---
 
-*📦 ITENS DO PEDIDO*
+<b>👤 CLIENTE</b>
+<b>Nome:</b> ${escapeHtml(order.customer?.name)}
+<b>WhatsApp:</b> ${escapeHtml(order.customer?.whatsapp)}
+<a href="${whatsappLink}">💬 Iniciar conversa no WhatsApp</a>
+
+---
+
+<b>📦 ITENS DO PEDIDO</b>
 ${itemsList}
 
 ---
 
-*💰 PAGAMENTO*
-*Subtotal:* ${formatPrice(order.total)}
-*Método:* ${order.paymentMethod}
+<b>💰 PAGAMENTO</b>
+<b>Subtotal:</b> ${formatPrice(order.total)}
+<b>Método:</b> ${escapeHtml(order.paymentMethod)}
 
 ---
 
-*🚚 ENDEREÇO DE ENTREGA*
+<b>🚚 ENDEREÇO DE ENTREGA</b>
 ${fullAddress}
-*CEP:* ${address.cep}`;
+<b>CEP:</b> ${escapeHtml(address.cep)}`;
 
     const data = JSON.stringify({
       chat_id: chatId,
       text: message,
-      parse_mode: "Markdown",
+      parse_mode: "HTML",
+      disable_web_page_preview: true,
       reply_markup: {
         inline_keyboard: [
           [
             {
-              text: "Ir para pedido no site",
-              url: "https://pipper-psi.vercel.app/",
+              text: "🌐 Abrir Painel Admin",
+              url: "https://pipper-psi.vercel.app/", // Certifique-se que esta URL está correta
             },
           ],
         ],
