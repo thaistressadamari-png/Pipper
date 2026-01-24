@@ -2,7 +2,8 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import type { Order } from '../types';
 import { getOrders, updateOrderStatus, updateOrderPaymentLink, processOrderCheckout } from '../services/menuService';
-import { SearchIcon } from './IconComponents';
+// Added SpinnerIcon to imports
+import { SearchIcon, ClockIcon, ChefHatIcon, BikeIcon, CheckCircleIcon, ClipboardListIcon, SpinnerIcon } from './IconComponents';
 import OrderCard from './OrderCard';
 import OrderDetailModal from './OrderDetailModal';
 
@@ -85,12 +86,8 @@ const OrdersView: React.FC = () => {
     
     const handleCheckoutAction = async (order: Order, deliveryFee: number, paymentLink: string) => {
         try {
-            // Detecta se é pedido manual (venda de balcão)
             const isManualOrder = order.customer.whatsapp === '00000000000';
-            
-            // Ativa notificação apenas para pedidos de clientes (não manuais)
             await processOrderCheckout(order.id, deliveryFee, paymentLink, !isManualOrder);
-
             fetchOrders();
         } catch (e: any) {
             console.error("Failed to process checkout action", e);
@@ -98,25 +95,18 @@ const OrdersView: React.FC = () => {
         }
     };
     
-    const tabs: { key: Order['status']; label: string; showCount: boolean }[] = [
-        { key: 'new', label: 'Novos', showCount: true },
-        { key: 'pending_payment', label: 'Pagamento Pendente', showCount: true },
-        { key: 'confirmed', label: 'Confirmados', showCount: true },
-        { key: 'shipped', label: 'Enviado', showCount: true },
-        { key: 'completed', label: 'Finalizados', showCount: false },
-        { key: 'archived', label: 'Arquivados', showCount: false },
+    const tabs: { key: Order['status']; label: string; icon: React.ReactNode; color: string }[] = [
+        { key: 'new', label: 'Novos', icon: <ClockIcon className="w-4 h-4" />, color: 'bg-yellow-500' },
+        { key: 'pending_payment', label: 'Pagamento', icon: <ClipboardListIcon className="w-4 h-4" />, color: 'bg-orange-500' },
+        { key: 'confirmed', label: 'Preparo', icon: <ChefHatIcon className="w-4 h-4" />, color: 'bg-blue-500' },
+        { key: 'shipped', label: 'Enviado', icon: <BikeIcon className="w-4 h-4" />, color: 'bg-indigo-500' },
+        { key: 'completed', label: 'Feitos', icon: <CheckCircleIcon className="w-4 h-4" />, color: 'bg-green-500' },
+        { key: 'archived', label: 'Arquivo', icon: <SearchIcon className="w-4 h-4" />, color: 'bg-gray-500' },
     ];
-
-    const getTabLabel = (tab: typeof tabs[0]) => {
-        if (tab.showCount && statusCounts[tab.key] > 0) {
-            return `${tab.label} (${statusCounts[tab.key]})`;
-        }
-        return tab.label;
-    };
 
     return (
         <div className="space-y-6">
-            <div className={`bg-white p-4 rounded-lg shadow-sm space-y-4 ${selectedOrder ? 'hidden sm:block' : 'block'}`}>
+            <div className={`bg-white p-4 rounded-xl shadow-sm space-y-4 ${selectedOrder ? 'hidden sm:block' : 'block'}`}>
                  <div className="relative">
                     <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
                     <input
@@ -124,33 +114,42 @@ const OrdersView: React.FC = () => {
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         placeholder="Buscar por nº do pedido ou nome..."
-                        className="w-full bg-gray-100 border-transparent rounded-full py-2 pl-10 pr-4 text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                        className="w-full bg-gray-50 border-transparent rounded-full py-2.5 pl-10 pr-4 text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-primary"
                     />
                 </div>
                 
-                <div className="sm:hidden">
-                    <label htmlFor="status-tabs" className="sr-only">Selecione o status</label>
-                    <div className="relative">
-                        <select
-                            id="status-tabs"
-                            className="block w-full appearance-none bg-white border border-gray-300 hover:border-brand-primary px-4 py-3 pr-8 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary text-gray-700 font-medium transition-colors cursor-pointer"
-                            value={activeTab}
-                            onChange={(e) => setActiveTab(e.target.value as Order['status'])}
-                        >
-                            {tabs.map((tab) => (
-                                <option key={tab.key} value={tab.key}>
-                                    {getTabLabel(tab)}
-                                </option>
-                            ))}
-                        </select>
-                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-500">
-                            <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                            </svg>
-                        </div>
+                {/* Mobile Triage Menu (Pills Style) */}
+                <div className="sm:hidden -mx-4 px-4 overflow-x-auto no-scrollbar">
+                    <div className="flex space-x-2 pb-1">
+                        {tabs.map((tab) => {
+                            const count = statusCounts[tab.key];
+                            const isActive = activeTab === tab.key;
+                            return (
+                                <button
+                                    key={tab.key}
+                                    onClick={() => setActiveTab(tab.key)}
+                                    className={`flex items-center gap-2 px-4 py-2.5 rounded-full whitespace-nowrap text-sm font-bold transition-all duration-200 relative ${
+                                        isActive 
+                                        ? 'bg-brand-primary text-white shadow-md' 
+                                        : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                                    }`}
+                                >
+                                    <span className={isActive ? 'text-white' : 'text-gray-400'}>{tab.icon}</span>
+                                    {tab.label}
+                                    {count > 0 && (
+                                        <span className={`flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-black shadow-sm ${
+                                            isActive ? 'bg-white text-brand-primary' : `${tab.color} text-white`
+                                        }`}>
+                                            {count}
+                                        </span>
+                                    )}
+                                </button>
+                            );
+                        })}
                     </div>
                 </div>
 
+                {/* Desktop Tabs */}
                 <div className="hidden sm:block border-b border-gray-200">
                     <nav className="-mb-px flex space-x-4 overflow-x-auto no-scrollbar">
                         {tabs.map(tab => (
@@ -163,8 +162,9 @@ const OrdersView: React.FC = () => {
                                         : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                                 }`}
                             >
+                                <span className="opacity-70">{tab.icon}</span>
                                 {tab.label}
-                                {tab.showCount && statusCounts[tab.key] > 0 && (
+                                {statusCounts[tab.key] > 0 && (
                                     <span className={`text-xs px-2 py-0.5 rounded-full ${
                                         activeTab === tab.key ? 'bg-brand-primary text-white' : 'bg-gray-100 text-gray-600'
                                     }`}>
@@ -178,11 +178,16 @@ const OrdersView: React.FC = () => {
             </div>
 
             {isLoading ? (
-                <p className="text-center text-gray-500 py-8">Carregando pedidos...</p>
+                <div className="flex flex-col items-center justify-center py-20">
+                    <SpinnerIcon className="w-10 h-10 text-brand-primary" />
+                    <p className="text-gray-400 mt-4 font-bold text-sm animate-pulse">Sincronizando pedidos...</p>
+                </div>
             ) : error ? (
-                <p className="text-center text-red-500 py-8">{error}</p>
+                <div className="text-center text-red-500 py-10 bg-red-50 rounded-xl border border-red-100 mx-4">
+                    {error}
+                </div>
             ) : (
-                <div className={`space-y-4 ${selectedOrder ? 'hidden sm:block' : 'block'}`}>
+                <div className={`space-y-4 px-1 ${selectedOrder ? 'hidden sm:block' : 'block'}`}>
                     {filteredOrders.length > 0 ? (
                         filteredOrders.map(order => (
                             <OrderCard
@@ -192,8 +197,12 @@ const OrdersView: React.FC = () => {
                             />
                         ))
                     ) : (
-                        <div className="text-center text-gray-500 py-8 bg-white rounded-lg border border-dashed border-gray-300">
-                            <p>Nenhum pedido nesta categoria.</p>
+                        <div className="text-center py-16 bg-white rounded-2xl border-2 border-dashed border-gray-100">
+                            <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <ClipboardListIcon className="w-8 h-8 text-gray-200" />
+                            </div>
+                            <p className="text-gray-400 font-medium">Nenhum pedido em "{tabs.find(t => t.key === activeTab)?.label}"</p>
+                            {searchQuery && <p className="text-xs text-gray-300 mt-1">Tente remover os filtros de busca</p>}
                         </div>
                     )}
                 </div>
