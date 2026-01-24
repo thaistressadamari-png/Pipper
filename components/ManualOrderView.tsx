@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import type { Product, StoreInfoData, Order, Client, ProductOption, DeliveryInfo, OrderItem } from '../types';
 import { getClient, addOrder, addProduct, addCategory, getClients } from '../services/menuService';
@@ -485,7 +484,7 @@ const ManualOrderView: React.FC<ManualOrderViewProps> = ({ products, storeInfo, 
                         <div className="absolute z-50 left-0 right-0 top-full mt-2">
                             <Calendar
                                 selectedDate={customerData.deliveryDate}
-                                minDate={new Date().toISOString().split('T')[0]}
+                                minDate={new Date().toISOString().split('T00:00:00')[0]}
                                 onDateSelect={(date) => {
                                     setCustomerData({ ...customerData, deliveryDate: date });
                                     setIsCalendarOpen(false);
@@ -521,41 +520,6 @@ const ManualOrderView: React.FC<ManualOrderViewProps> = ({ products, storeInfo, 
                 </div>
               </div>
             </div>
-          </div>
-        </section>
-
-        <section className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-           <h3 className="text-lg font-bold text-brand-text mb-4 flex items-center gap-2">
-            <span className="w-2 h-6 bg-brand-accent rounded-full"></span>
-            Itens no Pedido
-          </h3>
-          <div className="space-y-3 max-h-[400px] overflow-y-auto no-scrollbar">
-            {selectedItems.length === 0 ? (
-              <div className="text-center py-12">
-                <p className="text-gray-400 italic text-sm">Adicione produtos &rarr;</p>
-              </div>
-            ) : (
-              selectedItems.map((item, idx) => (
-                <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100 hover:border-brand-primary/20 transition-colors">
-                  <div className="min-w-0 flex-grow">
-                    <p className="font-bold text-brand-text text-sm truncate">{item.name}</p>
-                    {item.option && <p className="text-[10px] text-gray-500 uppercase tracking-tighter">{item.option}</p>}
-                    <button type="button" onClick={() => setPriceEditingIdx(idx)} className="text-xs font-bold text-brand-primary bg-brand-secondary/30 px-2 py-0.5 rounded-full mt-1.5 hover:bg-brand-primary hover:text-white transition-all inline-flex items-center gap-1 shadow-sm">
-                      {formatPrice(item.price)}
-                      <span className="text-[10px] opacity-70 italic">✎ Alterar</span>
-                    </button>
-                  </div>
-                  <div className="flex items-center gap-3 ml-4">
-                    <div className="flex items-center bg-white border border-gray-200 rounded-lg shadow-sm">
-                      <button type="button" onClick={() => updateItemQty(idx, -1)} className="p-1 px-2 hover:bg-gray-100 text-gray-600"><MinusIcon className="w-3 h-3" /></button>
-                      <span className="px-3 text-xs font-bold text-brand-text">{item.quantity}</span>
-                      <button type="button" onClick={() => updateItemQty(idx, 1)} className="p-1 px-2 hover:bg-gray-100 text-gray-600"><PlusIcon className="w-3 h-3" /></button>
-                    </div>
-                    <button type="button" onClick={() => updateItemQty(idx, -999)} className="text-gray-300 hover:text-red-500 transition-colors"><TrashIcon className="w-4 h-4" /></button>
-                  </div>
-                </div>
-              ))
-            )}
           </div>
         </section>
       </div>
@@ -651,6 +615,42 @@ const ManualOrderView: React.FC<ManualOrderViewProps> = ({ products, storeInfo, 
                 )}
               </div>
             ))}
+          </div>
+        </section>
+
+        {/* Itens no Pedido - Colocado aqui para ficar embaixo do picker no mobile */}
+        <section className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+           <h3 className="text-lg font-bold text-brand-text mb-4 flex items-center gap-2">
+            <span className="w-2 h-6 bg-brand-accent rounded-full"></span>
+            Itens no Pedido
+          </h3>
+          <div className="space-y-3 max-h-[400px] overflow-y-auto no-scrollbar">
+            {selectedItems.length === 0 ? (
+              <div className="text-center py-12">
+                <p className="text-gray-400 italic text-sm">Adicione produtos acima &uarr;</p>
+              </div>
+            ) : (
+              selectedItems.map((item, idx) => (
+                <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100 hover:border-brand-primary/20 transition-colors">
+                  <div className="min-w-0 flex-grow">
+                    <p className="font-bold text-brand-text text-sm truncate">{item.name}</p>
+                    {item.option && <p className="text-[10px] text-gray-500 uppercase tracking-tighter">{item.option}</p>}
+                    <button type="button" onClick={() => setPriceEditingIdx(idx)} className="text-xs font-bold text-brand-primary bg-brand-secondary/30 px-2 py-0.5 rounded-full mt-1.5 hover:bg-brand-primary hover:text-white transition-all inline-flex items-center gap-1 shadow-sm">
+                      {formatPrice(item.price)}
+                      <span className="text-[10px] opacity-70 italic">✎ Alterar</span>
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-3 ml-4">
+                    <div className="flex items-center bg-white border border-gray-200 rounded-lg shadow-sm">
+                      <button type="button" onClick={() => updateItemQty(idx, -1)} className="p-1 px-2 hover:bg-gray-100 text-gray-600"><MinusIcon className="w-3 h-3" /></button>
+                      <span className="px-3 text-xs font-bold text-brand-text">{item.quantity}</span>
+                      <button type="button" onClick={() => updateItemQty(idx, 1)} className="p-1 px-2 hover:bg-gray-100 text-gray-600"><PlusIcon className="w-3 h-3" /></button>
+                    </div>
+                    <button type="button" onClick={() => updateItemQty(idx, -999)} className="text-gray-300 hover:text-red-500 transition-colors"><TrashIcon className="w-4 h-4" /></button>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </section>
 
