@@ -164,7 +164,9 @@ export const updateOrderStatus = async (orderId: string, status: Order['status']
 
 export const processOrderCheckout = async (orderId: string, deliveryFee: number, paymentLink: string, shouldNotifyTelegram: boolean = false): Promise<void> => {
     const orderRef = doc(db, 'orders', orderId);
-    const updatedOrder = await runTransaction(db, async (transaction) => {
+    
+    // Executa a transação para atualizar os dados
+    const result = await runTransaction(db, async (transaction) => {
         const orderSnap = await transaction.get(orderRef);
         if (!orderSnap.exists()) throw new Error("Pedido não encontrado");
         const orderData = { id: orderSnap.id, ...(orderSnap.data() as Order) } as Order;
@@ -207,14 +209,23 @@ export const processOrderCheckout = async (orderId: string, deliveryFee: number,
 
         transaction.update(orderRef, updates);
 
-        return { ...orderData, ...updates };
+        // Retornamos um clone limpo para evitar problemas de serialização com serverTimestamp()
+        return { 
+            ...orderData, 
+            deliveryFee, 
+            paymentLink, 
+            status: 'pending_payment' 
+        };
     });
 
     if (shouldNotifyTelegram) {
+        // Remove campos que podem conter serverTimestamp() ou outros objetos complexos do Firebase
+        const cleanOrder = JSON.parse(JSON.stringify(result));
+        
         fetch('/api/notify-delivery-fee', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ order: updatedOrder }),
+            body: JSON.stringify({ order: cleanOrder }),
         }).catch(err => console.error("Erro ao enviar link de pagamento para o Telegram:", err));
     }
 };
@@ -278,10 +289,13 @@ export const addOrder = async (
     });
 
     if (shouldNotifyTelegram) {
+        // Garante que o objeto seja serializável removendo metadados do Firebase
+        const cleanOrder = JSON.parse(JSON.stringify(result));
+        
         fetch('/api/notify-telegram', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ order: result }),
+            body: JSON.stringify({ order: cleanOrder }),
         }).catch(err => console.error("Erro ao enviar notificação para o Telegram:", err));
     }
 
