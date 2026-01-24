@@ -1,7 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import type { Order } from '../types';
-// Removed updateOrderDeliveryFee from imports as it is not exported from menuService
 import { getOrders, updateOrderStatus, updateOrderPaymentLink, processOrderCheckout } from '../services/menuService';
 import { SearchIcon } from './IconComponents';
 import OrderCard from './OrderCard';
@@ -31,7 +30,6 @@ const OrdersView: React.FC = () => {
         fetchOrders();
     }, [fetchOrders]);
 
-    // Calculate counts for each status
     const statusCounts = useMemo(() => {
         const counts = {
             new: 0,
@@ -87,12 +85,11 @@ const OrdersView: React.FC = () => {
     
     const handleCheckoutAction = async (order: Order, deliveryFee: number, paymentLink: string) => {
         try {
-            // Chamada unificada que gerencia a transação de saída de estoque e mudança de status
-            // No Admin, processamos apenas a transação local para ser instantâneo
-            await processOrderCheckout(order.id, deliveryFee, paymentLink);
-
-            // REMOVIDO: Notificação via Telegram aqui no Admin.
-            // Isso torna o checkout muito mais rápido pois não depende de APIs externas.
+            // Detecta se é pedido manual (venda de balcão)
+            const isManualOrder = order.customer.whatsapp === '00000000000';
+            
+            // Ativa notificação apenas para pedidos de clientes (não manuais)
+            await processOrderCheckout(order.id, deliveryFee, paymentLink, !isManualOrder);
 
             fetchOrders();
         } catch (e: any) {
@@ -131,7 +128,6 @@ const OrdersView: React.FC = () => {
                     />
                 </div>
                 
-                {/* Mobile: Custom Styled Dropdown Select */}
                 <div className="sm:hidden">
                     <label htmlFor="status-tabs" className="sr-only">Selecione o status</label>
                     <div className="relative">
@@ -155,7 +151,6 @@ const OrdersView: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Desktop: Horizontal Tabs */}
                 <div className="hidden sm:block border-b border-gray-200">
                     <nav className="-mb-px flex space-x-4 overflow-x-auto no-scrollbar">
                         {tabs.map(tab => (

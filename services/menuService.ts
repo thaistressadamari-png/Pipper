@@ -162,9 +162,9 @@ export const updateOrderStatus = async (orderId: string, status: Order['status']
     });
 };
 
-export const processOrderCheckout = async (orderId: string, deliveryFee: number, paymentLink: string): Promise<void> => {
+export const processOrderCheckout = async (orderId: string, deliveryFee: number, paymentLink: string, shouldNotifyTelegram: boolean = false): Promise<void> => {
     const orderRef = doc(db, 'orders', orderId);
-    await runTransaction(db, async (transaction) => {
+    const updatedOrder = await runTransaction(db, async (transaction) => {
         const orderSnap = await transaction.get(orderRef);
         if (!orderSnap.exists()) throw new Error("Pedido não encontrado");
         const orderData = { id: orderSnap.id, ...(orderSnap.data() as Order) } as Order;
@@ -198,13 +198,25 @@ export const processOrderCheckout = async (orderId: string, deliveryFee: number,
             });
         }
 
-        transaction.update(orderRef, {
+        const updates = {
             deliveryFee,
             paymentLink,
-            status: 'pending_payment',
+            status: 'pending_payment' as const,
             updatedAt: serverTimestamp()
-        });
+        };
+
+        transaction.update(orderRef, updates);
+
+        return { ...orderData, ...updates };
     });
+
+    if (shouldNotifyTelegram) {
+        fetch('/api/notify-delivery-fee', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ order: updatedOrder }),
+        }).catch(err => console.error("Erro ao enviar link de pagamento para o Telegram:", err));
+    }
 };
 
 export const addOrder = async (
