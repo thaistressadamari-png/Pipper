@@ -19,6 +19,7 @@ import {
     increment,
     runTransaction,
     documentId,
+    onSnapshot
 } from "firebase/firestore";
 import { db } from '../firebase';
 import type { Product, StoreInfoData, Order, Client, DeliveryInfo, CategoryMetadata } from '../types';
@@ -367,6 +368,23 @@ export const getNewOrdersCount = async (): Promise<number> => {
     const q = query(ordersCollection, where('status', '==', 'new'));
     const snap = await getDocs(q);
     return snap.size;
+};
+
+/**
+ * Inscreve-se para mudanças em tempo real nos novos pedidos.
+ * Útil para o Admin gerenciar Badges e Notificações Locais.
+ */
+export const subscribeToNewOrders = (callback: (count: number, newOrder?: Order) => void) => {
+    const q = query(ordersCollection, where('status', '==', 'new'));
+    return onSnapshot(q, (snapshot) => {
+        let addedOrder: Order | undefined;
+        snapshot.docChanges().forEach((change) => {
+            if (change.type === "added") {
+                addedOrder = { id: change.doc.id, ...change.doc.data() } as Order;
+            }
+        });
+        callback(snapshot.size, addedOrder);
+    });
 };
 
 export const getOrdersByDateRange = async (start: Date, end: Date): Promise<Order[]> => {

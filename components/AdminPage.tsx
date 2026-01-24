@@ -8,9 +8,8 @@ import OrdersView from './OrdersView';
 import ClientsView from './ClientsView';
 import ManualOrderView from './ManualOrderView';
 import InventoryView from './InventoryView';
-// Import SpinnerIcon from IconComponents
 import { DashboardIcon, BoxIcon, StoreIcon, MenuIcon, XIcon, ClipboardListIcon, UsersIcon, PlusIcon, SpinnerIcon } from './IconComponents';
-import { getNewOrdersCount } from '../services/menuService';
+import { getNewOrdersCount, subscribeToNewOrders } from '../services/menuService';
 
 interface AdminPageProps {
   products: Product[];
@@ -34,8 +33,12 @@ const AdminPage: React.FC<AdminPageProps> = (props) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [newOrdersCount, setNewOrdersCount] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [notificationStatus, setNotificationStatus] = useState<NotificationPermission>(
+    typeof Notification !== 'undefined' ? Notification.permission : 'default'
+  );
   
   const mainContentRef = useRef<HTMLDivElement>(null);
+  const hasNotifiedRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -44,25 +47,64 @@ const AdminPage: React.FC<AdminPageProps> = (props) => {
     }
   }, [activeView]);
 
+  // Gerenciamento de Notificações e Badges - EXCLUSIVO ADMIN
   useEffect(() => {
-    const fetchCount = async () => {
-        try {
-            const count = await getNewOrdersCount();
-            setNewOrdersCount(count);
-        } catch (error) {
-            console.error("Failed to fetch new orders count:", error);
+    // Subscrever a novos pedidos para tempo real (Badge e Notificação)
+    const unsubscribe = subscribeToNewOrders((count, newOrder) => {
+        setNewOrdersCount(count);
+
+        // 1. Atualizar App Badge (ícone da tela de início do iOS/Android)
+        if ('setAppBadge' in navigator) {
+            if (count > 0) {
+                (navigator as any).setAppBadge(count).catch(console.error);
+            } else {
+                (navigator as any).clearAppBadge().catch(console.error);
+            }
+        }
+
+        // 2. Exibir Notificação Local (Banner) para novos pedidos detectados
+        if (newOrder && !hasNotifiedRef.current.has(newOrder.id)) {
+            hasNotifiedRef.current.add(newOrder.id);
+            
+            if ("Notification" in window && Notification.permission === "granted") {
+                const n = new Notification("Novo Pedido Recebido! 🍰", {
+                    body: `Pedido #${newOrder.orderNumber} de ${newOrder.customer.name}`,
+                    icon: 'https://ugc.production.linktr.ee/fecf1c45-dcf7-4775-8db7-251ba55caa85_Prancheta-1.png?io=true&size=avatar-v3_0',
+                    badge: 'https://ugc.production.linktr.ee/fecf1c45-dcf7-4775-8db7-251ba55caa85_Prancheta-1.png?io=true&size=avatar-v3_0',
+                    tag: 'new-order', // Evita múltiplas notificações iguais
+                });
+                
+                n.onclick = () => {
+                    window.focus();
+                    setActiveView('orders');
+                };
+
+                // Tocar som de alerta (opcional, mas recomendado para admin)
+                const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3');
+                audio.play().catch(() => {});
+            }
+        }
+    });
+
+    return () => {
+        unsubscribe();
+        if ('clearAppBadge' in navigator) {
+            (navigator as any).clearAppBadge().catch(console.error);
         }
     };
-    fetchCount();
-    const intervalId = setInterval(fetchCount, 30000);
-    return () => clearInterval(intervalId);
   }, []);
+
+  const requestNotificationPermission = async () => {
+    if ("Notification" in window) {
+      const permission = await Notification.requestPermission();
+      setNotificationStatus(permission);
+    }
+  };
 
   const handleNavClick = async (view: 'dashboard' | 'products' | 'inventory' | 'store' | 'orders' | 'clients' | 'manual_order') => {
     setActiveView(view);
     setIsSidebarOpen(false);
     
-    // Se entrar na aba de estoque, força um refresh dos dados para garantir valores atualizados
     if (view === 'inventory' && props.onRefreshData) {
         setIsRefreshing(true);
         try {
@@ -104,8 +146,10 @@ const AdminPage: React.FC<AdminPageProps> = (props) => {
     }
   };
 
-  const sidebarContent = (
-      <>
+  return (
+    <div className="h-screen overflow-hidden bg-gray-100 flex">
+      {isSidebarOpen && <div onClick={() => setIsSidebarOpen(false)} className="fixed inset-0 bg-black bg-opacity-50 z-30 md:hidden"></div>}
+      <aside className={`fixed inset-y-0 left-0 w-64 bg-white border-r border-gray-200 flex-shrink-0 flex flex-col z-40 transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="h-16 flex items-center justify-between px-4 border-b border-gray-200">
           <h1 className="text-xl font-bold text-brand-text">Admin</h1>
           <button onClick={() => setIsSidebarOpen(false)} className="p-2 md:hidden text-gray-500">
@@ -152,6 +196,19 @@ const AdminPage: React.FC<AdminPageProps> = (props) => {
             Loja
           </button>
         </nav>
+
+        {/* Botão de Notificações - Visível apenas se necessário */}
+        {notificationStatus === 'default' && (
+          <div className="px-4 mb-2">
+            <button 
+                onClick={requestNotificationPermission}
+                className="w-full py-2 bg-orange-100 text-orange-700 text-[10px] font-bold uppercase tracking-wider rounded-lg border border-orange-200 hover:bg-orange-200 transition-colors"
+            >
+                🔔 Ativar Alertas no iPhone
+            </button>
+          </div>
+        )}
+
         <div className="p-4 border-t border-gray-200">
             <button onClick={props.onLogout} className="w-full flex items-center px-4 py-2 text-sm font-medium text-red-600 rounded-lg hover:bg-red-50 transition-colors">
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -160,28 +217,8 @@ const AdminPage: React.FC<AdminPageProps> = (props) => {
                 Sair
             </button>
         </div>
-      </>
-  );
-  
-  const getPageTitle = () => {
-    switch(activeView) {
-        case 'dashboard': return 'Dashboard';
-        case 'products': return 'Gerenciar Produtos';
-        case 'inventory': return 'Gestão de Estoque';
-        case 'store': return 'Informações da Loja';
-        case 'orders': return 'Gerenciar Pedidos';
-        case 'clients': return 'Clientes';
-        case 'manual_order': return 'Novo Pedido';
-        default: return 'Admin';
-    }
-  }
-
-  return (
-    <div className="h-screen overflow-hidden bg-gray-100 flex">
-      {isSidebarOpen && <div onClick={() => setIsSidebarOpen(false)} className="fixed inset-0 bg-black bg-opacity-50 z-30 md:hidden"></div>}
-      <aside className={`fixed inset-y-0 left-0 w-64 bg-white border-r border-gray-200 flex-shrink-0 flex flex-col z-40 transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        {sidebarContent}
       </aside>
+
       <div className="flex-grow flex flex-col min-w-0">
         <header className="bg-white shadow-sm h-16 flex-shrink-0">
             <div className="container mx-auto px-4 sm:px-6 lg:px-8 h-full flex justify-between items-center gap-4">
@@ -190,7 +227,14 @@ const AdminPage: React.FC<AdminPageProps> = (props) => {
                         <MenuIcon className="w-6 h-6" />
                     </button>
                     <div className="flex items-center gap-2 min-w-0">
-                        <h2 className="text-xl font-bold text-brand-text capitalize truncate">{getPageTitle()}</h2>
+                        <h2 className="text-xl font-bold text-brand-text capitalize truncate">
+                            {activeView === 'dashboard' ? 'Dashboard' : 
+                             activeView === 'products' ? 'Produtos' :
+                             activeView === 'inventory' ? 'Estoque' :
+                             activeView === 'orders' ? 'Pedidos' :
+                             activeView === 'clients' ? 'Clientes' :
+                             activeView === 'manual_order' ? 'Novo Pedido' : 'Admin'}
+                        </h2>
                         {isRefreshing && <SpinnerIcon className="w-4 h-4 text-brand-primary" />}
                     </div>
                 </div>
