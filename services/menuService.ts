@@ -37,7 +37,6 @@ export const initializeFirebaseData = async () => {
     const productsSnapshot = await getDocs(productsCollection);
     if (productsSnapshot.empty) {
         const batch = writeBatch(db);
-        // ... (resto da inicialização omitido para brevidade, mas mantido no arquivo original)
         batch.set(storeInfoDoc, initialStoreInfo);
         batch.set(categoriesDoc, { names: [{ name: 'Pronta entrega', isArchived: false }] });
         batch.set(countersDoc, { orderNumber: 1000 }); 
@@ -61,8 +60,6 @@ const initialStoreInfo: StoreInfoData = {
     whatsappNumber: '5511943591371',
 };
 
-// ... (Outras funções de inventário e menu omitidas para focar na mudança)
-
 export const getMenu = async (): Promise<{ products: Product[], categories: CategoryMetadata[] }> => {
     const productsQuery = query(productsCollection);
     const [productsSnapshot, categoriesSnapshot] = await Promise.all([
@@ -79,7 +76,6 @@ export const updateOrderStatus = async (orderId: string, status: Order['status']
     await runTransaction(db, async (transaction) => {
         const orderSnap = await transaction.get(orderRef);
         if (!orderSnap.exists()) throw new Error("Pedido não encontrado");
-        const orderData = { id: orderSnap.id, ...(orderSnap.data() as Order) } as Order;
         transaction.update(orderRef, { status, updatedAt: serverTimestamp() });
     });
 };
@@ -188,9 +184,24 @@ export const removeClientAddress = async (clientId: string, address: DeliveryInf
 };
 
 export const getOrdersByWhatsapp = async (whatsapp: string): Promise<Order[]> => {
-    const q = query(ordersCollection, where('customer.whatsapp', '==', whatsapp.replace(/\D/g, '')));
+    const raw = whatsapp.replace(/\D/g, '');
+    if (!raw) return [];
+    
+    // Gera as variações de formatação para buscar no banco
+    const formatted11 = raw.replace(/^(\d{2})(\d{5})(\d{4})$/, '($1) $2-$3');
+    const formatted10 = raw.replace(/^(\d{2})(\d{4})(\d{4})$/, '($1) $2-$3');
+    
+    // Lista de termos para busca (limpo + formatos possíveis)
+    const searchTerms = [raw, formatted11, formatted10].filter((v, i, a) => a.indexOf(v) === i);
+
+    const q = query(ordersCollection, where('customer.whatsapp', 'in', searchTerms));
     const snap = await getDocs(q);
-    return snap.docs.map(doc => ({ id: doc.id, ...(doc.data() as Order) } as Order)).sort((a,b) => b.orderNumber - a.orderNumber);
+    
+    // Filtra para remover finalizados e arquivados da visão do cliente
+    return snap.docs
+        .map(doc => ({ id: doc.id, ...(doc.data() as Order) } as Order))
+        .filter(order => order.status !== 'completed' && order.status !== 'archived')
+        .sort((a,b) => b.orderNumber - a.orderNumber);
 };
 
 export const incrementVisitCount = async (): Promise<void> => {
@@ -204,10 +215,6 @@ export const getNewOrdersCount = async (): Promise<number> => {
     return snap.size;
 };
 
-/**
- * Inscreve-se para mudanças em tempo real nos novos pedidos.
- * Agora retorna TODOS os novos pedidos detectados em cada mudança.
- */
 export const subscribeToNewOrders = (callback: (count: number, addedOrders: Order[]) => void) => {
     const q = query(ordersCollection, where('status', '==', 'new'));
     return onSnapshot(q, (snapshot) => {

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { XIcon, ArrowLeftIcon } from './IconComponents';
 import { getOrdersByWhatsapp } from '../services/menuService';
@@ -17,22 +18,25 @@ const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ isOpen, onClose
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // Sincroniza os pedidos iniciais (vidos do banner) apenas UMA VEZ ao abrir o modal
+  // Isso evita que o polling de 30s do App.tsx resete o estado do modal enquanto o usuário olha
   useEffect(() => {
     if (isOpen) {
         if (initialOrders && initialOrders.length > 0) {
             setOrders(initialOrders);
             setStep('results');
         } else {
+            // Só reseta se o modal for aberto sem pedidos iniciais (clicando em "Meus Pedidos")
             setStep('input');
             setOrders([]);
             setWhatsapp('');
         }
     }
-  }, [isOpen, initialOrders]);
+  }, [isOpen]); // Removido initialOrders da dependência para evitar o reset involuntário
 
   const handleClose = () => {
     onClose();
-    // Reset state after transition ends
+    // Pequeno delay para resetar o estado visual após fechar a animação
     setTimeout(() => {
         setStep('input');
         setWhatsapp('');
@@ -50,6 +54,7 @@ const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ isOpen, onClose
     setIsLoading(true);
     setError('');
     try {
+      // O getOrdersByWhatsapp já filtra 'completed' e 'archived'
       const foundOrders = await getOrdersByWhatsapp(whatsapp);
       setOrders(foundOrders);
       setStep('results');
@@ -161,7 +166,7 @@ const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ isOpen, onClose
                     ) : (
                         <div className="text-center py-8">
                             <p className="font-semibold text-gray-700">Nenhum pedido em andamento encontrado.</p>
-                            <p className="text-sm text-gray-500 mt-2">Verifique o número digitado ou faça um novo pedido em nosso cardápio!</p>
+                            <p className="text-sm text-gray-500 mt-2">Você não possui pedidos aguardando entrega no momento.</p>
                         </div>
                     )}
                 </div>

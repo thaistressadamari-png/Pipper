@@ -76,7 +76,8 @@ const App: React.FC = () => {
       const validOrders: Order[] = [];
       const validIds: string[] = [];
       results.forEach(order => {
-        if (order && order.status !== 'archived') {
+        // Agora filtramos também os pedidos marcados como finalizados (completed)
+        if (order && order.status !== 'archived' && order.status !== 'completed') {
             validOrders.push(order);
             validIds.push(order.id);
         }

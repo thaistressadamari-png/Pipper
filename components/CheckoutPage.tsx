@@ -75,7 +75,7 @@ const SavedAddressesModal: React.FC<{
     if (!isOpen) return null;
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[80vh] flex flex-col animate-fade-in-up">
+            <div className="bg-white rounded-lg shadow-xl max-md w-full max-h-[80vh] flex flex-col animate-fade-in-up">
                 <div className="p-4 border-b flex justify-between items-center">
                      <h3 className="text-lg font-bold text-brand-text">Endereços Salvos</h3>
                      <button onClick={onClose}><XIcon className="w-6 h-6 text-gray-400"/></button>
@@ -354,7 +354,7 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
         const orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt' | 'orderNumber' | 'status'> = {
             customer: {
                 name: formData.name,
-                whatsapp: formData.whatsapp,
+                whatsapp: formData.whatsapp.replace(/\D/g, ''), // Salva apenas os dígitos
             },
             delivery: {
                 type: 'delivery',
@@ -379,7 +379,6 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
             deliveryDate: formData.deliveryDate
         };
 
-        // Adicionando o terceiro parâmetro 'true' para ativar a notificação do Telegram
         const newOrder = await addOrder(orderData, saveAddress, true);
         onOrderSuccess(newOrder);
 
