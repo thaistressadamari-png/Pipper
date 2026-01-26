@@ -47,6 +47,15 @@ async function sendDeliveryFeeLinkToTelegram(order: any) {
         if (item.option) {
             text += ` (${item.option})`;
         }
+        
+        // Customizações no WhatsApp
+        if (item.selectedCustomizations && item.selectedCustomizations.length > 0) {
+            item.selectedCustomizations.forEach((group: any) => {
+                const opts = group.items.map((it: any) => `${it.quantity}x ${it.name}`).join(', ');
+                text += `\n   ↳ ${group.groupName}: ${opts}`;
+            });
+        }
+        
         return text;
     }).join("\n");
 

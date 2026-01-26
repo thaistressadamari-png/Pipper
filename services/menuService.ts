@@ -82,16 +82,34 @@ export const updateOrderStatus = async (orderId: string, status: Order['status']
 
 export const processOrderCheckout = async (orderId: string, deliveryFee: number, paymentLink: string, shouldNotifyTelegram: boolean = false): Promise<void> => {
     const orderRef = doc(db, 'orders', orderId);
-    await runTransaction(db, async (transaction) => {
+    const result = await runTransaction(db, async (transaction) => {
         const orderSnap = await transaction.get(orderRef);
         if (!orderSnap.exists()) throw new Error("Pedido não encontrado");
+        const orderData = orderSnap.data() as Order;
+        const updatedOrder = {
+            ...orderData,
+            id: orderSnap.id,
+            deliveryFee,
+            paymentLink,
+            status: 'pending_payment' as const,
+            updatedAt: serverTimestamp()
+        };
         transaction.update(orderRef, {
             deliveryFee,
             paymentLink,
             status: 'pending_payment' as const,
             updatedAt: serverTimestamp()
         });
+        return updatedOrder;
     });
+
+    if (shouldNotifyTelegram) {
+        fetch('/api/notify-delivery-fee', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ order: result }),
+        }).catch(err => console.error("Erro Telegram Checkout:", err));
+    }
 };
 
 export const addOrder = async (
@@ -101,6 +119,7 @@ export const addOrder = async (
 ): Promise<Order> => {
     const orderRef = doc(collection(db, 'orders'));
     const counterRef = doc(db, 'metadata', 'counters');
+    const clientRef = doc(db, 'clients', orderData.customer.name); // Using name as ID for easier lookup in CRM
     
     const result = await runTransaction(db, async (transaction) => {
         const counterDoc = await transaction.get(counterRef);
@@ -115,6 +134,31 @@ export const addOrder = async (
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
         };
+
+        // Sync Client
+        const clientSnap = await transaction.get(clientRef);
+        if (clientSnap.exists()) {
+            const currentClient = clientSnap.data() as Client;
+            const updatedAddresses = saveAddress && orderData.delivery.address 
+                ? [...(currentClient.addresses || []).filter(a => JSON.stringify(a) !== JSON.stringify(orderData.delivery.address)), orderData.delivery.address]
+                : (currentClient.addresses || []);
+            
+            transaction.update(clientRef, {
+                whatsapp: orderData.customer.whatsapp,
+                lastOrderDate: serverTimestamp(),
+                addresses: updatedAddresses.slice(-5) // Keep last 5 addresses
+            });
+        } else {
+            transaction.set(clientRef, {
+                name: orderData.customer.name,
+                whatsapp: orderData.customer.whatsapp,
+                firstOrderDate: serverTimestamp(),
+                lastOrderDate: serverTimestamp(),
+                addresses: saveAddress && orderData.delivery.address ? [orderData.delivery.address] : [],
+                totalOrders: 0,
+                totalSpent: 0
+            });
+        }
 
         transaction.set(counterRef, { orderNumber: newOrderNumber }, { merge: true });
         transaction.set(orderRef, fullOrderData);

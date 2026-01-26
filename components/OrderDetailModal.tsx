@@ -164,17 +164,35 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ order, isOpen, onCl
                     <div className="space-y-4">
                         <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
                             <h4 className="font-bold text-sm text-gray-700 mb-2">Itens do Pedido</h4>
-                            <ul className="text-sm text-gray-600 space-y-2">
+                            <ul className="text-sm text-gray-600 space-y-3">
                                 {order.items?.map((item, index) => (
-                                    <li key={index} className="flex justify-between items-start">
-                                        <span>
-                                            <span className="font-bold text-gray-800">{item.quantity}x</span> {item.name}
-                                            {item.option && <span className="text-gray-500 text-xs block">{item.option}</span>}
-                                            {item.observations && <span className="text-amber-600 text-xs block italic bg-amber-50 px-1 rounded mt-0.5">Obs: {item.observations}</span>}
-                                        </span>
-                                        <span className="font-medium text-gray-900 whitespace-nowrap">
-                                            {formatPrice(item.price * item.quantity)}
-                                        </span>
+                                    <li key={index} className="flex flex-col border-b border-gray-100 last:border-0 pb-2 last:pb-0">
+                                        <div className="flex justify-between items-start">
+                                            <span>
+                                                <span className="font-bold text-gray-800">{item.quantity}x</span> {item.name}
+                                                {item.option && <span className="text-gray-500 text-xs font-bold block uppercase mt-0.5">{item.option}</span>}
+                                            </span>
+                                            <span className="font-black text-gray-900 whitespace-nowrap">
+                                                {formatPrice(item.price * item.quantity)}
+                                            </span>
+                                        </div>
+                                        
+                                        {/* Detalhamento das Customizações no Modal Admin */}
+                                        {item.selectedCustomizations && item.selectedCustomizations.length > 0 && (
+                                            <div className="mt-1 pl-4 border-l-2 border-gray-200 space-y-0.5">
+                                                {item.selectedCustomizations.map((group, gIdx) => (
+                                                    <p key={gIdx} className="text-[10px] text-gray-500">
+                                                        <span className="font-bold text-brand-primary">{group.groupName}:</span> {group.items.map(it => `${it.quantity}x ${it.name}`).join(', ')}
+                                                    </p>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        {item.observations && (
+                                            <div className="mt-1 bg-amber-50 px-2 py-1 rounded text-[10px] text-amber-700 italic border border-amber-100">
+                                                Obs: {item.observations}
+                                            </div>
+                                        )}
                                     </li>
                                 ))}
                             </ul>
