@@ -4,6 +4,29 @@ export interface ProductOption {
   price: number;
 }
 
+export interface CustomizationOption {
+  name: string;
+  priceExtra: number;
+}
+
+export interface CustomizationGroup {
+  id: string;
+  name: string;
+  min: number;
+  max: number;
+  type: 'single' | 'counter';
+  options: CustomizationOption[];
+}
+
+export interface SelectedCustomization {
+  groupName: string;
+  items: {
+    name: string;
+    quantity: number;
+    priceExtra: number;
+  }[];
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -15,6 +38,7 @@ export interface Product {
   imageUrls: string[];
   leadTimeDays: number;
   options?: ProductOption[];
+  customizationGroups?: CustomizationGroup[];
   createdAt?: any;
   inventoryEnabled?: boolean;
   inventoryQuantity?: number;
@@ -29,6 +53,7 @@ export interface CartItem extends Product {
   quantity: number;
   observations?: string;
   selectedOption?: ProductOption;
+  selectedCustomizations?: SelectedCustomization[];
 }
 
 export interface OperatingHours {
@@ -66,6 +91,7 @@ export interface OrderItem {
   price: number;
   observations?: string;
   option?: string;
+  selectedCustomizations?: SelectedCustomization[];
 }
 
 export interface Order {
@@ -87,7 +113,6 @@ export interface Order {
   updatedAt: any;
 }
 
-// Added 'whatsapp' and 'needsSync' to Client interface to fix reported errors in ClientsView.tsx
 export interface Client {
   id: string;
   name: string;

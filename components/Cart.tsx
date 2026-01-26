@@ -40,7 +40,7 @@ const Cart: React.FC<CartProps> = ({ isOpen, onClose, cartItems, onUpdateQuantit
             </button>
           </div>
 
-          <div className="flex-grow overflow-y-auto p-4 space-y-4">
+          <div className="flex-grow overflow-y-auto p-4 space-y-4 no-scrollbar">
             {cartItems.length === 0 ? (
               <div className="text-center py-20">
                 <p className="text-brand-text text-lg">Seu carrinho está vazio.</p>
@@ -48,23 +48,37 @@ const Cart: React.FC<CartProps> = ({ isOpen, onClose, cartItems, onUpdateQuantit
               </div>
             ) : (
               cartItems.map((item, index) => (
-                <div key={`${item.id}-${item.selectedOption?.name || index}`} className="flex items-center bg-white p-3 rounded-lg shadow-sm">
+                <div key={`${item.id}-${item.selectedOption?.name || index}-${JSON.stringify(item.selectedCustomizations || [])}`} className="flex items-start bg-white p-3 rounded-lg shadow-sm border border-gray-50">
                   {item.imageUrls && item.imageUrls.length > 0 && (
-                      <img src={item.imageUrls[0]} alt={item.name} className="w-20 h-20 object-cover rounded-md" />
+                      <img src={item.imageUrls[0]} alt={item.name} className="w-16 h-16 object-cover rounded-md flex-shrink-0" />
                   )}
-                  <div className={`flex-grow ${item.imageUrls && item.imageUrls.length > 0 ? 'ml-4' : ''}`}>
-                    <h3 className="font-semibold text-brand-text">{item.name}</h3>
+                  <div className={`flex-grow min-w-0 ${item.imageUrls && item.imageUrls.length > 0 ? 'ml-4' : ''}`}>
+                    <h3 className="font-bold text-brand-text text-sm truncate">{item.name}</h3>
+                    
                     {item.selectedOption && (
-                        <p className="text-xs text-gray-500 mb-1">{item.selectedOption.name}</p>
+                        <p className="text-[10px] text-gray-500 font-bold uppercase">{item.selectedOption.name}</p>
                     )}
-                    <p className="text-brand-primary font-bold">{formatPrice(item.price)}</p>
+
+                    {/* Exibição das Escolhas (Personalizações) */}
+                    {item.selectedCustomizations && item.selectedCustomizations.length > 0 && (
+                      <div className="mt-1 space-y-0.5">
+                        {item.selectedCustomizations.map((group, gIdx) => (
+                          <div key={gIdx} className="text-[10px] text-gray-500 leading-tight">
+                            <span className="font-bold text-brand-primary">{group.groupName}: </span>
+                            {group.items.map(i => `${i.quantity}x ${i.name}`).join(', ')}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <p className="text-brand-primary font-black mt-1 text-sm">{formatPrice(item.price)}</p>
                     <div className="flex items-center mt-2">
-                      <button onClick={() => onUpdateQuantity(item.id, item.quantity - 1, item.selectedOption?.name)} className="p-1 rounded-full bg-brand-secondary/50 text-brand-text"><MinusIcon className="w-4 h-4" /></button>
-                      <span className="px-3 font-bold text-brand-text">{item.quantity}</span>
-                      <button onClick={() => onUpdateQuantity(item.id, item.quantity + 1, item.selectedOption?.name)} className="p-1 rounded-full bg-brand-secondary/50 text-brand-text"><PlusIcon className="w-4 h-4" /></button>
+                      <button onClick={() => onUpdateQuantity(item.id, item.quantity - 1, item.selectedOption?.name)} className="p-1 rounded-full bg-brand-secondary/50 text-brand-text"><MinusIcon className="w-3 h-3" /></button>
+                      <span className="px-3 font-bold text-brand-text text-sm">{item.quantity}</span>
+                      <button onClick={() => onUpdateQuantity(item.id, item.quantity + 1, item.selectedOption?.name)} className="p-1 rounded-full bg-brand-secondary/50 text-brand-text"><PlusIcon className="w-3 h-3" /></button>
                     </div>
                   </div>
-                  <button onClick={() => onRemoveItem(item.id, item.selectedOption?.name)} className="ml-4 p-2 text-gray-400 hover:text-brand-primary">
+                  <button onClick={() => onRemoveItem(item.id, item.selectedOption?.name)} className="ml-4 p-2 text-gray-300 hover:text-red-500 transition-colors">
                     <TrashIcon className="w-5 h-5" />
                   </button>
                 </div>
@@ -80,7 +94,7 @@ const Cart: React.FC<CartProps> = ({ isOpen, onClose, cartItems, onUpdateQuantit
               </div>
               <button
                 onClick={onCheckout}
-                className="w-full mt-4 bg-brand-primary text-white font-bold py-3 rounded-lg text-lg hover:bg-brand-primary-dark transition-colors duration-300"
+                className="w-full mt-4 bg-brand-primary text-white font-bold py-3 rounded-lg text-lg hover:bg-brand-primary-dark transition-colors duration-300 shadow-md active:scale-95"
               >
                 Continuar
               </button>

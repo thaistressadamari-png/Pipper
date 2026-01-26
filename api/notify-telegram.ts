@@ -1,12 +1,7 @@
 
-/*
-  This serverless function is triggered when a new order is created.
-  It sends a formatted notification message to a Telegram chat via a bot.
-*/
 import * as https from "https";
 import { Buffer } from "buffer";
 
-// Mimic Vercel's API request/response types for compatibility
 interface ApiRequest {
     method?: string;
     body: any;
@@ -32,7 +27,6 @@ const formatDisplayDate = (dateString: string) => {
     }
 }
 
-// Helper to escape HTML special characters for Telegram HTML mode
 const escapeHtml = (unsafe: string) => {
     return (unsafe || '')
         .replace(/&/g, "&amp;")
@@ -47,7 +41,7 @@ async function sendNewOrderNotification(order: any) {
     const chatId = process.env.TELEGRAM_CHAT_ID;
 
     if (!botToken || !chatId) {
-        throw new Error("Telegram Bot Token or Chat ID are not configured in environment variables.");
+        throw new Error("Telegram Bot Token or Chat ID not configured.");
     }
 
     const itemsList = (order.items || []).map((item: any) => {
@@ -55,18 +49,26 @@ async function sendNewOrderNotification(order: any) {
         if (item.option) {
             text += ` (<i>${escapeHtml(item.option)}</i>)`;
         }
+        
+        // Detalhamento das Customizações
+        if (item.selectedCustomizations && item.selectedCustomizations.length > 0) {
+            item.selectedCustomizations.forEach((group: any) => {
+                const opts = group.items.map((it: any) => `${it.quantity}x ${it.name}`).join(', ');
+                text += `\n   └ <b>${escapeHtml(group.groupName)}:</b> ${escapeHtml(opts)}`;
+            });
+        }
+
         if (item.observations) {
-            text += `\n  <pre>Obs: ${escapeHtml(item.observations)}</pre>`;
+            text += `\n   <pre>Obs: ${escapeHtml(item.observations)}</pre>`;
         }
         return text;
-    }).join("\n");
+    }).join("\n\n");
 
     const address = order.delivery?.address || {};
     const fullAddress = escapeHtml(`${address.street || ''}, ${address.number || ''}${address.complement ? `, ${address.complement}` : ''} - ${address.neighborhood || ''}`);
     
     const rawWhatsapp = (order.customer?.whatsapp || '').replace(/\D/g, '');
-    const customerWhatsapp = `55${rawWhatsapp}`;
-    const whatsappLink = `https://wa.me/${customerWhatsapp}`;
+    const whatsappLink = `https://wa.me/55${rawWhatsapp}`;
 
     const message = `<b>🔔 NOVO PEDIDO - #${order.orderNumber} 🔔</b>
 
@@ -103,14 +105,7 @@ ${fullAddress}
       parse_mode: "HTML",
       disable_web_page_preview: true,
       reply_markup: {
-        inline_keyboard: [
-          [
-            {
-              text: "🌐 Abrir Painel Admin",
-              url: "https://pipper-psi.vercel.app/", // Certifique-se que esta URL está correta
-            },
-          ],
-        ],
+        inline_keyboard: [[{ text: "🌐 Abrir Painel Admin", url: "https://pipper-psi.vercel.app/" }]],
       },
     });
 
@@ -127,39 +122,20 @@ ${fullAddress}
 
     return new Promise<void>((resolve, reject) => {
         const req = https.request(options, (res) => {
-          let responseBody = "";
-          res.on("data", (chunk) => { responseBody += chunk; });
-          res.on("end", () => {
-            if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
-                resolve();
-            } else {
-                reject(new Error(`Telegram API request failed with status ${res.statusCode}: ${responseBody}`));
-            }
-          });
+          res.on("end", () => (res.statusCode! >= 200 && res.statusCode! < 300) ? resolve() : reject());
         });
-
-        req.on("error", (error) => { reject(error); });
+        req.on("error", (error) => reject(error));
         req.write(data);
         req.end();
     });
 }
 
-
 export default async function handler(req: ApiRequest, res: ApiResponse) {
-    if (req.method !== 'POST') {
-        res.setHeader('Allow', ['POST']);
-        return res.status(405).end(`Method ${req.method} Not Allowed`);
-    }
-
+    if (req.method !== 'POST') return res.status(405).end();
     try {
-        const { order } = req.body;
-        if (!order || !order.orderNumber) {
-             return res.status(400).json({ error: 'Invalid order data provided.' });
-        }
-        await sendNewOrderNotification(order);
+        await sendNewOrderNotification(req.body.order);
         return res.status(200).json({ message: 'Notification sent successfully.' });
     } catch (error: any) {
-        console.error("Error sending Telegram notification:", error);
-        return res.status(500).json({ error: 'Failed to send notification.', details: error.message });
+        return res.status(500).json({ error: 'Failed' });
     }
 }

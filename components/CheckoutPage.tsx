@@ -354,7 +354,7 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
         const orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt' | 'orderNumber' | 'status'> = {
             customer: {
                 name: formData.name,
-                whatsapp: formData.whatsapp.replace(/\D/g, ''), // Salva apenas os dígitos
+                whatsapp: formData.whatsapp.replace(/\D/g, ''),
             },
             delivery: {
                 type: 'delivery',
@@ -372,7 +372,8 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
                 quantity: item.quantity,
                 price: item.price,
                 observations: item.observations || '',
-                option: item.selectedOption?.name || ''
+                option: item.selectedOption?.name || '',
+                selectedCustomizations: item.selectedCustomizations || []
             })),
             total: total,
             paymentMethod: formData.paymentMethod,
@@ -416,7 +417,7 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
                 </div>
             ) : (
                 cartItems.map((item, index) => (
-                    <div key={`${item.id}-${item.selectedOption?.name || index}`} className="flex items-start bg-gray-50 p-3 rounded-lg border border-gray-100">
+                    <div key={`${item.id}-${item.selectedOption?.name || index}-${JSON.stringify(item.selectedCustomizations || [])}`} className="flex items-start bg-gray-50 p-3 rounded-lg border border-gray-100">
                         {item.imageUrls && item.imageUrls.length > 0 && (
                             <img src={item.imageUrls[0]} alt={item.name} className="w-16 h-16 object-cover rounded-md flex-shrink-0" />
                         )}
@@ -426,6 +427,16 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
                                     <h3 className="font-semibold text-brand-text text-sm sm:text-base">{item.name}</h3>
                                     {item.selectedOption && (
                                         <p className="text-xs text-gray-500">{item.selectedOption.name}</p>
+                                    )}
+                                    {/* Resumo Customizações no Checkout */}
+                                    {item.selectedCustomizations && item.selectedCustomizations.length > 0 && (
+                                      <div className="mt-1">
+                                        {item.selectedCustomizations.map((g, i) => (
+                                          <p key={i} className="text-[10px] text-gray-500">
+                                            <span className="font-bold">{g.groupName}:</span> {g.items.map(it => `${it.quantity}x ${it.name}`).join(', ')}
+                                          </p>
+                                        ))}
+                                      </div>
                                     )}
                                 </div>
                                 <button onClick={() => onRemoveItem(item.id, item.selectedOption?.name)} className="p-1 text-gray-400 hover:text-red-500">
@@ -677,9 +688,16 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({ cartItems, storeInfo, onNav
                 <h2 className="text-lg font-bold text-brand-text mb-4">Resumo do Pedido</h2>
                 <div className="space-y-3 mb-4">
                     {cartItems.map((item, index) => (
-                        <div key={`${item.id}-${item.selectedOption?.name || index}`} className="flex justify-between text-sm">
-                            <span className="text-gray-600">{item.quantity}x {item.name} {item.selectedOption ? `(${item.selectedOption.name})` : ''}</span>
-                            <span className="font-medium text-gray-900">{formatPrice(item.price * item.quantity)}</span>
+                        <div key={`${item.id}-${item.selectedOption?.name || index}`} className="flex flex-col text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-gray-600 font-bold">{item.quantity}x {item.name} {item.selectedOption ? `(${item.selectedOption.name})` : ''}</span>
+                              <span className="font-medium text-gray-900">{formatPrice(item.price * item.quantity)}</span>
+                            </div>
+                            {item.selectedCustomizations && item.selectedCustomizations.map((g, i) => (
+                              <span key={i} className="text-[10px] text-gray-400 pl-4">
+                                • {g.groupName}: {g.items.map(it => `${it.quantity}x ${it.name}`).join(', ')}
+                              </span>
+                            ))}
                         </div>
                     ))}
                 </div>

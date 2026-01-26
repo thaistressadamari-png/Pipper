@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import type { Product, ProductOption, CategoryMetadata } from '../types';
+import type { Product, ProductOption, CategoryMetadata, CustomizationGroup, CustomizationOption } from '../types';
 import { TrashIcon, SearchIcon, DragHandleIcon, CopyIcon, PlusIcon, ChevronRightIcon, XIcon as CloseIcon } from './IconComponents';
 
 interface ProductsViewProps {
@@ -14,6 +14,119 @@ interface ProductsViewProps {
   onUpdateCategoryOrder: (newOrder: CategoryMetadata[]) => Promise<void>;
   onToggleCategoriesArchive: (categoryNames: string[], archive: boolean) => Promise<void>;
 }
+
+const CustomizationEditor: React.FC<{
+    groups: CustomizationGroup[];
+    onChange: (groups: CustomizationGroup[]) => void;
+}> = ({ groups, onChange }) => {
+    const addGroup = () => {
+        const newGroup: CustomizationGroup = {
+            id: `group-${Date.now()}`,
+            name: '',
+            min: 0,
+            max: 1,
+            type: 'single',
+            options: []
+        };
+        onChange([...groups, newGroup]);
+    };
+
+    const updateGroup = (id: string, data: Partial<CustomizationGroup>) => {
+        onChange(groups.map(g => g.id === id ? { ...g, ...data } : g));
+    };
+
+    const removeGroup = (id: string) => {
+        onChange(groups.filter(g => g.id !== id));
+    };
+
+    const addOptionToGroup = (groupId: string) => {
+        onChange(groups.map(g => {
+            if (g.id === groupId) {
+                return {
+                    ...g,
+                    options: [...g.options, { name: '', priceExtra: 0 }]
+                };
+            }
+            return g;
+        }));
+    };
+
+    const updateOptionInGroup = (groupId: string, optIndex: number, data: Partial<CustomizationOption>) => {
+        onChange(groups.map(g => {
+            if (g.id === groupId) {
+                const newOpts = [...g.options];
+                newOpts[optIndex] = { ...newOpts[optIndex], ...data };
+                return { ...g, options: newOpts };
+            }
+            return g;
+        }));
+    };
+
+    const removeOptionFromGroup = (groupId: string, optIndex: number) => {
+        onChange(groups.map(g => {
+            if (g.id === groupId) {
+                return { ...g, options: g.options.filter((_, i) => i !== optIndex) };
+            }
+            return g;
+        }));
+    };
+
+    return (
+        <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 mt-6">
+            <div className="flex justify-between items-center mb-4">
+                <h4 className="text-sm font-bold text-brand-text uppercase tracking-wider">Personalizações & Adicionais</h4>
+                <button type="button" onClick={addGroup} className="text-xs font-bold text-brand-primary bg-brand-secondary/50 px-3 py-1.5 rounded-lg hover:bg-brand-primary hover:text-white transition-all">
+                    + Adicionar Grupo
+                </button>
+            </div>
+            
+            <div className="space-y-6">
+                {groups.map((group) => (
+                    <div key={group.id} className="bg-white p-4 rounded-lg border border-gray-100 shadow-sm relative">
+                        <button type="button" onClick={() => removeGroup(group.id)} className="absolute top-2 right-2 text-gray-300 hover:text-red-500">
+                            <TrashIcon className="w-4 h-4" />
+                        </button>
+                        
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+                            <div>
+                                <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Título do Grupo</label>
+                                <input type="text" value={group.name} onChange={e => updateGroup(group.id, { name: e.target.value })} placeholder="Ex: Escolha a massa" className="w-full px-3 py-1.5 border border-gray-300 rounded-md text-sm text-gray-900 bg-white placeholder-gray-400 focus:ring-1 focus:ring-brand-primary outline-none shadow-sm" />
+                            </div>
+                            <div className="flex gap-2">
+                                <div className="w-1/2">
+                                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Mín</label>
+                                    <input type="number" min="0" value={group.min} onChange={e => updateGroup(group.id, { min: parseInt(e.target.value) })} className="w-full px-3 py-1.5 border border-gray-300 rounded-md text-sm text-gray-900 bg-white focus:ring-1 focus:ring-brand-primary outline-none shadow-sm" />
+                                </div>
+                                <div className="w-1/2">
+                                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Máx</label>
+                                    <input type="number" min="1" value={group.max} onChange={e => updateGroup(group.id, { max: parseInt(e.target.value), type: parseInt(e.target.value) > 1 ? 'counter' : 'single' })} className="w-full px-3 py-1.5 border border-gray-300 rounded-md text-sm text-gray-900 bg-white focus:ring-1 focus:ring-brand-primary outline-none shadow-sm" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            {group.options.map((opt, idx) => (
+                                <div key={idx} className="flex gap-2 items-center bg-gray-50 p-2 rounded-md">
+                                    <input type="text" value={opt.name} onChange={e => updateOptionInGroup(group.id, idx, { name: e.target.value })} placeholder="Nome do item" className="flex-grow px-2 py-1 text-sm border border-gray-300 rounded bg-white text-gray-900 placeholder-gray-400 focus:ring-1 focus:ring-brand-primary outline-none shadow-sm" />
+                                    <div className="relative w-24">
+                                        <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[10px] text-gray-400 font-bold">R$</span>
+                                        <input type="number" step="0.01" value={opt.priceExtra} onChange={e => updateOptionInGroup(group.id, idx, { priceExtra: parseFloat(e.target.value) })} className="w-full pl-6 pr-2 py-1 text-sm border border-gray-300 rounded bg-white text-brand-primary font-bold focus:ring-1 focus:ring-brand-primary outline-none shadow-sm" />
+                                    </div>
+                                    <button type="button" onClick={() => removeOptionFromGroup(group.id, idx)} className="text-gray-300 hover:text-red-500">
+                                        <TrashIcon className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            ))}
+                            <button type="button" onClick={() => addOptionToGroup(group.id)} className="w-full py-2 border-2 border-dashed border-gray-200 rounded-lg text-xs font-bold text-gray-400 hover:border-brand-primary hover:text-brand-primary transition-all">
+                                + Adicionar Opção ao Grupo
+                            </button>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
 
 const SearchableSelect: React.FC<{
     options: CategoryMetadata[];
@@ -203,6 +316,7 @@ const ProductsView: React.FC<ProductsViewProps> = ({
 
   const [productForm, setProductForm] = useState(initialFormState);
   const [productOptions, setProductOptions] = useState<ProductOption[]>([]);
+  const [customizationGroups, setCustomizationGroups] = useState<CustomizationGroup[]>([]);
   const [newOption, setNewOption] = useState({ name: '', price: '' });
   
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
@@ -251,6 +365,7 @@ const ProductsView: React.FC<ProductsViewProps> = ({
     setEditingProduct(null);
     setProductForm(initialFormState);
     setProductOptions([]);
+    setCustomizationGroups([]);
     setIsProductModalOpen(true);
   };
 
@@ -269,6 +384,7 @@ const ProductsView: React.FC<ProductsViewProps> = ({
         inventoryQuantity: String(product.inventoryQuantity || 0)
     });
     setProductOptions(product.options || []);
+    setCustomizationGroups(product.customizationGroups || []);
     setIsProductModalOpen(true);
   };
   
@@ -286,6 +402,7 @@ const ProductsView: React.FC<ProductsViewProps> = ({
         inventoryQuantity: String(product.inventoryQuantity || 0)
     });
     setProductOptions(product.options || []);
+    setCustomizationGroups(product.customizationGroups || []);
     setEditingProduct(null); 
     setIsProductModalOpen(true);
   };
@@ -309,6 +426,7 @@ const ProductsView: React.FC<ProductsViewProps> = ({
     setEditingProduct(null);
     setProductForm(initialFormState);
     setProductOptions([]);
+    setCustomizationGroups([]);
     setMessage(null);
   };
 
@@ -354,6 +472,7 @@ const ProductsView: React.FC<ProductsViewProps> = ({
         imageUrls: imageUrlsArray,
         leadTimeDays: parseInt(productForm.leadTimeDays, 10) || 0,
         options: productOptions,
+        customizationGroups: customizationGroups,
         inventoryEnabled: productForm.inventoryEnabled,
         inventoryQuantity: parseInt(productForm.inventoryQuantity, 10) || 0,
       };
@@ -519,14 +638,14 @@ const ProductsView: React.FC<ProductsViewProps> = ({
         {/* Modal de Produto (Cadastro/Edição) */}
         {isProductModalOpen && (
             <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm">
-                <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-slide-in-up">
+                <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-slide-in-up no-scrollbar">
                     <header className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
                         <h2 className="text-xl font-bold text-brand-text">{editingProduct ? 'Editar Produto' : 'Novo Produto'}</h2>
                         <button onClick={closeProductModal} className="p-2 hover:bg-gray-200 rounded-full transition-colors text-gray-500">
                             <CloseIcon className="w-6 h-6" />
                         </button>
                     </header>
-                    <div className="flex-1 overflow-y-auto p-6">
+                    <div className="flex-1 overflow-y-auto p-6 no-scrollbar">
                         <form onSubmit={handleProductSubmit} className="space-y-6">
                             <div className="space-y-4">
                                 <div>
@@ -609,6 +728,9 @@ const ProductsView: React.FC<ProductsViewProps> = ({
                                         </div>
                                     )}
                                 </div>
+
+                                {/* Seção de Personalizações Estilo Dino */}
+                                <CustomizationEditor groups={customizationGroups} onChange={setCustomizationGroups} />
 
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div>
@@ -809,7 +931,7 @@ const ProductsView: React.FC<ProductsViewProps> = ({
                             value={productSearchQuery}
                             onChange={(e) => setProductSearchQuery(e.target.value)}
                             placeholder="Buscar produtos por nome..."
-                            className="w-full bg-gray-100 border-transparent rounded-full py-2 pl-10 pr-4 text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                            className="w-full bg-gray-100 border-transparent rounded-full py-2.5 pl-10 pr-4 text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-primary"
                         />
                     </div>
                     <div className="sm:w-64 flex-shrink-0">

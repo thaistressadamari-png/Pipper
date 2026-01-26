@@ -14,7 +14,7 @@ import CheckoutPage from './components/CheckoutPage';
 import OrderSuccessPage from './components/OrderSuccessPage';
 import OrderTrackingModal from './components/OrderTrackingModal';
 import { BikeIcon, ShoppingBagIcon } from './components/IconComponents';
-import type { Product, CartItem, StoreInfoData, Order, ProductOption, CategoryMetadata } from './types';
+import type { Product, CartItem, StoreInfoData, Order, ProductOption, CategoryMetadata, SelectedCustomization } from './types';
 import { getMenu, addProduct, getStoreInfo, updateStoreInfo, updateProduct, deleteProduct, addCategory, deleteCategory, initializeFirebaseData, updateCategoryOrder, incrementVisitCount, getOrderById, toggleCategoriesArchive } from './services/menuService';
 import { auth } from './firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
@@ -76,7 +76,6 @@ const App: React.FC = () => {
       const validOrders: Order[] = [];
       const validIds: string[] = [];
       results.forEach(order => {
-        // Agora filtramos também os pedidos marcados como finalizados (completed)
         if (order && order.status !== 'archived' && order.status !== 'completed') {
             validOrders.push(order);
             validIds.push(order.id);
@@ -204,12 +203,17 @@ const App: React.FC = () => {
     setSelectedProduct(null);
   }, []);
   
-  const handleAddToCart = useCallback((productToAdd: Product, quantity: number, observations?: string, selectedOption?: ProductOption) => {
+  const handleAddToCart = useCallback((productToAdd: Product, quantity: number, observations?: string, selectedOption?: ProductOption, selectedCustomizations?: SelectedCustomization[]) => {
     setCartItems(prevItems => {
+        // Criar uma representação string única das customizações para comparação
+        const customizationsKey = JSON.stringify(selectedCustomizations || []);
+        
         const existingItemIndex = prevItems.findIndex(item => 
             item.id === productToAdd.id && 
-            item.selectedOption?.name === selectedOption?.name
+            item.selectedOption?.name === selectedOption?.name &&
+            JSON.stringify(item.selectedCustomizations || []) === customizationsKey
         );
+
         if (existingItemIndex !== -1) {
             const newItems = [...prevItems];
             newItems[existingItemIndex] = {
@@ -219,13 +223,18 @@ const App: React.FC = () => {
             };
             return newItems;
         } else {
-            const itemPrice = selectedOption ? selectedOption.price : productToAdd.price;
+            const basePrice = selectedOption ? selectedOption.price : productToAdd.price;
+            const extraPrice = (selectedCustomizations || []).reduce((acc, group) => {
+                return acc + group.items.reduce((groupAcc, item) => groupAcc + (item.priceExtra * item.quantity), 0);
+            }, 0);
+
             return [...prevItems, { 
                 ...productToAdd, 
-                price: itemPrice,
+                price: basePrice + extraPrice,
                 quantity, 
                 observations, 
-                selectedOption 
+                selectedOption,
+                selectedCustomizations
             }];
         }
     });
