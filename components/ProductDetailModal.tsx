@@ -78,8 +78,9 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
         if (optQty > 0) {
           const opt = group.options.find(o => o.name === optName);
           if (opt) {
-            total += (opt.priceExtra * optQty);
-            items.push({ name: opt.name, quantity: optQty, priceExtra: opt.priceExtra });
+            const price = Number(opt.priceExtra) || 0;
+            total += (price * optQty);
+            items.push({ name: opt.name, quantity: optQty, priceExtra: price });
           }
         }
       }

@@ -95,11 +95,11 @@ const CustomizationEditor: React.FC<{
                             <div className="flex gap-2">
                                 <div className="w-1/2">
                                     <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Mín</label>
-                                    <input type="number" min="0" value={group.min} onChange={e => updateGroup(group.id, { min: parseInt(e.target.value) })} className="w-full px-3 py-1.5 border border-gray-300 rounded-md text-sm text-gray-900 bg-white focus:ring-1 focus:ring-brand-primary outline-none shadow-sm" />
+                                    <input type="number" min="0" value={group.min} onChange={e => updateGroup(group.id, { min: parseInt(e.target.value) || 0 })} className="w-full px-3 py-1.5 border border-gray-300 rounded-md text-sm text-gray-900 bg-white focus:ring-1 focus:ring-brand-primary outline-none shadow-sm" />
                                 </div>
                                 <div className="w-1/2">
                                     <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Máx</label>
-                                    <input type="number" min="1" value={group.max} onChange={e => updateGroup(group.id, { max: parseInt(e.target.value), type: parseInt(e.target.value) > 1 ? 'counter' : 'single' })} className="w-full px-3 py-1.5 border border-gray-300 rounded-md text-sm text-gray-900 bg-white focus:ring-1 focus:ring-brand-primary outline-none shadow-sm" />
+                                    <input type="number" min="1" value={group.max} onChange={e => updateGroup(group.id, { max: parseInt(e.target.value) || 1, type: (parseInt(e.target.value) || 1) > 1 ? 'counter' : 'single' })} className="w-full px-3 py-1.5 border border-gray-300 rounded-md text-sm text-gray-900 bg-white focus:ring-1 focus:ring-brand-primary outline-none shadow-sm" />
                                 </div>
                             </div>
                         </div>
@@ -110,7 +110,7 @@ const CustomizationEditor: React.FC<{
                                     <input type="text" value={opt.name} onChange={e => updateOptionInGroup(group.id, idx, { name: e.target.value })} placeholder="Nome do item" className="flex-grow px-2 py-1 text-sm border border-gray-300 rounded bg-white text-gray-900 placeholder-gray-400 focus:ring-1 focus:ring-brand-primary outline-none shadow-sm" />
                                     <div className="relative w-24">
                                         <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[10px] text-gray-400 font-bold">R$</span>
-                                        <input type="number" step="0.01" value={opt.priceExtra} onChange={e => updateOptionInGroup(group.id, idx, { priceExtra: parseFloat(e.target.value) })} className="w-full pl-6 pr-2 py-1 text-sm border border-gray-300 rounded bg-white text-brand-primary font-bold focus:ring-1 focus:ring-brand-primary outline-none shadow-sm" />
+                                        <input type="number" step="0.01" value={opt.priceExtra} onChange={e => updateOptionInGroup(group.id, idx, { priceExtra: parseFloat(e.target.value) || 0 })} className="w-full pl-6 pr-2 py-1 text-sm border border-gray-300 rounded bg-white text-brand-primary font-bold focus:ring-1 focus:ring-brand-primary outline-none shadow-sm" />
                                     </div>
                                     <button type="button" onClick={() => removeOptionFromGroup(group.id, idx)} className="text-gray-300 hover:text-red-500">
                                         <TrashIcon className="w-4 h-4" />
@@ -432,7 +432,7 @@ const ProductsView: React.FC<ProductsViewProps> = ({
 
   const handleAddOption = () => {
       if (!newOption.name || !newOption.price) return;
-      setProductOptions([...productOptions, { name: newOption.name, price: parseFloat(newOption.price) }]);
+      setProductOptions([...productOptions, { name: newOption.name, price: parseFloat(newOption.price) || 0 }]);
       setNewOption({ name: '', price: '' });
   };
 
@@ -459,7 +459,7 @@ const ProductsView: React.FC<ProductsViewProps> = ({
     }
 
     try {
-      let effectivePrice = parseFloat(productForm.price);
+      let effectivePrice = parseFloat(productForm.price) || 0;
       if (productOptions.length > 0) {
           effectivePrice = Math.min(...productOptions.map(o => o.price));
       }
