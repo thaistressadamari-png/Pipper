@@ -16,6 +16,10 @@ interface ProductsViewProps {
   onToggleCategoriesArchive: (categoryNames: string[], archive: boolean) => Promise<void>;
 }
 
+// Imagem transparente para ocultar o ghost nativo do navegador
+const transparentPixel = new Image();
+transparentPixel.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+
 const CustomizationEditor: React.FC<{
     groups: CustomizationGroup[];
     onChange: (groups: CustomizationGroup[]) => void;
@@ -83,7 +87,7 @@ const CustomizationEditor: React.FC<{
             
             <div className="space-y-6">
                 {groups.map((group) => (
-                    <div key={group.id} className="bg-white p-4 rounded-lg border border-gray-100 shadow-sm relative">
+                    <div key={group.id} className="bg-white p-4 rounded-lg border border-gray-100 shadow-sm relative transition-all duration-200">
                         <button type="button" onClick={() => removeGroup(group.id)} className="absolute top-2 right-2 text-gray-300 hover:text-red-500">
                             <TrashIcon className="w-4 h-4" />
                         </button>
@@ -292,11 +296,9 @@ const SortProductsModal: React.FC<{
 }> = ({ categoryName, products: initialProducts, onClose, onSave }) => {
     const [localProducts, setLocalProducts] = useState<Product[]>([]);
     const [isSaving, setIsSaving] = useState(false);
-    const dragItem = useRef<number | null>(null);
-    const dragOverItem = useRef<number | null>(null);
+    const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
     useEffect(() => {
-        // Inicializa com os produtos da categoria, ordenados pelo sortOrder atual (ou alfabético se não houver)
         const filtered = initialProducts
             .filter(p => p.category === categoryName)
             .sort((a, b) => {
@@ -308,15 +310,24 @@ const SortProductsModal: React.FC<{
         setLocalProducts(filtered);
     }, [categoryName, initialProducts]);
 
-    const handleSort = () => {
-        if (dragItem.current === null || dragOverItem.current === null) return;
-        const productsCopy = [...localProducts];
-        const item = productsCopy.splice(dragItem.current, 1)[0];
-        productsCopy.splice(dragOverItem.current, 0, item);
+    const handleDragStart = (e: React.DragEvent, index: number) => {
+        setDraggedIndex(index);
+        // Desativar imagem fantasma nativa
+        if (e.dataTransfer) {
+            e.dataTransfer.setDragImage(transparentPixel, 0, 0);
+            e.dataTransfer.effectAllowed = 'move';
+        }
+    };
 
-        dragItem.current = null;
-        dragOverItem.current = null;
-        setLocalProducts(productsCopy);
+    const handleDragEnter = (targetIndex: number) => {
+        if (draggedIndex === null || draggedIndex === targetIndex) return;
+        
+        const newList = [...localProducts];
+        const itemToMove = newList.splice(draggedIndex, 1)[0];
+        newList.splice(targetIndex, 0, itemToMove);
+        
+        setDraggedIndex(targetIndex);
+        setLocalProducts(newList);
     };
 
     const handleSave = async () => {
@@ -344,16 +355,23 @@ const SortProductsModal: React.FC<{
                         <CloseIcon className="w-5 h-5" />
                     </button>
                 </header>
-                <div className="flex-1 overflow-y-auto p-4 space-y-2 no-scrollbar">
+                <div className="flex-1 overflow-y-auto p-4 space-y-2 no-scrollbar relative">
                     {localProducts.map((p, index) => (
                         <div
                             key={p.id}
                             draggable
-                            onDragStart={() => (dragItem.current = index)}
-                            onDragEnter={() => (dragOverItem.current = index)}
-                            onDragEnd={handleSort}
-                            onDragOver={(e) => e.preventDefault()}
-                            className="flex items-center gap-3 p-3 bg-gray-50 border border-gray-100 rounded-lg cursor-grab active:cursor-grabbing hover:bg-brand-secondary/20 transition-colors"
+                            onDragStart={(e) => handleDragStart(e, index)}
+                            onDragEnter={() => handleDragEnter(index)}
+                            onDragOver={(e) => {
+                                e.preventDefault();
+                                e.dataTransfer.dropEffect = 'move';
+                            }}
+                            onDragEnd={() => setDraggedIndex(null)}
+                            className={`flex items-center gap-3 p-3 border rounded-lg cursor-grab active:cursor-grabbing transition-all duration-300 ${
+                                draggedIndex === index 
+                                    ? 'opacity-40 bg-brand-secondary border-brand-primary scale-95' 
+                                    : 'bg-white border-gray-100 hover:bg-brand-secondary/10'
+                            }`}
                         >
                             <DragHandleIcon className="w-5 h-5 text-gray-400 flex-shrink-0" />
                             <div className="min-w-0 flex-grow">
@@ -382,7 +400,7 @@ const SortProductsModal: React.FC<{
 
 const ProductsView: React.FC<ProductsViewProps> = ({ 
     products, 
-    categories, 
+    categories: initialCategories, 
     onAddProduct, 
     onUpdateProduct, 
     onUpdateProductsSortOrder,
@@ -392,8 +410,17 @@ const ProductsView: React.FC<ProductsViewProps> = ({
     onUpdateCategoryOrder,
     onToggleCategoriesArchive
 }) => {
-  const activeCategoriesOnly = useMemo(() => categories.filter(c => !c.isArchived), [categories]);
-  const archivedCategoriesOnly = useMemo(() => categories.filter(c => c.isArchived), [categories]);
+  const [localCategories, setLocalCategories] = useState<CategoryMetadata[]>(initialCategories);
+  const [draggedCatIndex, setDraggedCatIndex] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (draggedCatIndex === null) {
+        setLocalCategories(initialCategories);
+    }
+  }, [initialCategories, draggedCatIndex]);
+
+  const activeCategoriesOnly = useMemo(() => localCategories.filter(c => !c.isArchived), [localCategories]);
+  const archivedCategoriesOnly = useMemo(() => localCategories.filter(c => c.isArchived), [localCategories]);
 
   const sortedCategoriesForSelect = useMemo(() => {
     return [...activeCategoriesOnly, ...archivedCategoriesOnly];
@@ -432,9 +459,6 @@ const ProductsView: React.FC<ProductsViewProps> = ({
   const [productViewTab, setProductViewTab] = useState<'active' | 'inactive'>('active');
   const [selectedCategoryNames, setSelectedCategoryNames] = useState<string[]>([]);
   
-  const dragItem = useRef<number | null>(null);
-  const dragOverItem = useRef<number | null>(null);
-
   useEffect(() => {
     if (productToDelete || categoryToDelete || isProductModalOpen || sortingCategory) {
         document.body.style.overflow = 'hidden';
@@ -578,7 +602,6 @@ const ProductsView: React.FC<ProductsViewProps> = ({
 
       if (editingProduct) {
           productData.id = editingProduct.id;
-          // Mantém o sortOrder se já existir ao editar
           if (editingProduct.sortOrder !== undefined) {
               productData.sortOrder = editingProduct.sortOrder;
           }
@@ -655,28 +678,40 @@ const ProductsView: React.FC<ProductsViewProps> = ({
     }
   };
   
-  const handleSort = () => {
-      if (dragItem.current === null || dragOverItem.current === null) return;
-      const categoriesCopy = [...categories];
-      
-      const activeCats = categories.filter(c => !c.isArchived);
-      const draggedCat = activeCats[dragItem.current];
-      const targetCat = activeCats[dragOverItem.current];
-      
-      const realDragIdx = categories.findIndex(c => c.name === draggedCat.name);
-      const realTargetIdx = categories.findIndex(c => c.name === targetCat.name);
+  const handleCategoryDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedCatIndex(index);
+    // Desativar imagem fantasma nativa
+    if (e.dataTransfer) {
+        e.dataTransfer.setDragImage(transparentPixel, 0, 0);
+        e.dataTransfer.effectAllowed = 'move';
+    }
+  };
 
-      const item = categoriesCopy.splice(realDragIdx, 1)[0];
-      categoriesCopy.splice(realTargetIdx, 0, item);
+  const handleCategoryDragEnter = (targetIdx: number) => {
+    if (draggedCatIndex === null || draggedCatIndex === targetIdx) return;
+    
+    const activeCats = localCategories.filter(c => !c.isArchived);
+    const draggedCat = activeCats[draggedCatIndex];
+    
+    const realDragIdx = localCategories.findIndex(c => c.name === draggedCat.name);
+    const realTargetIdx = localCategories.findIndex(c => c.name === activeCats[targetIdx].name);
 
-      dragItem.current = null;
-      dragOverItem.current = null;
-      onUpdateCategoryOrder(categoriesCopy);
+    const newList = [...localCategories];
+    const [movedItem] = newList.splice(realDragIdx, 1);
+    newList.splice(realTargetIdx, 0, movedItem);
+
+    setDraggedCatIndex(targetIdx);
+    setLocalCategories(newList);
+  };
+
+  const handleCategoryDragEnd = () => {
+    setDraggedCatIndex(null);
+    onUpdateCategoryOrder(localCategories);
   };
 
   const filteredProducts = products.filter(p => {
     const matchesSearch = p.name.toLowerCase().includes(productSearchQuery.toLowerCase());
-    const isCategoryArchived = categories.some(c => c.name === p.category && c.isArchived);
+    const isCategoryArchived = initialCategories.some(c => c.name === p.category && c.isArchived);
     
     if (productViewTab === 'active' && isCategoryArchived) return false;
     if (productViewTab === 'inactive' && !isCategoryArchived) return false;
@@ -687,7 +722,7 @@ const ProductsView: React.FC<ProductsViewProps> = ({
 
   const inputStyles = "mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-brand-primary focus:border-brand-primary sm:text-sm text-gray-900";
 
-  const archivedCategories = useMemo(() => categories.filter(c => c.isArchived), [categories]);
+  const archivedCategories = useMemo(() => localCategories.filter(c => c.isArchived), [localCategories]);
   const currentCategoryList = categoryTab === 'active' ? activeCategoriesOnly : archivedCategories;
 
   const toggleCategorySelection = (name: string) => {
@@ -716,10 +751,10 @@ const ProductsView: React.FC<ProductsViewProps> = ({
   };
 
   const productCounts = useMemo(() => {
-    const active = products.filter(p => !categories.find(c => c.name === p.category && c.isArchived)).length;
+    const active = products.filter(p => !initialCategories.find(c => c.name === p.category && c.isArchived)).length;
     const inactive = products.length - active;
     return { active, inactive };
-  }, [products, categories]);
+  }, [products, initialCategories]);
 
   return (
     <>
@@ -746,7 +781,6 @@ const ProductsView: React.FC<ProductsViewProps> = ({
             />
         )}
 
-        {/* Modal de Produto (Cadastro/Edição) */}
         {isProductModalOpen && (
             <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm">
                 <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-slide-in-up no-scrollbar">
@@ -840,7 +874,6 @@ const ProductsView: React.FC<ProductsViewProps> = ({
                                     )}
                                 </div>
 
-                                {/* Seção de Personalizações Estilo Dino */}
                                 <CustomizationEditor groups={customizationGroups} onChange={setCustomizationGroups} />
 
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -950,16 +983,23 @@ const ProductsView: React.FC<ProductsViewProps> = ({
                       </div>
                     )}
 
-                    <div className="space-y-2 mt-2">
+                    <div className="space-y-2 mt-2 relative">
                         {currentCategoryList.map((cat, index) => (
                             <div key={cat.name}
                                 draggable={categoryTab === 'active'}
-                                onDragStart={() => categoryTab === 'active' && (dragItem.current = index)}
-                                onDragEnter={() => categoryTab === 'active' && (dragOverItem.current = index)}
-                                onDragEnd={handleSort}
-                                onDragOver={(e) => e.preventDefault()}
-                                className={`flex items-center justify-between p-3 rounded-md border border-gray-100 ${
-                                  categoryTab === 'active' ? 'bg-gray-50 cursor-grab active:cursor-grabbing' : 'bg-gray-100/50'
+                                onDragStart={(e) => categoryTab === 'active' && handleCategoryDragStart(e, index)}
+                                onDragEnter={() => categoryTab === 'active' && handleCategoryDragEnter(index)}
+                                onDragEnd={handleCategoryDragEnd}
+                                onDragOver={(e) => {
+                                    e.preventDefault();
+                                    if (categoryTab === 'active') {
+                                        e.dataTransfer.dropEffect = 'move';
+                                    }
+                                }}
+                                className={`flex items-center justify-between p-3 rounded-md border transition-all duration-300 ${
+                                  categoryTab === 'active' 
+                                    ? (draggedCatIndex === index ? 'opacity-40 bg-brand-secondary border-brand-primary scale-95' : 'bg-gray-50 cursor-grab active:cursor-grabbing border-gray-100 hover:shadow-sm') 
+                                    : 'bg-gray-100/50 border-gray-100'
                                 }`}
                             >
                                 <div className="flex items-center gap-3 min-w-0 flex-grow">
@@ -1079,9 +1119,9 @@ const ProductsView: React.FC<ProductsViewProps> = ({
 
                 <div className="space-y-3">
                     {filteredProducts.map(p => {
-                        const isArchived = categories.find(c => c.name === p.category && c.isArchived);
+                        const isArchived = initialCategories.some(c => c.name === p.category && c.isArchived);
                         return (
-                        <div key={p.id} className={`flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 rounded-md border transition-all gap-3 ${isArchived ? 'bg-gray-50 border-gray-200' : 'bg-white border-gray-100'}`}>
+                        <div key={p.id} className={`flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 rounded-md border transition-all duration-300 gap-3 ${isArchived ? 'bg-gray-50 border-gray-200' : 'bg-white border-gray-100'}`}>
                             <div className="flex items-center gap-3 min-w-0 w-full sm:w-auto flex-grow">
                                 {p.imageUrls && p.imageUrls.length > 0 ? (
                                     <img src={p.imageUrls[0]} alt={p.name} className="w-12 h-12 object-cover rounded flex-shrink-0"/>
