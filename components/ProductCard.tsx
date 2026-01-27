@@ -12,7 +12,37 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onProductClick }) =>
     return price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   };
   
-  const hasOptions = product.options && product.options.length > 0;
+  const calculateStartingPrice = () => {
+    let price = product.price;
+    let starting = (product.options && product.options.length > 0);
+
+    // Se o preço base for 0 e houver grupos de personalização, calculamos o preço mínimo
+    if (price === 0 && product.customizationGroups && product.customizationGroups.length > 0) {
+      const mandatoryGroups = product.customizationGroups.filter(g => g.min > 0);
+      if (mandatoryGroups.length > 0) {
+        let minMandatory = 0;
+        mandatoryGroups.forEach(g => {
+          if (g.options && g.options.length > 0) {
+            const prices = g.options.map(o => o.priceExtra);
+            minMandatory += Math.min(...prices);
+          }
+        });
+        if (minMandatory > 0) {
+          return { price: minMandatory, starting: true };
+        }
+      }
+      
+      // Fallback: se não houver obrigatórios, mas houver adicionais com preço, mostra o menor
+      const allExtras = product.customizationGroups.flatMap(g => g.options.map(o => o.priceExtra)).filter(p => p > 0);
+      if (allExtras.length > 0) {
+        return { price: Math.min(...allExtras), starting: true };
+      }
+    }
+
+    return { price, starting };
+  };
+
+  const { price: displayPrice, starting: showStartingAt } = calculateStartingPrice();
   
   const isOnPromotion = product.originalPrice && product.originalPrice > product.price;
   
@@ -64,9 +94,9 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onProductClick }) =>
             </span>
           )}
           <div className="flex flex-col sm:flex-row sm:items-baseline">
-              {hasOptions && <span className="text-[10px] text-gray-400 mr-1 uppercase font-medium">A partir de</span>}
+              {showStartingAt && <span className="text-[10px] text-gray-400 mr-1 uppercase font-medium">A partir de</span>}
               <span className={`text-base font-bold ${isOnPromotion ? 'text-brand-accent' : 'text-brand-primary'}`}>
-                {formatPrice(product.price)}
+                {formatPrice(displayPrice)}
               </span>
           </div>
         </div>
