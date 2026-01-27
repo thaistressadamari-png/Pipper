@@ -16,7 +16,7 @@ interface ProductsViewProps {
   onToggleCategoriesArchive: (categoryNames: string[], archive: boolean) => Promise<void>;
 }
 
-// Imagem transparente para ocultar o ghost nativo do navegador
+// Imagem transparente para ocultar o ghost nativo do navegador no Desktop
 const transparentPixel = new Image();
 transparentPixel.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
 
@@ -297,6 +297,7 @@ const SortProductsModal: React.FC<{
     const [localProducts, setLocalProducts] = useState<Product[]>([]);
     const [isSaving, setIsSaving] = useState(false);
     const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+    const listRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         const filtered = initialProducts
@@ -312,7 +313,6 @@ const SortProductsModal: React.FC<{
 
     const handleDragStart = (e: React.DragEvent, index: number) => {
         setDraggedIndex(index);
-        // Desativar imagem fantasma nativa
         if (e.dataTransfer) {
             e.dataTransfer.setDragImage(transparentPixel, 0, 0);
             e.dataTransfer.effectAllowed = 'move';
@@ -321,13 +321,31 @@ const SortProductsModal: React.FC<{
 
     const handleDragEnter = (targetIndex: number) => {
         if (draggedIndex === null || draggedIndex === targetIndex) return;
-        
         const newList = [...localProducts];
         const itemToMove = newList.splice(draggedIndex, 1)[0];
         newList.splice(targetIndex, 0, itemToMove);
-        
         setDraggedIndex(targetIndex);
         setLocalProducts(newList);
+    };
+
+    // Touch Support for Products
+    const handleTouchStart = (index: number) => {
+        setDraggedIndex(index);
+    };
+
+    const handleTouchMove = (e: React.TouchEvent) => {
+        if (draggedIndex === null) return;
+        const touch = e.touches[0];
+        const targetElement = document.elementFromPoint(touch.clientX, touch.clientY);
+        if (!targetElement) return;
+
+        const itemElement = targetElement.closest('[data-product-index]');
+        if (itemElement) {
+            const targetIndex = parseInt(itemElement.getAttribute('data-product-index') || '-1');
+            if (targetIndex !== -1 && targetIndex !== draggedIndex) {
+                handleDragEnter(targetIndex);
+            }
+        }
     };
 
     const handleSave = async () => {
@@ -355,21 +373,25 @@ const SortProductsModal: React.FC<{
                         <CloseIcon className="w-5 h-5" />
                     </button>
                 </header>
-                <div className="flex-1 overflow-y-auto p-4 space-y-2 no-scrollbar relative">
+                <div 
+                    ref={listRef}
+                    className="flex-1 overflow-y-auto p-4 space-y-2 no-scrollbar relative touch-none"
+                    onTouchMove={handleTouchMove}
+                    onTouchEnd={() => setDraggedIndex(null)}
+                >
                     {localProducts.map((p, index) => (
                         <div
                             key={p.id}
+                            data-product-index={index}
                             draggable
                             onDragStart={(e) => handleDragStart(e, index)}
                             onDragEnter={() => handleDragEnter(index)}
-                            onDragOver={(e) => {
-                                e.preventDefault();
-                                e.dataTransfer.dropEffect = 'move';
-                            }}
+                            onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
                             onDragEnd={() => setDraggedIndex(null)}
+                            onTouchStart={() => handleTouchStart(index)}
                             className={`flex items-center gap-3 p-3 border rounded-lg cursor-grab active:cursor-grabbing transition-all duration-300 ${
                                 draggedIndex === index 
-                                    ? 'opacity-40 bg-brand-secondary border-brand-primary scale-95' 
+                                    ? 'opacity-40 bg-brand-secondary border-brand-primary scale-95 shadow-inner' 
                                     : 'bg-white border-gray-100 hover:bg-brand-secondary/10'
                             }`}
                         >
@@ -680,7 +702,6 @@ const ProductsView: React.FC<ProductsViewProps> = ({
   
   const handleCategoryDragStart = (e: React.DragEvent, index: number) => {
     setDraggedCatIndex(index);
-    // Desativar imagem fantasma nativa
     if (e.dataTransfer) {
         e.dataTransfer.setDragImage(transparentPixel, 0, 0);
         e.dataTransfer.effectAllowed = 'move';
@@ -705,8 +726,31 @@ const ProductsView: React.FC<ProductsViewProps> = ({
   };
 
   const handleCategoryDragEnd = () => {
+    const finalOrder = [...localCategories];
     setDraggedCatIndex(null);
-    onUpdateCategoryOrder(localCategories);
+    onUpdateCategoryOrder(finalOrder);
+  };
+
+  // Touch Support for Main Category List
+  const handleCategoryTouchStart = (index: number) => {
+    if (categoryTab !== 'active') return;
+    setDraggedCatIndex(index);
+  };
+
+  const handleCategoryTouchMove = (e: React.TouchEvent) => {
+    if (draggedCatIndex === null || categoryTab !== 'active') return;
+    
+    const touch = e.touches[0];
+    const targetElement = document.elementFromPoint(touch.clientX, touch.clientY);
+    if (!targetElement) return;
+
+    const catElement = targetElement.closest('[data-category-index]');
+    if (catElement) {
+        const targetIndex = parseInt(catElement.getAttribute('data-category-index') || '-1');
+        if (targetIndex !== -1 && targetIndex !== draggedCatIndex) {
+            handleCategoryDragEnter(targetIndex);
+        }
+    }
   };
 
   const filteredProducts = products.filter(p => {
@@ -983,22 +1027,22 @@ const ProductsView: React.FC<ProductsViewProps> = ({
                       </div>
                     )}
 
-                    <div className="space-y-2 mt-2 relative">
+                    <div className="space-y-2 mt-2 relative touch-none" onTouchMove={handleCategoryTouchMove} onTouchEnd={handleCategoryDragEnd}>
                         {currentCategoryList.map((cat, index) => (
                             <div key={cat.name}
+                                data-category-index={index}
                                 draggable={categoryTab === 'active'}
                                 onDragStart={(e) => categoryTab === 'active' && handleCategoryDragStart(e, index)}
                                 onDragEnter={() => categoryTab === 'active' && handleCategoryDragEnter(index)}
                                 onDragEnd={handleCategoryDragEnd}
                                 onDragOver={(e) => {
                                     e.preventDefault();
-                                    if (categoryTab === 'active') {
-                                        e.dataTransfer.dropEffect = 'move';
-                                    }
+                                    if (categoryTab === 'active') e.dataTransfer.dropEffect = 'move';
                                 }}
+                                onTouchStart={() => handleCategoryTouchStart(index)}
                                 className={`flex items-center justify-between p-3 rounded-md border transition-all duration-300 ${
                                   categoryTab === 'active' 
-                                    ? (draggedCatIndex === index ? 'opacity-40 bg-brand-secondary border-brand-primary scale-95' : 'bg-gray-50 cursor-grab active:cursor-grabbing border-gray-100 hover:shadow-sm') 
+                                    ? (draggedCatIndex === index ? 'opacity-40 bg-brand-secondary border-brand-primary scale-95 shadow-inner' : 'bg-gray-50 cursor-grab active:cursor-grabbing border-gray-100 hover:shadow-sm') 
                                     : 'bg-gray-100/50 border-gray-100'
                                 }`}
                             >
