@@ -15,7 +15,7 @@ import OrderSuccessPage from './components/OrderSuccessPage';
 import OrderTrackingModal from './components/OrderTrackingModal';
 import { BikeIcon, ShoppingBagIcon } from './components/IconComponents';
 import type { Product, CartItem, StoreInfoData, Order, ProductOption, CategoryMetadata, SelectedCustomization } from './types';
-import { getMenu, addProduct, getStoreInfo, updateStoreInfo, updateProduct, deleteProduct, addCategory, deleteCategory, initializeFirebaseData, updateCategoryOrder, incrementVisitCount, getOrderById, toggleCategoriesArchive } from './services/menuService';
+import { getMenu, addProduct, getStoreInfo, updateStoreInfo, updateProduct, deleteProduct, addCategory, deleteCategory, initializeFirebaseData, updateCategoryOrder, incrementVisitCount, getOrderById, toggleCategoriesArchive, updateProductsSortOrder } from './services/menuService';
 import { auth } from './firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 
@@ -142,6 +142,11 @@ const App: React.FC = () => {
 
   const handleUpdateProduct = useCallback(async (productData: Product) => {
       await updateProduct(productData);
+      await fetchInitialData();
+  }, [fetchInitialData]);
+
+  const handleUpdateProductsSortOrder = useCallback(async (orderData: { id: string, sortOrder: number }[]) => {
+      await updateProductsSortOrder(orderData);
       await fetchInitialData();
   }, [fetchInitialData]);
 
@@ -325,6 +330,21 @@ const App: React.FC = () => {
     return [...activeOfficial, ...orphanCategories];
   }, [activeCategoriesList, products, categories]);
 
+  const sortedProducts = useMemo(() => {
+      return [...products].sort((a, b) => {
+          // Fallback to 9999 if sortOrder is not defined to move them to the end
+          const orderA = a.sortOrder !== undefined ? a.sortOrder : 9999;
+          const orderB = b.sortOrder !== undefined ? b.sortOrder : 9999;
+          
+          if (orderA !== orderB) {
+              return orderA - orderB;
+          }
+          
+          // Secondary sort: Alphabetical
+          return a.name.localeCompare(b.name);
+      });
+  }, [products]);
+
   const renderMenu = () => {
     const categoriesWithProducts = allVisibleCategoriesForTabs.filter(category => 
         products.some(p => p.category === category)
@@ -425,7 +445,7 @@ const App: React.FC = () => {
                     ))}
                 </div>
                 ) : searchQuery.trim() !== '' ? (() => {
-                    const searchResults = products.filter(p =>
+                    const searchResults = sortedProducts.filter(p =>
                     p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                     p.description.toLowerCase().includes(searchQuery.toLowerCase())
                     );
@@ -446,7 +466,7 @@ const App: React.FC = () => {
                 })() : (
                     selectedCategory === 'Todos' ? (
                         categoriesWithProducts.map(category => {
-                            const categoryProducts = products.filter(p => p.category === category);
+                            const categoryProducts = sortedProducts.filter(p => p.category === category);
                             if (categoryProducts.length === 0) return null;
                             return (
                                 <section key={category}>
@@ -460,7 +480,7 @@ const App: React.FC = () => {
                             )
                         })
                     ) : (() => {
-                        const categoryProducts = products.filter(p => p.category === selectedCategory);
+                        const categoryProducts = sortedProducts.filter(p => p.category === selectedCategory);
                         return (
                         <section>
                             <SectionTitle title={selectedCategory} />
@@ -538,6 +558,7 @@ const App: React.FC = () => {
         storeInfo={storeInfo}
         onAddProduct={handleAddProduct}
         onUpdateProduct={handleUpdateProduct}
+        onUpdateProductsSortOrder={handleUpdateProductsSortOrder}
         onDeleteProduct={handleDeleteProduct}
         onUpdateStoreInfo={handleUpdateStoreInfo}
         onAddCategory={handleAddCategory}

@@ -42,6 +42,7 @@ export interface Product {
   createdAt?: any;
   inventoryEnabled?: boolean;
   inventoryQuantity?: number;
+  sortOrder?: number;
 }
 
 export interface CategoryMetadata {

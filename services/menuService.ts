@@ -197,6 +197,15 @@ export const updateProduct = async (updatedProduct: Product): Promise<Product> =
     return updatedProduct;
 };
 
+export const updateProductsSortOrder = async (orderData: { id: string, sortOrder: number }[]): Promise<void> => {
+    const batch = writeBatch(db);
+    orderData.forEach(item => {
+        const productRef = doc(db, 'products', item.id);
+        batch.update(productRef, { sortOrder: item.sortOrder });
+    });
+    await batch.commit();
+};
+
 export const deleteProduct = (productId: string): Promise<void> => {
     return deleteDoc(doc(db, 'products', productId));
 };

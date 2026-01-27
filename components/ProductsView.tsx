@@ -8,6 +8,7 @@ interface ProductsViewProps {
   categories: CategoryMetadata[];
   onAddProduct: (productData: Omit<Product, 'id'>) => Promise<void>;
   onUpdateProduct: (productData: Product) => Promise<void>;
+  onUpdateProductsSortOrder: (orderData: { id: string, sortOrder: number }[]) => Promise<void>;
   onDeleteProduct: (productId: string) => Promise<void>;
   onAddCategory: (categoryName: string) => Promise<void>;
   onDeleteCategory: (categoryName: string) => Promise<void>;
@@ -283,11 +284,108 @@ const DeleteCategoryConfirmationModal: React.FC<{
     );
 };
 
+const SortProductsModal: React.FC<{
+    categoryName: string;
+    products: Product[];
+    onClose: () => void;
+    onSave: (orderData: { id: string, sortOrder: number }[]) => Promise<void>;
+}> = ({ categoryName, products: initialProducts, onClose, onSave }) => {
+    const [localProducts, setLocalProducts] = useState<Product[]>([]);
+    const [isSaving, setIsSaving] = useState(false);
+    const dragItem = useRef<number | null>(null);
+    const dragOverItem = useRef<number | null>(null);
+
+    useEffect(() => {
+        // Inicializa com os produtos da categoria, ordenados pelo sortOrder atual (ou alfabético se não houver)
+        const filtered = initialProducts
+            .filter(p => p.category === categoryName)
+            .sort((a, b) => {
+                const orderA = a.sortOrder !== undefined ? a.sortOrder : 9999;
+                const orderB = b.sortOrder !== undefined ? b.sortOrder : 9999;
+                if (orderA !== orderB) return orderA - orderB;
+                return a.name.localeCompare(b.name);
+            });
+        setLocalProducts(filtered);
+    }, [categoryName, initialProducts]);
+
+    const handleSort = () => {
+        if (dragItem.current === null || dragOverItem.current === null) return;
+        const productsCopy = [...localProducts];
+        const item = productsCopy.splice(dragItem.current, 1)[0];
+        productsCopy.splice(dragOverItem.current, 0, item);
+
+        dragItem.current = null;
+        dragOverItem.current = null;
+        setLocalProducts(productsCopy);
+    };
+
+    const handleSave = async () => {
+        setIsSaving(true);
+        const orderData = localProducts.map((p, idx) => ({ id: p.id, sortOrder: idx }));
+        try {
+            await onSave(orderData);
+            onClose();
+        } catch (e) {
+            alert("Erro ao salvar ordenação.");
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/60 z-[110] flex items-center justify-center p-4 backdrop-blur-sm">
+            <div className="bg-white rounded-xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-hidden flex flex-col animate-slide-in-up">
+                <header className="p-4 border-b flex justify-between items-center bg-gray-50/50">
+                    <div>
+                        <h3 className="text-lg font-bold text-brand-text">Ordenar Produtos</h3>
+                        <p className="text-xs text-gray-500">{categoryName}</p>
+                    </div>
+                    <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full text-gray-500">
+                        <CloseIcon className="w-5 h-5" />
+                    </button>
+                </header>
+                <div className="flex-1 overflow-y-auto p-4 space-y-2 no-scrollbar">
+                    {localProducts.map((p, index) => (
+                        <div
+                            key={p.id}
+                            draggable
+                            onDragStart={() => (dragItem.current = index)}
+                            onDragEnter={() => (dragOverItem.current = index)}
+                            onDragEnd={handleSort}
+                            onDragOver={(e) => e.preventDefault()}
+                            className="flex items-center gap-3 p-3 bg-gray-50 border border-gray-100 rounded-lg cursor-grab active:cursor-grabbing hover:bg-brand-secondary/20 transition-colors"
+                        >
+                            <DragHandleIcon className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                            <div className="min-w-0 flex-grow">
+                                <p className="text-sm font-bold text-brand-text truncate">{p.name}</p>
+                            </div>
+                        </div>
+                    ))}
+                    {localProducts.length === 0 && (
+                        <p className="text-center text-gray-400 text-sm py-10">Nenhum produto nesta categoria.</p>
+                    )}
+                </div>
+                <footer className="p-4 border-t bg-gray-50 flex gap-3">
+                    <button onClick={onClose} className="flex-1 py-3 border border-gray-300 rounded-xl font-bold text-gray-600 hover:bg-gray-100 transition-colors">Cancelar</button>
+                    <button 
+                        onClick={handleSave} 
+                        disabled={isSaving || localProducts.length === 0} 
+                        className="flex-[2] py-3 bg-brand-primary text-white rounded-xl font-black shadow-lg hover:brightness-105 active:scale-95 transition-all disabled:opacity-50"
+                    >
+                        {isSaving ? 'Salvando...' : 'Salvar Ordenação'}
+                    </button>
+                </footer>
+            </div>
+        </div>
+    );
+};
+
 const ProductsView: React.FC<ProductsViewProps> = ({ 
     products, 
     categories, 
     onAddProduct, 
     onUpdateProduct, 
+    onUpdateProductsSortOrder,
     onDeleteProduct, 
     onAddCategory, 
     onDeleteCategory, 
@@ -325,6 +423,7 @@ const ProductsView: React.FC<ProductsViewProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [categoryToDelete, setCategoryToDelete] = useState<string | null>(null);
+  const [sortingCategory, setSortingCategory] = useState<string | null>(null);
   const [newCategory, setNewCategory] = useState('');
   const [productSearchQuery, setProductSearchQuery] = useState('');
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('Todas');
@@ -337,13 +436,13 @@ const ProductsView: React.FC<ProductsViewProps> = ({
   const dragOverItem = useRef<number | null>(null);
 
   useEffect(() => {
-    if (productToDelete || categoryToDelete || isProductModalOpen) {
+    if (productToDelete || categoryToDelete || isProductModalOpen || sortingCategory) {
         document.body.style.overflow = 'hidden';
         return () => {
             document.body.style.overflow = 'auto';
         };
     }
-  }, [productToDelete, categoryToDelete, isProductModalOpen]);
+  }, [productToDelete, categoryToDelete, isProductModalOpen, sortingCategory]);
 
   useEffect(() => {
     if (productOptions.length > 0 && isProductModalOpen) {
@@ -479,6 +578,10 @@ const ProductsView: React.FC<ProductsViewProps> = ({
 
       if (editingProduct) {
           productData.id = editingProduct.id;
+          // Mantém o sortOrder se já existir ao editar
+          if (editingProduct.sortOrder !== undefined) {
+              productData.sortOrder = editingProduct.sortOrder;
+          }
       }
 
       const origPrice = parseFloat(productForm.originalPrice);
@@ -632,6 +735,14 @@ const ProductsView: React.FC<ProductsViewProps> = ({
                 categoryName={categoryToDelete}
                 onCancel={() => setCategoryToDelete(null)}
                 onConfirm={confirmDeleteCategory}
+            />
+        )}
+        {sortingCategory && (
+            <SortProductsModal
+                categoryName={sortingCategory}
+                products={products}
+                onClose={() => setSortingCategory(null)}
+                onSave={onUpdateProductsSortOrder}
             />
         )}
 
@@ -864,6 +975,18 @@ const ProductsView: React.FC<ProductsViewProps> = ({
                                     </span>
                                 </div>
                                 <div className="flex items-center gap-2 ml-4 flex-shrink-0">
+                                  {categoryTab === 'active' && (
+                                    <button 
+                                      type="button" 
+                                      onClick={() => setSortingCategory(cat.name)}
+                                      title="Ordenar produtos nesta categoria"
+                                      className="p-1 text-gray-400 hover:text-brand-primary transition-colors"
+                                    >
+                                      <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
+                                      </svg>
+                                    </button>
+                                  )}
                                   <button 
                                     type="button" 
                                     onClick={() => onToggleCategoriesArchive([cat.name], !cat.isArchived)}
