@@ -37,10 +37,14 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
   const handleShare = async () => {
     if (!product) return;
     
+    // Construct the direct link to the product
+    const baseUrl = window.location.origin + window.location.pathname;
+    const shareUrl = `${baseUrl}?product=${product.id}`;
+    
     const shareData = {
       title: product.name,
       text: `Olha esse produto na Pipper Confeitaria: ${product.name} - ${formatPrice(product.price)}\n\n${product.description}`,
-      url: window.location.href,
+      url: shareUrl,
     };
 
     try {

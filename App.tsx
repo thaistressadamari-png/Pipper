@@ -126,6 +126,23 @@ const App: React.FC = () => {
     }
   }, [view, isAuthenticated, fetchInitialData]);
 
+  // Handle deep linking for products
+  useEffect(() => {
+    if (!isLoading && products.length > 0 && view === 'menu') {
+      const params = new URLSearchParams(window.location.search);
+      const productId = params.get('product');
+      if (productId) {
+        const product = products.find(p => p.id === productId);
+        if (product) {
+          setSelectedProduct(product);
+          // Clean up the URL without refreshing the page
+          const newUrl = window.location.origin + window.location.pathname;
+          window.history.replaceState({}, document.title, newUrl);
+        }
+      }
+    }
+  }, [isLoading, products, view]);
+
   const handleSelectCategory = useCallback((category: string) => {
     setSelectedCategory(category);
   }, []);
