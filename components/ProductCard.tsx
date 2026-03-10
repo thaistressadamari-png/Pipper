@@ -91,7 +91,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onProductClick }) =>
             )}
         </div>
         <h3 className="text-base font-bold text-brand-text leading-tight">{product.name}</h3>
-        <p className="text-gray-500 text-xs sm:text-sm mt-1 flex-grow line-clamp-2 leading-relaxed">{product.description}</p>
+        <p className="text-gray-500 text-xs sm:text-sm mt-1 flex-grow line-clamp-2 leading-relaxed whitespace-pre-wrap">{product.description}</p>
         <div className="flex items-baseline space-x-2 mt-2">
           {isOnPromotion && (
             <span className="text-gray-400 line-through text-xs">

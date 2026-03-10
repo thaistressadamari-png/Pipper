@@ -303,7 +303,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
                         )}
                     </div>
                     <h1 className="text-2xl font-bold text-brand-text">{product.name}</h1>
-                    <p className="text-brand-text-light text-base mt-2 leading-relaxed">{product.description}</p>
+                    <p className="text-brand-text-light text-base mt-2 leading-relaxed whitespace-pre-wrap">{product.description}</p>
                 </div>
                 
                 {product.options && product.options.length > 0 && !isSoldOut && (
