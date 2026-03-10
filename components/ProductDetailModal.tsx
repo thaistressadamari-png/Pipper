@@ -168,6 +168,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
   const basePrice = selectedOption ? selectedOption.price : product.price;
   const totalPrice = (basePrice + extraTotal) * quantity;
   const isSoldOut = product.inventoryEnabled && (product.inventoryQuantity || 0) <= 0;
+  const isOnPromotion = product.originalPrice && product.originalPrice > product.price;
   const hasMultipleImages = product.imageUrls && product.imageUrls.length > 1;
 
   return (
@@ -289,6 +290,18 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
             
             <div className="p-6 space-y-8">
                 <div>
+                    <div className="flex flex-wrap gap-2 mb-2">
+                        {product.isLimitedEdition && (
+                            <span className="bg-amber-100 text-amber-700 text-[10px] font-black px-2 py-0.5 rounded shadow-sm border border-amber-200 uppercase tracking-tighter">
+                                Edição Limitada
+                            </span>
+                        )}
+                        {product.promotionalTag && isOnPromotion && (
+                            <span className="bg-brand-primary text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-sm">
+                                {product.promotionalTag}
+                            </span>
+                        )}
+                    </div>
                     <h1 className="text-2xl font-bold text-brand-text">{product.name}</h1>
                     <p className="text-brand-text-light text-base mt-2 leading-relaxed">{product.description}</p>
                 </div>

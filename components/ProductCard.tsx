@@ -74,6 +74,11 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onProductClick }) =>
       )}
       <div className="flex flex-col flex-grow py-1">
         <div className="flex flex-wrap gap-2 mb-1">
+            {product.isLimitedEdition && (
+                <span className="bg-amber-100 text-amber-700 text-[10px] font-black px-2 py-0.5 rounded shadow-sm border border-amber-200 uppercase tracking-tighter">
+                    Edição Limitada
+                </span>
+            )}
             {product.promotionalTag && isOnPromotion && (
                 <span className="bg-brand-primary text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-sm">
                     {product.promotionalTag}

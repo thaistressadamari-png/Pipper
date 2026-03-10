@@ -43,6 +43,7 @@ export interface Product {
   inventoryEnabled?: boolean;
   inventoryQuantity?: number;
   sortOrder?: number;
+  isLimitedEdition?: boolean;
 }
 
 export interface CategoryMetadata {

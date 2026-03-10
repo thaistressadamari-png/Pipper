@@ -458,7 +458,8 @@ const ProductsView: React.FC<ProductsViewProps> = ({
     imageUrls: '',
     leadTimeDays: '0',
     inventoryEnabled: false,
-    inventoryQuantity: '0'
+    inventoryQuantity: '0',
+    isLimitedEdition: false
   };
 
   const [productForm, setProductForm] = useState(initialFormState);
@@ -526,7 +527,8 @@ const ProductsView: React.FC<ProductsViewProps> = ({
         imageUrls: product.imageUrls ? product.imageUrls.join('\n') : '',
         leadTimeDays: String(product.leadTimeDays || 0),
         inventoryEnabled: !!product.inventoryEnabled,
-        inventoryQuantity: String(product.inventoryQuantity || 0)
+        inventoryQuantity: String(product.inventoryQuantity || 0),
+        isLimitedEdition: !!product.isLimitedEdition
     });
     setProductOptions(product.options || []);
     setCustomizationGroups(product.customizationGroups || []);
@@ -544,7 +546,8 @@ const ProductsView: React.FC<ProductsViewProps> = ({
         imageUrls: product.imageUrls ? product.imageUrls.join('\n') : '',
         leadTimeDays: String(product.leadTimeDays || 0),
         inventoryEnabled: !!product.inventoryEnabled,
-        inventoryQuantity: String(product.inventoryQuantity || 0)
+        inventoryQuantity: String(product.inventoryQuantity || 0),
+        isLimitedEdition: !!product.isLimitedEdition
     });
     setProductOptions(product.options || []);
     setCustomizationGroups(product.customizationGroups || []);
@@ -620,6 +623,7 @@ const ProductsView: React.FC<ProductsViewProps> = ({
         customizationGroups: customizationGroups,
         inventoryEnabled: productForm.inventoryEnabled,
         inventoryQuantity: parseInt(productForm.inventoryQuantity, 10) || 0,
+        isLimitedEdition: productForm.isLimitedEdition,
       };
 
       if (editingProduct) {
@@ -916,6 +920,24 @@ const ProductsView: React.FC<ProductsViewProps> = ({
                                             />
                                         </div>
                                     )}
+                                </div>
+
+                                <div className="bg-amber-50 p-4 rounded-lg border border-amber-200">
+                                    <div className="flex items-center gap-2">
+                                        <input 
+                                            type="checkbox" 
+                                            id="isLimitedEdition" 
+                                            name="isLimitedEdition" 
+                                            checked={!!productForm.isLimitedEdition} 
+                                            onChange={handleProductFormChange}
+                                            className="w-4 h-4 text-amber-600 border-amber-300 rounded focus:ring-amber-500"
+                                        />
+                                        <label htmlFor="isLimitedEdition" className="text-sm font-bold text-amber-800 flex items-center gap-2">
+                                            <span>Edição Limitada</span>
+                                            <span className="bg-amber-200 text-amber-800 text-[10px] px-1.5 py-0.5 rounded uppercase font-black">Tag</span>
+                                        </label>
+                                    </div>
+                                    <p className="text-[10px] text-amber-700 mt-1 ml-6">Exibe um selo especial de "Edição Limitada" no produto.</p>
                                 </div>
 
                                 <CustomizationEditor groups={customizationGroups} onChange={setCustomizationGroups} />
