@@ -555,6 +555,7 @@ const ClientsView: React.FC = () => {
     const [clients, setClients] = useState<Client[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [search, setSearch] = useState('');
+    const [sortBy, setSortBy] = useState<'name' | 'spent' | 'orders'>('name');
     const [editingClient, setEditingClient] = useState<Client | null>(null);
     const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
     const [viewingClient, setViewingClient] = useState<Client | null>(null);
@@ -606,11 +607,21 @@ const ClientsView: React.FC = () => {
     }, []);
 
     const filteredClients = useMemo(() => {
-        return clients.filter(c => 
+        let result = clients.filter(c => 
             c.name.toLowerCase().includes(search.toLowerCase()) || 
             c.whatsapp?.includes(search.replace(/\D/g, ''))
         );
-    }, [clients, search]);
+
+        if (sortBy === 'spent') {
+            result.sort((a, b) => b.totalSpent - a.totalSpent);
+        } else if (sortBy === 'orders') {
+            result.sort((a, b) => (b.totalOrders || 0) - (a.totalOrders || 0));
+        } else {
+            result.sort((a, b) => a.name.localeCompare(b.name));
+        }
+
+        return result;
+    }, [clients, search, sortBy]);
 
     const handleSaveClient = async (id: string, data: Partial<Client>) => {
         await updateClient(id, data);
@@ -627,7 +638,7 @@ const ClientsView: React.FC = () => {
 
     return (
         <div className="space-y-6">
-            <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col sm:flex-row gap-4 items-center">
+            <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col lg:flex-row gap-4 items-center">
                 <div className="relative flex-grow w-full">
                     <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
                     <input
@@ -638,9 +649,25 @@ const ClientsView: React.FC = () => {
                         className="w-full bg-gray-50 border-transparent rounded-full py-2.5 pl-10 pr-4 text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-primary"
                     />
                 </div>
-                <div className="flex-shrink-0 px-4 py-2 bg-brand-secondary/30 rounded-lg text-xs font-bold text-brand-primary uppercase flex items-center gap-2">
-                    <UsersIcon className="w-4 h-4" />
-                    {clients.length} Clientes Base
+                
+                <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto items-center">
+                    <div className="flex items-center gap-2 bg-gray-50 px-3 py-1 rounded-full border border-gray-100 w-full sm:w-auto">
+                        <span className="text-[10px] font-bold text-gray-400 uppercase whitespace-nowrap">Ordenar:</span>
+                        <select
+                            value={sortBy}
+                            onChange={(e) => setSortBy(e.target.value as any)}
+                            className="bg-transparent border-none py-1.5 text-xs font-bold text-brand-text focus:outline-none cursor-pointer min-w-[120px]"
+                        >
+                            <option value="name">Nome (A-Z)</option>
+                            <option value="spent">Maior Gasto</option>
+                            <option value="orders">Mais Pedidos</option>
+                        </select>
+                    </div>
+
+                    <div className="flex-shrink-0 px-4 py-2 bg-brand-secondary/30 rounded-full text-xs font-bold text-brand-primary uppercase flex items-center gap-2 w-full sm:w-auto justify-center">
+                        <UsersIcon className="w-4 h-4" />
+                        {clients.length} Clientes
+                    </div>
                 </div>
             </div>
 

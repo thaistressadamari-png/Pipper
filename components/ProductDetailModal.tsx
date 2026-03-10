@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import type { Product, ProductOption, CustomizationGroup, CustomizationOption, SelectedCustomization } from '../types';
-import { ArrowLeftIcon, PlusIcon, MinusIcon, ShoppingBagIcon, XIcon, CheckCircleIcon, ChevronLeftIcon, ChevronRightIcon, ShoppingCartIcon } from './IconComponents';
+import { ArrowLeftIcon, PlusIcon, MinusIcon, ShoppingBagIcon, XIcon, CheckCircleIcon, ChevronLeftIcon, ChevronRightIcon, ShoppingCartIcon, ShareIcon } from './IconComponents';
 
 interface ProductDetailModalProps {
   product: Product | null;
@@ -15,6 +15,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
   const [isImageFullscreen, setIsImageFullscreen] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [selectedOption, setSelectedOption] = useState<ProductOption | null>(null);
+  const [isSharing, setIsSharing] = useState(false);
   
   const [customSelections, setCustomSelections] = useState<Record<string, Record<string, number>>>({});
 
@@ -32,6 +33,28 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
       }
     }
   }, [product]);
+
+  const handleShare = async () => {
+    if (!product) return;
+    
+    const shareData = {
+      title: product.name,
+      text: `Olha esse produto na Pipper Confeitaria: ${product.name} - ${formatPrice(product.price)}\n\n${product.description}`,
+      url: window.location.href,
+    };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else {
+        await navigator.clipboard.writeText(`${shareData.text}\n\nLink: ${shareData.url}`);
+        setIsSharing(true);
+        setTimeout(() => setIsSharing(false), 2000);
+      }
+    } catch (err) {
+      console.error('Erro ao compartilhar:', err);
+    }
+  };
 
   const handleQuantityChange = (amount: number) => {
     setQuantity(prev => {
@@ -184,6 +207,12 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
       <div className="fixed inset-0 z-50 bg-white flex flex-col animate-slide-in-up overflow-y-auto no-scrollbar">
         <style>{`.animate-slide-in-up { animation: slideInUp 0.3s ease-out; } @keyframes slideInUp { from { transform: translateY(100%); } to { transform: translateY(0); } }`}</style>
         
+        {isSharing && (
+          <div className="fixed top-20 left-1/2 -translate-x-1/2 bg-gray-900 text-white px-6 py-3 rounded-full text-sm font-bold shadow-2xl z-[100] animate-bounce">
+            Link copiado para o namorado! 🚀
+          </div>
+        )}
+
         <div className="flex-1 pb-48"> 
           <div className="max-w-2xl mx-auto w-full relative">
             
@@ -230,6 +259,14 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
                   >
                     <ArrowLeftIcon className="w-6 h-6" />
                   </button>
+
+                  <button 
+                    onClick={handleShare} 
+                    className="absolute top-4 right-4 p-2 bg-white/90 rounded-full shadow-lg text-gray-900 hover:bg-white transition-all active:scale-90 z-20"
+                    title="Compartilhar produto"
+                  >
+                    <ShareIcon className="w-6 h-6" />
+                  </button>
                   {isSoldOut && (
                     <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
                       <span className="bg-red-600 text-white font-bold px-6 py-2 rounded uppercase tracking-widest">Esgotado</span>
@@ -237,9 +274,12 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
                   )}
               </div>
             ) : (
-               <div className="p-4 border-b flex items-center sticky top-0 bg-white z-20">
-                  <button onClick={onClose} className="p-2 -ml-2 rounded-full hover:bg-gray-100 text-gray-900"><ArrowLeftIcon className="w-6 h-6"/></button>
-                  <h1 className="ml-2 text-lg font-bold text-brand-text truncate">{product.name}</h1>
+               <div className="p-4 border-b flex items-center justify-between sticky top-0 bg-white z-20">
+                  <div className="flex items-center min-w-0">
+                    <button onClick={onClose} className="p-2 -ml-2 rounded-full hover:bg-gray-100 text-gray-900"><ArrowLeftIcon className="w-6 h-6"/></button>
+                    <h1 className="ml-2 text-lg font-bold text-brand-text truncate">{product.name}</h1>
+                  </div>
+                  <button onClick={handleShare} className="p-2 rounded-full hover:bg-gray-100 text-gray-900"><ShareIcon className="w-6 h-6"/></button>
               </div>
             )}
             
