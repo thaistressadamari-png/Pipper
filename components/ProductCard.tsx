@@ -1,6 +1,8 @@
 
 import React from 'react';
 import type { Product } from '../types';
+import { logEvent } from 'firebase/analytics';
+import { analytics } from '../firebase';
 
 interface ProductCardProps {
   product: Product;
@@ -48,9 +50,27 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onProductClick }) =>
   
   const isSoldOut = product.inventoryEnabled && (product.inventoryQuantity || 0) <= 0;
 
+  const handleClick = () => {
+    if (!isSoldOut) {
+      logEvent(analytics, 'select_item', {
+        item_list_id: "menu",
+        item_list_name: "Menu Principal",
+        items: [
+          {
+            item_id: product.id,
+            item_name: product.name,
+            item_category: product.category,
+            price: product.price
+          }
+        ]
+      });
+      onProductClick(product);
+    }
+  };
+
   return (
     <button 
-        onClick={() => !isSoldOut && onProductClick(product)} 
+        onClick={handleClick} 
         disabled={isSoldOut}
         className={`w-full text-left flex items-center bg-white p-2 sm:p-3 rounded-xl gap-4 border border-transparent transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-brand-primary focus:ring-offset-2 shadow-sm ${
             isSoldOut 

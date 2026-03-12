@@ -2,6 +2,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import type { Product, ProductOption, CustomizationGroup, CustomizationOption, SelectedCustomization } from '../types';
 import { ArrowLeftIcon, PlusIcon, MinusIcon, ShoppingBagIcon, XIcon, CheckCircleIcon, ChevronLeftIcon, ChevronRightIcon, ShoppingCartIcon, ShareIcon } from './IconComponents';
+import { logEvent } from 'firebase/analytics';
+import { analytics } from '../firebase';
 
 interface ProductDetailModalProps {
   product: Product | null;
@@ -21,6 +23,19 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
 
   useEffect(() => {
     if (product) {
+      logEvent(analytics, 'view_item', {
+        currency: 'BRL',
+        value: product.price,
+        items: [
+          {
+            item_id: product.id,
+            item_name: product.name,
+            item_category: product.category,
+            price: product.price
+          }
+        ]
+      });
+
       setQuantity(1);
       setObservations('');
       setIsImageFullscreen(false);
@@ -155,6 +170,22 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
             alert("Por favor, preencha as opções obrigatórias.");
             return;
         }
+
+      logEvent(analytics, 'add_to_cart', {
+        currency: 'BRL',
+        value: totalPrice,
+        items: [
+          {
+            item_id: product.id,
+            item_name: product.name,
+            item_category: product.category,
+            price: basePrice + extraTotal,
+            quantity: quantity,
+            item_variant: selectedOption?.name
+          }
+        ]
+      });
+
       onAddToCart(product, quantity, observations, selectedOption || undefined, formattedCustomizations);
     }
   };
